@@ -1,13 +1,13 @@
 # Macro Map — Screen-by-Screen UI Plan
 
-Mobile-first responsive web. Global shell: **bottom tab bar (mobile) / left rail (desktop)** with five tabs — **Feed · Discover · Log (+) · Track · Profile**. The center **Log (+)** is a raised action button opening a sheet: *Log food · Log workout · New post · Submit recipe · Weigh in*. Everything a user does daily is ≤2 taps from anywhere.
+Mobile-first responsive web. Global shell: **bottom tab bar (mobile) / left rail (desktop)** with five tabs — **Feed · Discover · Log (+) · Track · Profile**. The center **Log (+)** is a raised action button opening a sheet: *Log food · Log workout · New post · Submit recipe · Weigh in*. Everything a user does daily is ≤2 taps from anywhere. A small persistent **feedback affordance** (icon in the header, always visible, works in guest mode) opens a one-field "send feedback" sheet — separate from the content-report flow, reviewed by admins, rate-limited per session.
 
 Shared component vocabulary (see `src/components/` in [08 §4](08-mvp-roadmap-phases.md)): `MacroRing`, `MacroBar`, `PostCard`, `RecipeCard`, `WorkoutCard`, `ProvenanceBadge`, `VoteControl`, `ReactionBar`, `FilterSheet`, `UserChip`, `EmptyState`.
 
 ---
 
 ### 1. Onboarding (multi-step wizard, ~6 steps, progress dots, skippable where safe)
-1. **Account** — email/OAuth.
+1. **Account** — email/OAuth, or **Continue as guest** (starts an anonymous session immediately; a "save your progress" prompt to add email/password appears later, once there's data worth keeping — see [08 §1a](08-mvp-roadmap-phases.md)).
 2. **Goal** — fat loss / muscle gain / maintenance / recomp / performance / general health / custom (card picker).
 3. **About you** — height, weight (skippable in no-scale mode), age, sex, activity level, training days/week.
 4. **Tracking style** — the 7 styles as cards with one-line explanations; picking `habit` or `no_scale` changes later UI (no calorie ring, habit checklist instead). Dietary prefs, allergies, budget, cooking skill, meal frequency on a follow-up card.
@@ -36,7 +36,7 @@ Feed mirrors recipe feed with prep-specific ranked boards (best budget, best 5-d
 Date scroller. `MacroRing` (kcal) + three `MacroBar`s (P/C/F) + expandable fiber/sugar/sodium/water/caffeine row. Meal sections (breakfast/lunch/dinner/snacks) with per-meal subtotals, tap-to-add. Footer: weekly average sparkline, adherence score, streak, calorie-banking balance (if enabled). Tracking-style aware: habit mode shows checklist ("protein at every meal ✓"), calorie-only hides macro bars.
 
 ### 10. Food log / 11. Add food (`/track/add`)
-Add flow tabs: **Search · Barcode · My meals · Recent · Community**. Search hits `foods` + logged-recipe shortcuts; barcode → camera scan → food match or "create food". Community tab: saved recipes + "popular with people cutting" list. Serving stepper + slot picker → log. Copy-previous-day and copy-meal live on meal section menus. Any logged meal → "Share as post" affordance.
+Add flow tabs: **Search · Barcode · My meals · Recent · Community**. Search hits `foods` + a user's own **personal ingredient library** + logged-recipe shortcuts; barcode → camera scan → food match or "create food". **Favorites** ("my usual" — a starred shortcut list, user-curated) sit above **Frequents** (auto-computed most-logged, no curation needed) so the two don't get confused. Community tab: saved recipes + "popular with people cutting" list. Serving stepper + slot picker → log. Copy-previous-day and copy-meal live on meal section menus. Any logged meal → "Share as post" affordance.
 
 ### 12. Restaurant map (`/restaurants`)
 **Default view = "Around me": one concatenated, macro-ranked list of every item across nearby chains** — ranked by fit against today's *remaining* macros (fit badge per row: "fits your remaining 780 kcal / 52g protein"), one-tap Log on every row, filters (max kcal, min protein, chain, category, buildable-only). Map (nearby pins) + list toggle; chain search. Each chain row: "best items for you" preview (respects goal: cutting → protein/kcal; bulking → protein+calories). Trending orders nearby strip. "Request a chain" entry point (+ vote on open requests). Design: [06 §7b](06-recipes-voting-reputation.md).
@@ -74,7 +74,7 @@ Directory with category filters + my groups. Group page: cover, description, joi
 Directory: active/upcoming/completed, joinable cards showing metric + duration + participant count. Detail: rules, my progress bar (auto-scored from logs where metric allows), public + friends leaderboards, updates feed, invite friends, badge preview; completion → certificate/badge + share prompt.
 
 ### 24. Progress dashboard (`/progress`)
-Charts (weight trend with smoothing, measurements, body-fat, volume, PRs timeline, protein consistency %, calorie adherence, steps, sleep). Add-entry sheet (respects no-scale mode). Photo timeline (private, signed URLs) with side-by-side compare → optional "create transformation post" flow with explicit visibility choice. Export CSV.
+Charts (weight trend with smoothing, measurements, body-fat, volume, PRs timeline, protein consistency %, calorie adherence, steps, sleep). Add-entry sheet (respects no-scale mode). **Habits tracker card**: the default set (hit protein goal, drink water, move today, eat veggies) as tap-to-complete checkboxes, each with its own streak flame; user can add/archive habits. Photo timeline (private, signed URLs) with side-by-side compare → optional "create transformation post" flow with explicit visibility choice. Export CSV.
 
 ### 25. Grocery list (`/groceries`)
 Sectioned checklist (produce/meat/dairy/…), quantities merged across sources, per-item source recipe chip, est. total cost + cost-per-gram-protein readout, staples quick-add, mark purchased (swipe), share list (phase 2), "post grocery haul" affordance.

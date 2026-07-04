@@ -15,6 +15,8 @@ A social fitness-nutrition platform where the community — not an AI prompt box
 
 **The gap:** nobody has fused a *trustworthy* nutrition/training data layer with a *social* graph, so the best community knowledge (recipes that actually hit macros, orders that actually work, programs people actually finish) never compounds.
 
+**A note on positioning:** the product is both a social platform *and* a utility — get your targets, find what to eat nearby or build it yourself, log it, see progress — and the community/social layer accelerates that utility (better data, accountability, discovery) rather than competing with it for the front door. Concretely, that means: the *build sequence* leads with restaurants/recipes/tracker (Phase 4, see [08](08-mvp-roadmap-phases.md)) ahead of remaining social surface (workouts, groups, challenges — Phases 5–6), while the social systems already shipped (feed, follow, profiles, reactions) stay in place and keep growing alongside it.
+
 ## 3. Product principles
 
 1. **Community content is the product.** No prompt-based meal/workout generation as a core feature. Every meal, prep plan, restaurant order, and workout in the app was made by a person and is attached to their reputation.
@@ -54,19 +56,21 @@ Full behavior specs live in the linked design docs.
 | 3 | Social feed | Followed + friends + groups + trending; 15 post types (recipe, meal prep, workout, progress, restaurant find, grocery find, PR, milestone, question, tip…); fitness-specific reactions | [05-social](05-social-graph-and-profiles.md) |
 | 4–6 | Community recipes | Full submission schema (macros, cost, time, equipment, tags, allergens), upvote/downvote/save/rate/tried/log/fork, macro provenance + confidence score, correction voting, ranking algorithm | [06-recipes](06-recipes-voting-reputation.md) |
 | 7 | Meal prep | Multi-recipe plans with cost/serving, storage/reheat instructions, grocery list generation, fork, ranked boards (best budget, best 5-day, best under $50) | [06-recipes](06-recipes-voting-reputation.md) |
-| 8 | Macro tracker | Daily diary: kcal/protein/carbs/fat/fiber/sugar/sodium/water/caffeine, barcode scan, copy day/meal, weekly averages, adherence score, streaks, calorie banking; logs community recipes and restaurant items natively | [04-screens](04-screens.md) |
-| 9 | Restaurant optimizer | Chain + menu item database, macro-friendly rankings (protein/kcal ratio, cutting/bulking scores); **"Around me" cross-chain item list ranked against remaining macros**; **item builder ("build a bowl") with live macro tally** for build-line chains; community-submitted items, go-to orders, popular builds, trending orders nearby | [06-recipes](06-recipes-voting-reputation.md) §7–7b |
+| 8 | Macro tracker | Daily diary: kcal/protein/carbs/fat/fiber/sugar/sodium/water/caffeine, barcode scan, copy day/meal, weekly averages, adherence score, streaks, calorie banking; **favorites ("my usual") distinct from auto-tracked frequents**; **personal ingredient library** for fast repeat recipe-building; logs community recipes and restaurant items natively | [04-screens](04-screens.md), [08](08-mvp-roadmap-phases.md) §1b |
+| 9 | Restaurant optimizer | Chain + menu item database, macro-friendly rankings (protein/kcal ratio, cutting/bulking scores); free/keyless interactive map (Leaflet + OSM + Nominatim); **"Around me" cross-chain item list ranked against remaining macros**; **item builder ("build a bowl") with live macro tally** for build-line chains; **combo-meal recommendation**; community-submitted items, go-to orders, popular builds, trending orders nearby | [06-recipes](06-recipes-voting-reputation.md) §7–7c |
 | 10–11 | Workouts | Strength/cardio/mobility logging (sets, reps, weight, RPE, rest), PR detection, template library, community workout posts with fork/complete/rate, discovery filters | [04-screens](04-screens.md) |
 | 12 | Friends & following | Asymmetric follow (public content) + symmetric friendship (private sharing, accountability, DMs later) | [05-social](05-social-graph-and-profiles.md) |
 | 13 | Groups | Goal/diet/location/gym-based groups; feed, shared content, challenges, leaderboards, mods, public/private | [05-social](05-social-graph-and-profiles.md) |
 | 14 | Challenges | Time-boxed, metric-backed (auto-scored from logs where possible), public/friend leaderboards, badges, streaks | [05-social](05-social-graph-and-profiles.md) |
-| 15 | Progress | Weight, measurements, body-fat, photos, PRs, adherence/consistency metrics; private-by-default with opt-in sharing tiers | [04-screens](04-screens.md) |
+| 15 | Progress | Weight, measurements, body-fat, photos, PRs, adherence/consistency metrics, **habits tracker with per-habit streaks**; private-by-default with opt-in sharing tiers | [04-screens](04-screens.md), [08](08-mvp-roadmap-phases.md) §1b |
 | 16 | Badges & reputation | Contribution-weighted reputation (upvotes, saves, logs of your content, accepted corrections); badge grants | [06-recipes](06-recipes-voting-reputation.md) §8 |
 | 17 | Moderation & safety | Reports, review queue, mod roles, misinformation/unsafe-diet warnings, ED-sensitive design, content policy | [07-moderation](07-moderation.md) |
 | 18 | Grocery | Lists built from recipes/preps, deduped, sectioned, costed; staples; community grocery finds | [04-screens](04-screens.md) |
 | 19 | Discovery | Tabbed explore: trending recipes/workouts/preps, restaurant + grocery finds, transformations, groups, challenges, creators, "new users near my goal" | [04-screens](04-screens.md) |
 | 20 | Notifications | Accountability-oriented (reminders, streaks, weekly summary) + social (comments, reactions, "someone tried your recipe"); per-category opt-out, daily digest batching | [02-architecture](02-architecture.md) |
-| 21 | Admin | User/content management, report queue, macro verification, restaurant data import (CSV/PDF), chain request tracking, featuring, roles | [07-moderation](07-moderation.md) |
+| 21 | Admin | User/content management, report queue, macro verification, restaurant data import (CSV/PDF) with **validation, duplicate detection, and upload changelog**, chain request tracking, featuring, roles | [07-moderation](07-moderation.md), [08](08-mvp-roadmap-phases.md) §1d |
+| 22 | User feedback | Always-available "send feedback" entry point, rate-limited, admin-reviewed queue — separate from content moderation reports | [08](08-mvp-roadmap-phases.md) §1d |
+| 23 | Guest mode | Anonymous session, full functionality with no signup; "claim your account" converts it to a normal account with no data migration | [08](08-mvp-roadmap-phases.md) §1a |
 
 ## 7. Non-goals (v1)
 

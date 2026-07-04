@@ -7,15 +7,17 @@
 | Framework | **Next.js 15 (App Router) + TypeScript** | One codebase for SSR feed pages, API routes, and admin; mobile-first responsive; huge ecosystem |
 | Database | **PostgreSQL 16** | Relational requirement; strong indexing for feed/ranking queries; `pg_trgm` for search; JSONB where flexibility helps |
 | ORM | **Drizzle ORM** | SQL-first (ranking queries need real SQL), typed schema doubles as documentation, cheap migrations |
-| Auth | **Auth.js (NextAuth v5)** with email/password + OAuth (Google, Apple) | Boring, well-trodden; sessions in Postgres |
+| Auth | Hand-rolled sessions (random token, sha256-hashed, Postgres-backed) + bcrypt; **guest sessions supported** (anonymous `users` row, no email/password until "claim your account" — see [08 §1a](08-mvp-roadmap-phases.md)) | As-built: fewer moving parts than a full auth library for this shape of session model; OAuth (Google, Apple) can layer on later without changing the session table |
 | Validation | **Zod** | Shared schemas between forms, API, and DB boundaries |
 | UI | **Tailwind CSS + shadcn/ui** | Fast, consistent, reusable components; mobile-first by default |
 | Media | **Cloudflare R2** (S3-compatible) + presigned uploads; `sharp` for server-side resize/strip-EXIF | Cheap egress for image-heavy feeds; EXIF stripping matters for progress-photo privacy |
 | Cache/queues | **None in MVP.** Postgres does everything. Add **Redis** (feed cache, rate limits) + a job runner (pg-boss → BullMQ) when metrics demand it | Biggest simplicity lever; see §6 |
 | Search | Postgres full-text + `pg_trgm` | Dedicated search engine (Typesense/Meilisearch) is roadmap, not MVP |
+| Maps & geocoding | **Leaflet + OpenStreetMap tiles + Nominatim** (geocode/reverse-geocode) **+ Overpass API** (nearby-chain POI lookup) | Free and keyless end-to-end — no Google Maps billing account; swappable for a paid places API later behind one query module if POI data quality demands it |
 | Barcode data | **Open Food Facts** dump imported into `foods` + user submissions | Free, open, importable offline |
 | Nutrition base data | **USDA FoodData Central** import | Ingredient-level macro calculation needs a canonical ingredient DB |
 | Hosting | Vercel or Railway (app) + Neon/Supabase-Postgres or Railway (DB) + R2 (media) | Zero-ops start; nothing vendor-locked |
+| Offline/PWA | Web app manifest + service worker (cache-first for shell + previously-loaded content) | Installable to a phone home screen, no app-store distribution; not full offline data entry — see [08 §1a](08-mvp-roadmap-phases.md) for why full local-first was scoped out |
 | Testing | Vitest (unit) + Playwright (e2e critical flows) | Log-a-day and submit-a-recipe flows must never break |
 
 **Explicitly rejected for MVP:** microservices, GraphQL, Kubernetes, ElasticSearch, event buses, separate API service, React Native. All are re-addable later because of the layering below.
@@ -120,6 +122,12 @@ Notifications are **rows first** (`notifications` table renders the in-app inbox
 - Standard hygiene: parameterized queries only (ORM), CSRF via same-site cookies + origin checks on mutations, upload type/size validation, per-route rate limits, admin routes behind role middleware + audit log (`moderation_actions`).
 - ED-sensitive guardrails enforced server-side: calorie targets floor at 1,200 (configurable clinically-informed constant), no-scale mode suppresses weight prompts everywhere, weight/body-fat fields never appear in public serializations unless opted in.
 - GDPR-shaped from day one: user data export endpoint, hard-delete cascade path, media deletion fanout.
+
+## 7a. Resilience — never fully break
+
+- **Fallback nutrition dataset:** if the Postgres connection is down (or the specific query path is degraded), food search and barcode lookup fall back to a small bundled static JSON snapshot of the seeded `foods` + top chains, shipped with the app build. The tracker degrades to "search a smaller offline list" instead of erroring — the log-a-day path is the one flow this app cannot let die.
+- **Never lose in-progress input to a network blip:** forms (recipe submission, plate builder, recipe form) hold their state client-side until a successful submit; a failed server action re-shows the form with data intact rather than clearing it.
+- This is a design principle, not a subsystem: apply "degrade, don't die" wherever a read path can be served stale/local rather than hard-failing, deferring true offline read/write (full local-first) per [08 §1a](08-mvp-roadmap-phases.md).
 
 ## 8. Search, filtering, tagging
 

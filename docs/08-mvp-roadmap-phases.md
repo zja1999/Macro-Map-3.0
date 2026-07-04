@@ -6,24 +6,46 @@ The MVP is one sentence: **track your macros, and everything you can discover yo
 
 | Included | Notes |
 |---|---|
-| Accounts + onboarding | All 7 tracking styles; calculated targets + manual override |
+| Accounts + onboarding | All 7 tracking styles; calculated targets + manual override; **guest mode** (anonymous session, full functionality, "claim your account" prompt later — see §1a) |
 | Profiles + privacy matrix | Opt-in modules present but minimal styling |
 | Follow + friend requests + block | No DMs |
 | Home feed (Following/Friends/Trending) + posts + comments + reactions | All post types that don't depend on unbuilt systems |
-| Recipe submission, detail, discovery, votes, saves, ratings, tried, **log-to-diary** | Ingredient-linked macro calculation; provenance badges; corrections = simple report-to-creator flow (voting on corrections is phase 2) |
-| Macro tracker | kcal/P/C/F/fiber/sugar/sodium/water, barcode scan, saved meals, copy day/meal, weekly averages, adherence, streaks |
-| Restaurant DB + optimizer | Admin-imported top chains; **"Around me" concatenated cross-chain item list ranked against remaining macros** as the default view; **item builder ("build a bowl") for build-line chains** (Chipotle, Subway, Cava…) with live macro tally, log, and save-as-go-to-order; per-chain browse + item rankings. Geolocation via browser API; no map tiles in MVP. See [06 §7a–7b](06-recipes-voting-reputation.md) |
+| Recipe submission, detail, discovery, votes, saves, ratings, tried, **log-to-diary** | Ingredient-linked macro calculation; provenance badges; corrections = simple report-to-creator flow (voting on corrections is phase 2); **personal ingredient library** for fast repeat recipe-building (§1b) |
+| Macro tracker | kcal/P/C/F/fiber/sugar/sodium/water, barcode scan, saved meals, copy day/meal, weekly averages, adherence, streaks; **favorites ("my usual") distinct from auto-tracked frequents** (§1b) |
+| Restaurant DB + optimizer | Admin-imported top chains; **interactive map** (Leaflet + OpenStreetMap tiles, free/keyless — §1c) with radius control and map/list toggle; **"Around me" concatenated cross-chain item list ranked against remaining macros** as the default view; **item builder ("build a bowl") for build-line chains** (Chipotle, Subway, Cava…) with live macro tally, log, and save-as-go-to-order; **combo-meal recommendation** (entree+side scored as a pairing); per-chain browse + item rankings. See [06 §7a–7c](06-recipes-voting-reputation.md) |
+| Progress tracking | Weight/measurements/photos (private), charts, milestone share prompts, **habits tracker** (protein goal / water / move / veggies, each with its own streak) — see §1b |
 | Workout logging + community workouts | Logger with PR detection; publish/save/complete/fork workouts; template shelf |
-| Progress tracking | Weight/measurements/photos (private), charts, milestone share prompts |
 | Groups + challenges | Public groups; auto-scored challenge metrics + custom check-in |
 | Grocery lists from recipes/preps | Dedupe + sections + cost estimate |
 | Meal prep plans | Compose from recipes; boards as saved filters |
-| Admin: reports queue, user management, macro verification, CSV import | The minimum to run a UGC platform safely |
+| Admin: reports queue, user management, macro verification, CSV import | The minimum to run a UGC platform safely; **upload history/changelog + duplicate detection** (§1d) |
+| User feedback | Always-available "send feedback" affordance, rate-limited, admin-reviewed — separate from content moderation reports (§1d) |
 | Notifications (in-app inbox only) | No push/email in MVP |
 
-**Explicitly out of MVP:** DMs, grocery-list sharing, correction voting, restaurant-request voting, pantry, coach mode, monetization, wearables, push notifications, PDF auto-extraction, dedicated search engine, native apps.
+**Explicitly out of MVP:** DMs, grocery-list sharing, correction voting, restaurant-request voting, pantry, coach mode, monetization, wearables, push notifications, PDF auto-extraction, dedicated search engine, native apps, full offline/local-first storage (see §1a).
+
+### 1a. Guest mode (not full local-first)
+
+Considered and rejected: a fully local-first architecture (on-device store as source of truth, account as optional sync layer with conflict merge). That's a separate subsystem — local DB, sync protocol, merge rules retrofitted into every service — disproportionate to the actual goal, which is removing the signup wall, not offline support. Instead: an anonymous session (same cookie/session mechanism as [02 §7](02-architecture.md), no email/password) is created on first visit, so onboarding, tracking, and recipe-building all work with zero signup. Data still lives in the one Postgres backend. A persistent "save your progress" prompt offers to attach email/password to the existing anonymous `users` row (no data migration — same row gets a password_hash and becomes a normal account). Cross-device access requires that claim step, same as before. Revisit true offline/local-first only if guest-mode adoption data says the friction is elsewhere.
+
+### 1b. Personal ingredient library, favorites/frequents, habits
+
+- **Personal ingredient library** — additive to the shared, community-verified `foods` table, not a replacement. A private `personal_ingredients` table ([03 schema](03-database-schema.md)) holds freeform ingredients a user enters once (name + quantity/unit + macros for that quantity) while building a recipe; the recipe form searches both `foods` and the user's own library, so "chicken breast, 6oz" is one tap the second time. Personal ingredients carry no community confidence score and aren't visible to anyone else — they're a speed tool, not a submission.
+- **Favorites vs. frequents** — `saves` (already the shared save primitive) is the user-curated "my usual" pin, available on any menu item, recipe, or go-to order for instant re-logging. **Frequents** is a separate, non-curated computed view (`GROUP BY` over recent `food_logs`, no new table) surfaced as quick-add shortcuts on the Add Food screen. Different UI slot, same underlying save/log primitives — no new interaction system.
+- **Habits tracker** — a small `habits` + `habit_logs` pair ([03 schema](03-database-schema.md)): a default set (hit protein goal, drink water, move/exercise, eat veggies) each with its own streak, computed the same way the existing logging streak already is. Lives on the progress dashboard, not the social feed.
+
+### 1c. Mapping & geocoding
+
+Free and keyless throughout, per the "free where possible" principle: **Leaflet** for the map view + **OpenStreetMap** tiles + **Nominatim** for geocoding (address/city search) and reverse geocoding, and the **Overpass API** for nearby-chain POI lookup as a first pass (swap to a paid places API later only if data quality demands it — the seam is one query module, not the whole restaurants vertical).
+
+### 1d. Resilience & admin data pipeline
+
+- **Fallback dataset**: if the nutrition backend/DB is ever unreachable, the app serves a small bundled seed dataset (a static JSON snapshot of the seeded foods + top chains) instead of a hard error, so a backend outage degrades the tracker to "search a smaller offline list" rather than bricking it.
+- **Admin CSV/Excel upload** ([07-moderation §6](07-moderation.md)) gets real validation teeth: required-field + numeric-sanity checks, duplicate detection against both the file itself and existing `foods`/`menu_items` rows, and an upload-history/changelog table so a bad import is auditable and reversible.
 
 ## 2. Future roadmap
+
+*Numbering note: the phases below are post-launch roadmap phases, independent from the §3 development phases (0–7) that got MVP built. "Roadmap Phase 2" ≠ "Dev Phase 2."*
 
 **Phase 2 — deepen the loops (post-launch quarter):** DMs + friend accountability nudges · correction voting + community-mod role · restaurant request voting + community item submission at scale · grocery list sharing · progress photo timeline compare/export · push + email notifications (same `notifications` rows) · repost/share-with-comment.
 
@@ -48,17 +70,20 @@ The MVP is one sentence: **track your macros, and everything you can discover yo
 
 ## 3. Development phases (solo-dev-with-Claude sized)
 
+Phases 0–3 are **built** (see [README](../README.md) for the running vertical slice). Phases 4+ are reordered from the original plan: restaurants/map/builder and progress/habits move ahead of workouts and groups, because they're the summary golden path's actual core loop (nearby recommendation + build-a-plate), whereas workouts/groups/challenges are additive social surface that can follow. Social (Phase 3) is intentionally not undone — it ships alongside, not instead of, the utility loop.
+
 | Phase | Scope | Exit criterion |
 |---|---|---|
-| **0. Foundation** (wk 1–2) | Next.js + Drizzle + Auth.js scaffold, schema migrated, seed scripts (USDA foods subset, exercises, tags, top-10 chains), design tokens + core components, media presign pipeline | Sign up → onboard → see targets |
-| **1. Tracker** (wk 3–5) | Food search/barcode/log, tracker screen, saved meals, copy ops, streaks/adherence, progress entries + charts | A user can track a full week; *usable product for 1 person* |
-| **2. Recipes** (wk 6–9) | Recipe CRUD + ingredients + provenance, discovery + filters, votes/saves/ratings/tried, log-recipe, grocery lists, hot/quality cron | Discover → save → groceries → log loop works |
-| **3. Social** (wk 10–13) | Profiles, follow/friend/block, posts/comments/reactions, home feed, notifications inbox, milestone share prompts | Two accounts can fully interact |
-| **4. Workouts + restaurants** (wk 14–17) | Workout logger + PRs, community workouts, templates; chains/menu items + rankings + go-to orders + CSV import | Both loggable content verticals live |
-| **5. Community + safety** (wk 18–20) | Groups, challenges + auto-scoring, meal preps, reports + admin dashboard, rate limits, content warnings | Safe to open to strangers |
-| **6. Beta hardening** (wk 21–22) | Playwright on critical flows, perf pass on feed/discovery queries, seed content push, copy/ED-safety review | Public beta |
+| ~~**0. Foundation**~~ ✅ built | Next.js + Drizzle + PGlite, schema migrated, seed scripts, design tokens + core components | Sign up → onboard → see targets |
+| ~~**1. Tracker**~~ ✅ built | Food search/log, tracker screen, copy ops, streaks/adherence | A user can track a full week |
+| ~~**2. Recipes**~~ ✅ built | Recipe CRUD + ingredients + provenance, discovery + filters, votes/saves/ratings/tried, log-recipe | Discover → save → log loop works |
+| ~~**3. Social**~~ ✅ built | Profiles, follow/block, posts/comments/reactions, home feed | Two accounts can fully interact |
+| **4. Restaurants + map + progress** (next) | Guest mode; Leaflet/OSM/Nominatim map + "Around me" ranked cross-chain list; buildable-item plate builder + combo-meal recommendation; go-to orders; progress dashboard (weight/measurements/photos) + habits tracker; personal ingredient library; favorites/frequents split on Add Food; admin CSV import with validation/changelog; feedback mechanism; fallback dataset | Open the app near a real address, get a ranked nearby recommendation, build and log a bowl, see it reflected in progress |
+| **5. Workouts** | Workout logger + PRs, community workouts, templates, grocery lists, meal prep plans | Both remaining loggable content verticals live |
+| **6. Community + safety** | Groups, challenges + auto-scoring, reports + admin dashboard, rate limits, content warnings | Safe to open to strangers |
+| **7. Beta hardening** | Playwright on critical flows, perf pass, PWA installability + offline shell for previously-loaded content, seed content push, copy/ED-safety review | Public beta |
 
-Each phase ships behind nothing — the app is deployable and self-usable from Phase 1 onward. That ordering is deliberate: the tracker must be excellent *before* social, because the social layer's currency (logs, adherence, PRs) is minted by the tracker.
+Each phase ships behind nothing — the app has been deployable and self-usable since Phase 1. That ordering was deliberate for what's already built: the tracker had to be excellent *before* social, because the social layer's currency (logs, adherence, PRs) is minted by the tracker. Phase 4 reprioritizes forward from here based on where the actual golden path leads.
 
 ## 4. Files / modules to create
 

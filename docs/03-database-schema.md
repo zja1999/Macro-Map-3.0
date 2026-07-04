@@ -230,6 +230,19 @@ CREATE TABLE saved_meals (                    -- user's reusable meal bundles
   name text NOT NULL, items jsonb NOT NULL    -- [{food_id|recipe_id, servings}]
 );
 
+CREATE TABLE personal_ingredients (            -- private, freeform, unverified — speeds up recipe building
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),   -- (see 08 §1b; distinct from the shared, verifiable `foods` table)
+  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name text NOT NULL,                          -- "Chicken breast, 6oz" — quantity often baked into the name
+  serving_desc text NOT NULL, serving_grams numeric(7,1),
+  calories numeric(7,1) NOT NULL, protein_g numeric(6,1) NOT NULL,
+  carbs_g numeric(6,1) NOT NULL, fat_g numeric(6,1) NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX ON personal_ingredients(user_id, name);
+-- recipe_ingredients.food_id may instead point here via a nullable personal_ingredient_id (below);
+-- exactly one of food_id / personal_ingredient_id is set for a linked ingredient row.
+
 -- ═══════════════ RECIPES ═══════════════
 CREATE TABLE recipes (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -268,9 +281,11 @@ CREATE TABLE recipe_ingredients (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   recipe_id uuid NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
   food_id uuid REFERENCES foods(id),          -- linked → enables ingredient-calculated macros
+  personal_ingredient_id uuid REFERENCES personal_ingredients(id),  -- alternative to food_id, see above
   raw_text text NOT NULL,                     -- "200g chicken breast"
   quantity numeric(8,2), unit text, grams numeric(8,1),
-  grocery_section text, position smallint NOT NULL
+  grocery_section text, position smallint NOT NULL,
+  CHECK (food_id IS NULL OR personal_ingredient_id IS NULL)
 );
 
 CREATE TABLE recipe_reviews (                 -- rating + optional photo review + "tried it"
@@ -495,6 +510,21 @@ CREATE TABLE progress_entries (
 );
 -- progress photos: photos(purpose='progress', is_private=true) + media_attachments → progress_entries
 
+CREATE TABLE habits (                          -- default set seeded per user at onboarding; user can add/remove
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name text NOT NULL,                          -- "Hit protein goal", "Drink water", "Move today", "Eat veggies"
+  is_default bool NOT NULL DEFAULT false,
+  archived bool NOT NULL DEFAULT false
+);
+CREATE TABLE habit_logs (
+  habit_id uuid REFERENCES habits(id) ON DELETE CASCADE,
+  log_date date NOT NULL,
+  completed bool NOT NULL DEFAULT true,
+  PRIMARY KEY (habit_id, log_date)
+);
+-- habit streaks computed live over habit_logs, same function as the logging streak (see below).
+
 -- ═══════════════ GROUPS & CHALLENGES ═══════════════
 CREATE TABLE groups (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -557,13 +587,11 @@ CREATE TABLE user_badges (
   PRIMARY KEY (user_id, badge_id)
 );
 
-CREATE TABLE streaks (
-  user_id uuid REFERENCES users(id) ON DELETE CASCADE,
-  kind text NOT NULL,                         -- logging|protein|workout|weigh_in
-  current int NOT NULL DEFAULT 0, best int NOT NULL DEFAULT 0,
-  last_qualified_date date,
-  PRIMARY KEY (user_id, kind)
-);
+-- Streaks are NOT stored: as built, the logging streak is computed live from food_logs
+-- (walk consecutive log_date rows backward from today — see src/lib/queries.ts getStreak()).
+-- Habit streaks use the identical live computation over habit_logs, keyed by habit_id —
+-- one function, reused, no new table. A `streaks` table becomes worth adding only if this
+-- computation shows up as a hot path in production (cache the result, don't restructure).
 
 -- ═══════════════ MODERATION & NOTIFICATIONS ═══════════════
 CREATE TABLE reports (
@@ -607,11 +635,33 @@ CREATE TABLE notification_prefs (
   kind notif_kind NOT NULL, enabled bool NOT NULL DEFAULT true,
   PRIMARY KEY (user_id, kind)
 );
+
+CREATE TABLE feedback (                        -- always-available "send feedback", distinct from `reports`
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid REFERENCES users(id) ON DELETE SET NULL,  -- nullable: guest-mode users can submit too
+  body text NOT NULL, page_context text,       -- current route, for admin triage
+  status text NOT NULL DEFAULT 'open',         -- open|reviewed|actioned
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX ON feedback(status, created_at) WHERE status = 'open';
+
+CREATE TABLE nutrition_import_batches (        -- admin CSV/Excel upload changelog (08 §1d)
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  uploaded_by uuid NOT NULL REFERENCES users(id),
+  target text NOT NULL,                        -- foods|menu_items
+  filename text NOT NULL,
+  row_count int NOT NULL, inserted_count int NOT NULL,
+  duplicate_count int NOT NULL DEFAULT 0, error_count int NOT NULL DEFAULT 0,
+  errors jsonb,                                 -- [{row, field, message}] for anything rejected
+  created_at timestamptz NOT NULL DEFAULT now()
+);
 ```
 
 ## Coverage map (requested entities → tables)
 
-users → `users` · profiles → `profiles` · follows → `follows` · friendships → `friendships` · posts → `posts` · comments → `comments` · reactions → `reactions` · recipes → `recipes` · recipe ingredients → `recipe_ingredients` · recipe votes → `votes(subject_type='recipe')` · recipe saves → `saves` · recipe reviews → `recipe_reviews` · recipe corrections → `recipe_corrections` · meal plans → `meal_plans` · meal prep plans → `meal_prep_plans` + `meal_prep_items` · grocery lists → `grocery_lists` + `grocery_items` · foods → `foods` · food logs → `food_logs` (+ `water_logs`, `saved_meals`) · restaurants → `restaurants` · chains → `chains` · menu items → `menu_items` · menu item ratings → `menu_item_ratings` · restaurant requests → `restaurant_requests` (+ `go_to_orders`) · workouts → `workouts` · exercises → `exercises` · workout templates → `workouts(is_template)` · workout logs → `workout_logs` (+ `personal_records`) · workout saves → `saves` · workout reactions → `reactions` · progress entries → `progress_entries` · photos → `photos` + `media_attachments` · groups → `groups` · group memberships → `group_members` · challenges → `challenges` · challenge participants → `challenge_participants` · notifications → `notifications` (+ prefs) · reports → `reports` · moderation actions → `moderation_actions` (+ `content_warnings`) · badges → `badges` · user badges → `user_badges` (+ `streaks`, `reputation_events`, `tags`/`taggings`, `nutrition_targets`, `recipe_versions`, `blocks`).
+users → `users` · profiles → `profiles` · follows → `follows` · friendships → `friendships` · posts → `posts` · comments → `comments` · reactions → `reactions` · recipes → `recipes` · recipe ingredients → `recipe_ingredients` · recipe votes → `votes(subject_type='recipe')` · recipe saves → `saves` · recipe reviews → `recipe_reviews` · recipe corrections → `recipe_corrections` · meal plans → `meal_plans` · meal prep plans → `meal_prep_plans` + `meal_prep_items` · grocery lists → `grocery_lists` + `grocery_items` · foods → `foods` · food logs → `food_logs` (+ `water_logs`, `saved_meals`) · restaurants → `restaurants` · chains → `chains` · menu items → `menu_items` · menu item ratings → `menu_item_ratings` · restaurant requests → `restaurant_requests` (+ `go_to_orders`) · workouts → `workouts` · exercises → `exercises` · workout templates → `workouts(is_template)` · workout logs → `workout_logs` (+ `personal_records`) · workout saves → `saves` · workout reactions → `reactions` · progress entries → `progress_entries` · photos → `photos` + `media_attachments` · groups → `groups` · group memberships → `group_members` · challenges → `challenges` · challenge participants → `challenge_participants` · notifications → `notifications` (+ prefs) · reports → `reports` · moderation actions → `moderation_actions` (+ `content_warnings`) · badges → `badges` · user badges → `user_badges` (+ `reputation_events`, `tags`/`taggings`, `nutrition_targets`, `recipe_versions`, `blocks`) · personal ingredient library → `personal_ingredients` · habits → `habits` + `habit_logs` · user feedback → `feedback` · admin import changelog → `nutrition_import_batches`.
+
+Note: there is no stored `streaks` table — logging and habit streaks are computed live from `food_logs`/`habit_logs` (see note above §MODERATION); this matches the actual implementation in `src/lib/queries.ts`.
 
 Key deliberate choices:
 - **Polymorphic interactions** (`votes`, `saves`, `reactions`, `comments`, `reports`, `taggings`) mean adding a new content type never requires new interaction tables.
