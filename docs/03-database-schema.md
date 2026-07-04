@@ -370,6 +370,8 @@ CREATE TABLE menu_items (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   chain_id uuid NOT NULL REFERENCES chains(id) ON DELETE CASCADE,
   name text NOT NULL, category text,
+  kind text NOT NULL DEFAULT 'fixed',        -- fixed | buildable (Chipotle bowl, Subway sandwich…)
+  -- for kind='buildable': macros below are the default build; real macros come from options
   calories numeric(7,1) NOT NULL, protein_g numeric(6,1) NOT NULL,
   carbs_g numeric(6,1) NOT NULL, fat_g numeric(6,1) NOT NULL,
   fiber_g numeric(6,1), sugar_g numeric(6,1), sodium_mg numeric(8,1),
@@ -383,6 +385,32 @@ CREATE TABLE menu_items (
 );
 CREATE INDEX ON menu_items(chain_id, protein_per_100kcal DESC);
 CREATE INDEX ON menu_items USING gin(search);
+
+-- ── buildable items ("build a bowl") ──
+-- A buildable menu_item has option groups (Base, Protein, Toppings, Salsa…); each option
+-- carries its own per-portion macros. The builder UI sums selections live; the result is
+-- logged as a food_logs snapshot and can be saved/shared as a go_to_order (stores option ids).
+CREATE TABLE menu_item_option_groups (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  menu_item_id uuid NOT NULL REFERENCES menu_items(id) ON DELETE CASCADE,
+  name text NOT NULL,                        -- "Base", "Protein", "Toppings"
+  min_choices smallint NOT NULL DEFAULT 0,
+  max_choices smallint,                      -- null = unlimited
+  position smallint NOT NULL DEFAULT 0
+);
+CREATE TABLE menu_item_options (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  group_id uuid NOT NULL REFERENCES menu_item_option_groups(id) ON DELETE CASCADE,
+  name text NOT NULL,                        -- "White rice", "Double chicken"
+  portion_desc text,                         -- "1 scoop (4 oz)"
+  calories numeric(7,1) NOT NULL, protein_g numeric(6,1) NOT NULL,
+  carbs_g numeric(6,1) NOT NULL, fat_g numeric(6,1) NOT NULL,
+  fiber_g numeric(6,1), sodium_mg numeric(8,1),
+  is_default bool NOT NULL DEFAULT false,
+  position smallint NOT NULL DEFAULT 0
+);
+CREATE INDEX ON menu_item_option_groups(menu_item_id);
+CREATE INDEX ON menu_item_options(group_id);
 
 CREATE TABLE menu_item_ratings (
   menu_item_id uuid REFERENCES menu_items(id) ON DELETE CASCADE,

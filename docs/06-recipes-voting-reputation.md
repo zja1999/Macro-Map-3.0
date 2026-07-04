@@ -75,6 +75,30 @@ Derived scores shown on items (computed columns / on write):
 
 Community layer: ratings + tips, popular modifications, **go-to orders** (public multi-item combos, loggable in one tap), trending orders nearby (go-to order log counts, geo-bucketed). Everything loggable via the standard `food_logs` snapshot path.
 
+### 7a. Buildable items — "build a bowl" (core feature)
+
+Chains like Chipotle, Subway, Cava, Qdoba, Sweetgreen, and poke/pizza shops don't have fixed items — they have **configurators**. These are first-class: a `menu_items` row with `kind='buildable'` plus option groups (`menu_item_option_groups` → `menu_item_options`), each option carrying its own per-portion macros (Chipotle publishes these; most build-line chains do).
+
+Builder UX (see [04-screens §14a](04-screens.md)):
+1. Open "Burrito Bowl" → stepper through groups: **Base → Protein → Toppings → Salsa → Extras**, respecting min/max choices (double protein = tap twice).
+2. A **live macro tally bar** stays pinned at the bottom (same pattern as the recipe form's ingredient tally) and shows fit against *today's remaining* targets — the tally turns amber when a selection pushes past remaining calories.
+3. Finish → **Log it** (a `food_logs` snapshot: summed macros, name like "Chipotle Bowl — chicken, white rice, black beans, fajitas, mild"), **Save as go-to order** (stores the option ids in `go_to_orders.items`, so it's re-loggable in one tap forever), and/or **Share** as a restaurant-find post.
+4. Community layer on top: **popular builds** per buildable item = most-logged go-to orders, filterable by goal ("top cutting builds at Chipotle"). This is community data answering "what should I actually get here" — the core promise.
+
+Data entry: option-level nutrition imports through the same admin CSV pipeline (chains publish per-ingredient nutrition tables); community-submitted options go through the same verification flow as fixed items.
+
+### 7b. "Around me" — the concatenated nearby menu
+
+The restaurant tab's default view answers *"I'm here, I have N calories and P protein left — what are my best options?"* in one list, without picking a chain first:
+
+1. Browser/device geolocation → restaurants within radius (indexed geo query) → distinct nearby chains.
+2. **Union all menu items across those chains** into one ranked list; buildable items rank by their *best-fit build* (precomputed per goal: max-protein build, min-calorie build, default build).
+3. Rank = macro-fit score against the viewer's **remaining macros today** (from `food_logs`) — tolerance band on calories, protein density bonus, sodium penalty — falling back to goal-fit (cutting/bulking score) when the day is unlogged.
+4. Each row: item, chain + distance, macro pills, fit badge ("fits your remaining 780 kcal / 52g protein"), one-tap Log.
+5. Filters on top of the union: max calories, min protein, category, chain, "buildable only", sort by protein/kcal · lowest kcal · nearest.
+
+This is a query composition over existing tables (restaurants-near → chains → menu_items + precomputed build variants), not a new subsystem — it ships with the Phase 4 restaurants vertical as its **default landing view**, with the per-chain browse one tap away.
+
 ## 8. Reputation system
 
 Append-only `reputation_events`, aggregated to `users.reputation` by cron. Earning:

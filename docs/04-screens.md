@@ -39,13 +39,16 @@ Date scroller. `MacroRing` (kcal) + three `MacroBar`s (P/C/F) + expandable fiber
 Add flow tabs: **Search · Barcode · My meals · Recent · Community**. Search hits `foods` + logged-recipe shortcuts; barcode → camera scan → food match or "create food". Community tab: saved recipes + "popular with people cutting" list. Serving stepper + slot picker → log. Copy-previous-day and copy-meal live on meal section menus. Any logged meal → "Share as post" affordance.
 
 ### 12. Restaurant map (`/restaurants`)
-Map (nearby pins) + list toggle; chain search. Each chain row: "best items for you" preview (respects goal: cutting → protein/kcal; bulking → protein+calories). Trending orders nearby strip. "Request a chain" entry point (+ vote on open requests).
+**Default view = "Around me": one concatenated, macro-ranked list of every item across nearby chains** — ranked by fit against today's *remaining* macros (fit badge per row: "fits your remaining 780 kcal / 52g protein"), one-tap Log on every row, filters (max kcal, min protein, chain, category, buildable-only). Map (nearby pins) + list toggle; chain search. Each chain row: "best items for you" preview (respects goal: cutting → protein/kcal; bulking → protein+calories). Trending orders nearby strip. "Request a chain" entry point (+ vote on open requests). Design: [06 §7b](06-recipes-voting-reputation.md).
 
 ### 13. Restaurant detail (`/restaurants/[chain]`)
 Chain header, menu-item list with sort (protein ratio, highest protein, lowest kcal, lowest sodium, "under X kcal / over X g protein" steppers) and goal-fit score chips (cutting/bulking/post-workout scores). Community: submit missing item, go-to orders from the community, my saved orders.
 
 ### 14. Menu item detail (`/menu-items/[id]`)
-Nutrition facts table + provenance, macro/protein/cutting/bulking scores, sodium warning if > threshold. `Log it`. Ratings + tips ("ask for double chicken, skip the rice"), popular modifications, photos, similar items, best nearby alternatives.
+Nutrition facts table + provenance, macro/protein/cutting/bulking scores, sodium warning if > threshold. `Log it`. Ratings + tips ("ask for double chicken, skip the rice"), popular modifications, photos, similar items, best nearby alternatives. Buildable items show a **Build it** CTA → §14a instead of a fixed nutrition table.
+
+### 14a. Item builder (`/menu-items/[id]/build`) — "build a bowl"
+Stepper through option groups (Base → Protein → Toppings → Salsa → Extras) with per-option macro chips; tap to add, tap again for double portions (respects group min/max). **Pinned live tally bar**: running kcal/P/C/F vs. today's remaining targets, amber when over. "Popular builds" shelf up top (most-logged community go-to orders for this item, filterable by goal) — start from one and tweak. Finish screen: **Log it · Save as go-to order · Share as post**. Design: [06 §7a](06-recipes-voting-reputation.md).
 
 ### 15. Workout tracker (`/workouts/log`)
 Active-session UI: exercise list with set rows (weight × reps, RPE, rest timer with notification chime), plate-math helper, previous-session ghost values, add exercise via `exercises` typeahead. Finish → summary (volume, duration, est. calories, PRs detected with celebration + "share PR" one-tap post). History calendar below.

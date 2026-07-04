@@ -12,7 +12,7 @@ The MVP is one sentence: **track your macros, and everything you can discover yo
 | Home feed (Following/Friends/Trending) + posts + comments + reactions | All post types that don't depend on unbuilt systems |
 | Recipe submission, detail, discovery, votes, saves, ratings, tried, **log-to-diary** | Ingredient-linked macro calculation; provenance badges; corrections = simple report-to-creator flow (voting on corrections is phase 2) |
 | Macro tracker | kcal/P/C/F/fiber/sugar/sodium/water, barcode scan, saved meals, copy day/meal, weekly averages, adherence, streaks |
-| Restaurant DB + optimizer | Admin-imported top chains, item rankings, log menu items, go-to orders. Map is a chain list + browser-geolocation "near me" in MVP — no map tiles |
+| Restaurant DB + optimizer | Admin-imported top chains; **"Around me" concatenated cross-chain item list ranked against remaining macros** as the default view; **item builder ("build a bowl") for build-line chains** (Chipotle, Subway, Cava…) with live macro tally, log, and save-as-go-to-order; per-chain browse + item rankings. Geolocation via browser API; no map tiles in MVP. See [06 §7a–7b](06-recipes-voting-reputation.md) |
 | Workout logging + community workouts | Logger with PR detection; publish/save/complete/fork workouts; template shelf |
 | Progress tracking | Weight/measurements/photos (private), charts, milestone share prompts |
 | Groups + challenges | Public groups; auto-scored challenge metrics + custom check-in |
@@ -29,7 +29,20 @@ The MVP is one sentence: **track your macros, and everything you can discover yo
 
 **Phase 3 — ecosystem:** coach mode (client roster, shared logs with consent, check-in reviews) · creator pages + verified creators · advanced groups (private content collections) · advanced challenge types + sponsored challenges · pantry tracking ("what can I prep with what I have") · premium analytics.
 
-**Phase 4 — platform:** mobile apps (React Native/Expo against `/api/v1`) · Apple Health / Google Fit / Strava / Garmin / smart-scale sync (steps, workouts, weight auto-fill) · local events + gym communities · dedicated search · monetization rollout.
+**Phase 4 — platform:** mobile apps (React Native/Expo against `/api/v1`) · health-platform sync and app-data import (below) · local events + gym communities · dedicated search · monetization rollout.
+
+### Health integrations & data import (planned design)
+
+**Apple Health / Google Fit** (requires the native app — HealthKit has no web API; this is a headline reason the mobile app exists):
+- *Read into MacroMap:* weight & body-fat (→ `progress_entries`, auto-filling weigh-ins), steps (→ challenges + progress), workouts & active energy (→ `workout_logs`), sleep (→ progress).
+- *Write out:* logged nutrition (calories/macros) and workouts, so MacroMap plays nicely as the source of truth in the user's health graph.
+- Sync model: an `integration_accounts` table (provider, scopes, tokens/anchors) + idempotent upserts keyed by provider sample id; conflicts resolve "most-specific-source wins" (manual entry beats synced).
+- Same table/pattern extends to **Strava/Garmin** (OAuth, workout import) and **smart scales** later.
+
+**Import from other tracking apps** (earlier — Phase 2–3, no native app needed, big switching-cost killer):
+- File importers for **MyFitnessPal, MacroFactor, Cronometer, Lose It** CSV exports, plus a generic CSV mapper: upload → staging table → column mapping preview (reusing the admin nutrition-import wizard UI) → dry-run diff → commit into `food_logs` (as macro snapshots — no food matching required for history) and `progress_entries` (weight).
+- Imported history is flagged `source='import:mfp'` so analytics can distinguish it; streaks/adherence recompute over it, so a switcher lands with their trend charts intact on day one.
+- Export symmetrically: full CSV export of logs/progress already committed in the GDPR-shaped data-export requirement ([02 §7](02-architecture.md)).
 
 **Monetization (when the community is real, not before):** freemium core (tracking + community forever free — the community *is* the moat; paywalling contribution kills it). Premium ($/mo): advanced analytics (trend modeling, adherence forecasting), calorie banking+, unlimited saved meals/lists, ad-free. Creator subscriptions (premium recipe packs/programs, revenue share). Coach tools (per-client pricing). Team/gym plans. Sponsored challenges + restaurant partnerships (clearly labeled). Grocery affiliate links on grocery lists. **Never sell:** ranking placement, health data.
 
