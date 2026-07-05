@@ -8,6 +8,7 @@ import { getRecipeInteractions } from "@/lib/queries";
 import { todayStr, MEAL_SLOTS } from "@/lib/utils";
 import { voteRecipe, toggleSaveRecipe, reviewRecipe } from "@/actions/recipes";
 import { logRecipe } from "@/actions/logging";
+import { addRecipeToGroceries } from "@/actions/groceries";
 import { shareRecipeToFeed } from "@/actions/social";
 import { Card, Badge, UserChip, inputCls, btnGhost } from "@/components/ui";
 import { MacroPills, ProvenanceBadge } from "@/components/macros";
@@ -138,7 +139,15 @@ export default async function RecipePage({ params }: { params: Promise<{ id: str
 
       {/* ingredients */}
       <Card className="p-4">
-        <h2 className="mb-2 text-sm font-semibold">Ingredients <span className="text-xs font-normal text-ink-faint">· makes {recipe.servings} servings</span></h2>
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="text-sm font-semibold">Ingredients <span className="text-xs font-normal text-ink-faint">· makes {recipe.servings} servings</span></h2>
+          <form action={addRecipeToGroceries}>
+            <input type="hidden" name="recipeId" value={recipe.id} />
+            <button className="rounded-md bg-accent/10 px-2 py-1 text-xs font-semibold text-accent hover:bg-accent/20">
+              🛒 Add to groceries
+            </button>
+          </form>
+        </div>
         <ul className="space-y-1.5">
           {ingredients.map(({ ing, foodName }) => (
             <li key={ing.id} className="flex items-center gap-2 text-sm text-ink-dim">

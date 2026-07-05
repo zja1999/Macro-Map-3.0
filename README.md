@@ -2,7 +2,7 @@
 
 A community-driven macro tracking, recipe, meal prep, restaurant, and workout platform — MyFitnessPal's data layer with Strava's social graph and Reddit's content ranking, minus the AI prompt box. The community is the content engine: users discover, share, vote on, save, log, and discuss recipes, meal preps, restaurant orders, and workouts created by other users.
 
-**Status:** Phases 0–3 vertical slice built and running — auth, onboarding, macro tracker, community recipes, social feed, profiles. Full product + technical design lives in [`docs/`](docs/).
+**Status:** Phases 0–5 built and running — auth (+ guest mode), onboarding, macro tracker, community recipes (+ personal ingredient library), social feed, profiles, restaurants ("Around me" map/list, build-a-bowl, go-to orders), progress dashboard + habits, workouts (logger with PR detection, community workouts, templates), grocery lists, and meal prep plans. Admin nutrition import lives at `/admin/imports` (admin@macromap.app / password123). Full product + technical design lives in [`docs/`](docs/); deployment guide in [docs/09-deployment.md](docs/09-deployment.md).
 
 ## Run it
 
@@ -28,6 +28,7 @@ Dev database lives in `./.data/pglite` (gitignored). To reset: delete `.data/` a
 | [06-recipes-voting-reputation.md](docs/06-recipes-voting-reputation.md) | Recipe lifecycle, macro provenance & confidence, corrections, forking, ranking formulas, restaurant system, reputation & badges |
 | [07-moderation.md](docs/07-moderation.md) | Roles, report pipeline, content policy, ED-sensitive design, rate limits, admin panel |
 | [08-mvp-roadmap-phases.md](docs/08-mvp-roadmap-phases.md) | MVP scope, roadmap, monetization, 6-phase build plan, full module/file layout, anti-bloat rules |
+| [09-deployment.md](docs/09-deployment.md) | Deploying the app + Postgres backend; adding Google/Apple OAuth |
 
 ## The three ideas everything hangs on
 

@@ -548,3 +548,149 @@ export const nutritionImportBatches = pgTable("nutrition_import_batches", {
   errors: jsonb(), // [{row, message}]
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });
+
+// ─── workouts (docs/03 §WORKOUTS) ────────────────────────────────────────────
+
+export const exercises = pgTable("exercises", {
+  id: uuid().primaryKey().defaultRandom(),
+  name: text().notNull().unique(),
+  muscleGroups: text().array().notNull().default([]),
+  equipment: text(), // barbell | dumbbell | machine | cable | bodyweight | other
+  isBodyweight: boolean().notNull().default(false),
+});
+
+// structure/entries as JSONB: set rows are write-once, read-whole documents;
+// personal_records extracts the queryable bits (docs/03 key choices)
+export type WorkoutStructure = { exerciseId: string; sets: number; reps: string; notes?: string }[];
+export type WorkoutLogEntries = { exerciseId: string; sets: { reps: number; weightKg: number | null }[] }[];
+
+export const workouts = pgTable(
+  "workouts",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    authorId: uuid().references(() => users.id, { onDelete: "set null" }), // null = official template
+    forkedFromId: uuid(),
+    title: text().notNull(),
+    description: text(),
+    kind: text().notNull().default("strength"), // strength | cardio | mobility | mixed
+    goal: text(),
+    difficulty: smallint(), // 1-5
+    estDurationMin: integer(),
+    isTemplate: boolean().notNull().default(false), // official starter shelf
+    structure: jsonb().notNull().$type<WorkoutStructure>(),
+    saveCount: integer().notNull().default(0),
+    completedCount: integer().notNull().default(0),
+    status: text().notNull().default("published"),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("workouts_author_idx").on(t.authorId, t.createdAt)],
+);
+
+export const workoutLogs = pgTable(
+  "workout_logs",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    workoutId: uuid().references(() => workouts.id), // null = freeform session
+    performedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    durationMin: integer(),
+    notes: text(),
+    entries: jsonb().notNull().$type<WorkoutLogEntries>(),
+  },
+  (t) => [index("workout_logs_user_idx").on(t.userId, t.performedAt)],
+);
+
+export const personalRecords = pgTable(
+  "personal_records",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    exerciseId: uuid()
+      .notNull()
+      .references(() => exercises.id, { onDelete: "cascade" }),
+    metric: text().notNull(), // e1rm | volume | reps
+    value: real().notNull(),
+    achievedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    workoutLogId: uuid().references(() => workoutLogs.id, { onDelete: "set null" }),
+  },
+  (t) => [index("prs_user_exercise_idx").on(t.userId, t.exerciseId, t.metric)],
+);
+
+// ─── grocery lists ───────────────────────────────────────────────────────────
+
+export const groceryLists = pgTable("grocery_lists", {
+  id: uuid().primaryKey().defaultRandom(),
+  userId: uuid()
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  name: text().notNull().default("Groceries"),
+  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+});
+
+export const groceryItems = pgTable(
+  "grocery_items",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    listId: uuid()
+      .notNull()
+      .references(() => groceryLists.id, { onDelete: "cascade" }),
+    name: text().notNull(),
+    quantity: text(), // "450 g", "2"
+    section: text(), // produce | protein | dairy | pantry | frozen | other
+    estCostCents: integer(),
+    purchased: boolean().notNull().default(false),
+    sourceRecipeId: uuid().references(() => recipes.id, { onDelete: "set null" }),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("grocery_items_list_idx").on(t.listId, t.purchased)],
+);
+
+// ─── meal prep plans (docs/06 §6) ────────────────────────────────────────────
+
+export const mealPrepPlans = pgTable(
+  "meal_prep_plans",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    authorId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    title: text().notNull(),
+    description: text(),
+    daysCovered: smallint(),
+    totalServings: smallint().notNull().default(1),
+    goal: text(),
+    // per-serving macros + cost derived from member recipes (recomputed on edit)
+    calories: real().notNull().default(0),
+    proteinG: real().notNull().default(0),
+    carbsG: real().notNull().default(0),
+    fatG: real().notNull().default(0),
+    costPerServingCents: integer(),
+    prepMin: integer(),
+    storageNotes: text(),
+    upvotes: integer().notNull().default(0),
+    downvotes: integer().notNull().default(0),
+    saveCount: integer().notNull().default(0),
+    status: text().notNull().default("published"),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("meal_prep_author_idx").on(t.authorId, t.createdAt)],
+);
+
+export const mealPrepItems = pgTable(
+  "meal_prep_items",
+  {
+    planId: uuid()
+      .notNull()
+      .references(() => mealPrepPlans.id, { onDelete: "cascade" }),
+    recipeId: uuid()
+      .notNull()
+      .references(() => recipes.id, { onDelete: "cascade" }),
+    servings: real().notNull().default(1),
+    position: smallint().notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.planId, t.position] })],
+);

@@ -1,6 +1,8 @@
 /* Seeds the dev database: foods, demo users, recipes (ingredient-calculated macros),
  * votes/saves/reviews, posts, follows, and a pre-onboarded demo account with logs.
- * Run: npm run db:seed  (idempotent-ish: wipes and recreates demo content) */
+ * Run: npm run db:seed  (idempotent-ish: wipes and recreates demo content)
+ * Targets the local PGlite store; to seed a hosted DB (docs/09-deployment.md),
+ * swap the PGlite client below for drizzle-orm/node-postgres + DATABASE_URL. */
 import { mkdirSync } from "fs";
 import { drizzle } from "drizzle-orm/pglite";
 import { PGlite } from "@electric-sql/pglite";
@@ -16,6 +18,7 @@ const {
   votes, saves, foods, foodLogs, waterLogs, recipes, recipeIngredients, recipeReviews,
   chains, restaurants, menuItems, menuItemOptionGroups, menuItemOptions, goToOrders,
   progressEntries, habits, habitLogs,
+  exercises, workouts, workoutLogs, personalRecords, mealPrepPlans, mealPrepItems,
 } = schema;
 
 // name, kcal, P, C, F per 100 g (fiber, sodium omitted for brevity)
@@ -249,6 +252,8 @@ async function main() {
   // wipe (dev convenience — order matters for FKs)
   for (const t of [
     "media_attachments", "photos",
+    "personal_records", "workout_logs", "workouts", "exercises",
+    "meal_prep_items", "meal_prep_plans", "grocery_items", "grocery_lists",
     "habit_logs", "habits", "progress_entries", "go_to_orders",
     "menu_item_options", "menu_item_option_groups",
     "food_logs", "water_logs", "recipe_reviews", "recipe_ingredients", "comments",
@@ -798,6 +803,193 @@ async function main() {
     if (days.length) await db.insert(habitLogs).values(days.map((o) => ({ habitId: habit.id, logDate: day(o) })));
   }
   console.log(`  ${weights.length} progress entries, ${habitDefs.length} habits`);
+
+  // ─── exercises library + workouts (templates + community) ──────────────────
+  const EXERCISES: [name: string, muscles: string[], equipment: string, bodyweight?: 1][] = [
+    ["Barbell Back Squat", ["quads", "glutes"], "barbell"],
+    ["Front Squat", ["quads", "core"], "barbell"],
+    ["Barbell Bench Press", ["chest", "triceps"], "barbell"],
+    ["Incline Dumbbell Press", ["chest", "shoulders"], "dumbbell"],
+    ["Deadlift", ["hamstrings", "back"], "barbell"],
+    ["Romanian Deadlift", ["hamstrings", "glutes"], "barbell"],
+    ["Overhead Press", ["shoulders", "triceps"], "barbell"],
+    ["Barbell Row", ["back", "biceps"], "barbell"],
+    ["Lat Pulldown", ["back", "biceps"], "cable"],
+    ["Pull-up", ["back", "biceps"], "bodyweight", 1],
+    ["Push-up", ["chest", "triceps"], "bodyweight", 1],
+    ["Dip", ["chest", "triceps"], "bodyweight", 1],
+    ["Dumbbell Lunge", ["quads", "glutes"], "dumbbell"],
+    ["Leg Press", ["quads", "glutes"], "machine"],
+    ["Leg Curl", ["hamstrings"], "machine"],
+    ["Calf Raise", ["calves"], "machine"],
+    ["Dumbbell Curl", ["biceps"], "dumbbell"],
+    ["Triceps Pushdown", ["triceps"], "cable"],
+    ["Lateral Raise", ["shoulders"], "dumbbell"],
+    ["Face Pull", ["rear delts", "upper back"], "cable"],
+    ["Plank", ["core"], "bodyweight", 1],
+    ["Hanging Leg Raise", ["core"], "bodyweight", 1],
+    ["Hip Thrust", ["glutes"], "barbell"],
+    ["Seated Cable Row", ["back"], "cable"],
+    ["Goblet Squat", ["quads", "glutes"], "dumbbell"],
+    ["Farmer's Carry", ["grip", "core"], "dumbbell"],
+    ["Rowing Machine", ["full body"], "machine"],
+    ["Treadmill Run", ["cardio"], "machine"],
+  ];
+  const exerciseRows = await db
+    .insert(exercises)
+    .values(EXERCISES.map(([name, muscleGroups, equipment, bw]) => ({ name, muscleGroups, equipment, isBodyweight: bw === 1 })))
+    .returning();
+  const exByName = new Map(exerciseRows.map((e) => [e.name, e]));
+  const ex = (name: string) => {
+    const row = exByName.get(name);
+    if (!row) throw new Error(`Seed exercise missing: ${name}`);
+    return row.id;
+  };
+  console.log(`  ${exerciseRows.length} exercises`);
+
+  type WDef = {
+    author: string | null; // null = official template
+    title: string; description: string; kind: string; difficulty: number; est: number;
+    structure: [exercise: string, sets: number, reps: string][];
+    completed?: number; saves?: number;
+  };
+  const WORKOUTS: WDef[] = [
+    {
+      author: null, title: "Full Body Starter A", kind: "strength", difficulty: 1, est: 45,
+      description: "Three compound lifts, three accessories. Run A/B alternating, 3 days a week.",
+      structure: [["Barbell Back Squat", 3, "5"], ["Barbell Bench Press", 3, "5"], ["Barbell Row", 3, "8"], ["Plank", 3, "45s"], ["Dumbbell Curl", 2, "12"], ["Calf Raise", 3, "15"]],
+    },
+    {
+      author: null, title: "Full Body Starter B", kind: "strength", difficulty: 1, est: 45,
+      description: "The B day: hinge + press + pull. Pairs with Starter A.",
+      structure: [["Deadlift", 3, "5"], ["Overhead Press", 3, "5"], ["Lat Pulldown", 3, "10"], ["Dumbbell Lunge", 3, "10"], ["Face Pull", 3, "15"]],
+    },
+    {
+      author: null, title: "Push Day (PPL)", kind: "strength", difficulty: 3, est: 60,
+      description: "Chest / shoulders / triceps volume day from the classic PPL split.",
+      structure: [["Barbell Bench Press", 4, "6-8"], ["Overhead Press", 3, "8-10"], ["Incline Dumbbell Press", 3, "10-12"], ["Lateral Raise", 4, "12-15"], ["Triceps Pushdown", 3, "12-15"], ["Dip", 3, "AMRAP"]],
+    },
+    {
+      author: "coach_dan", title: "Dan's 40-min Lunch Break Full Body", kind: "strength", difficulty: 2, est: 40,
+      description: "For my clients who 'don't have time'. Superset everything, leave strong.",
+      structure: [["Goblet Squat", 3, "10"], ["Push-up", 3, "AMRAP"], ["Seated Cable Row", 3, "10"], ["Romanian Deadlift", 3, "10"], ["Farmer's Carry", 3, "40m"]],
+      completed: 23, saves: 11,
+    },
+    {
+      author: "coach_dan", title: "Glute Hypertrophy Day", kind: "strength", difficulty: 3, est: 55,
+      description: "Hip thrust focus, quads and hamstrings supporting cast.",
+      structure: [["Hip Thrust", 4, "8-10"], ["Barbell Back Squat", 3, "8"], ["Romanian Deadlift", 3, "10"], ["Dumbbell Lunge", 3, "12"], ["Leg Curl", 3, "12-15"]],
+      completed: 9, saves: 6,
+    },
+  ];
+  const workoutIdByTitle = new Map<string, string>();
+  for (const w of WORKOUTS) {
+    const [row] = await db
+      .insert(workouts)
+      .values({
+        authorId: w.author ? userByUsername.get(w.author)! : null,
+        title: w.title, description: w.description, kind: w.kind,
+        difficulty: w.difficulty, estDurationMin: w.est, isTemplate: w.author == null,
+        structure: w.structure.map(([name, sets, reps]) => ({ exerciseId: ex(name), sets, reps })),
+        completedCount: w.completed ?? 0, saveCount: w.saves ?? 0,
+      })
+      .returning();
+    workoutIdByTitle.set(w.title, row.id);
+  }
+  console.log(`  ${WORKOUTS.length} workouts (${WORKOUTS.filter((w) => !w.author).length} templates)`);
+
+  // demo's training history + the PRs it produced (Epley e1rm, capped at 12 reps)
+  const e1rm = (w: number, r: number) => Math.round(w * (1 + Math.min(r, 12) / 30) * 10) / 10;
+  const sessions: { daysAgo: number; sets: [exercise: string, weightKg: number, reps: number][] }[] = [
+    { daysAgo: 6, sets: [["Barbell Back Squat", 100, 5], ["Barbell Bench Press", 75, 5], ["Barbell Row", 65, 8]] },
+    { daysAgo: 4, sets: [["Deadlift", 130, 5], ["Overhead Press", 45, 5], ["Lat Pulldown", 55, 10]] },
+    { daysAgo: 1, sets: [["Barbell Back Squat", 105, 5], ["Barbell Bench Press", 77.5, 4], ["Barbell Row", 67.5, 8]] },
+  ];
+  for (const s of sessions) {
+    const entriesByEx = new Map<string, { reps: number; weightKg: number }[]>();
+    for (const [name, weightKg, reps] of s.sets) {
+      const id = ex(name);
+      entriesByEx.set(id, [...(entriesByEx.get(id) ?? []), { reps, weightKg }, { reps, weightKg }, { reps: Math.max(1, reps - 1), weightKg }]);
+    }
+    const [log] = await db
+      .insert(workoutLogs)
+      .values({
+        userId: demoUserId,
+        workoutId: workoutIdByTitle.get("Full Body Starter A"),
+        performedAt: new Date(Date.now() - s.daysAgo * 86400_000),
+        durationMin: 48,
+        entries: [...entriesByEx.entries()].map(([exerciseId, sets]) => ({ exerciseId, sets })),
+      })
+      .returning();
+    // PRs: keep the best e1rm/volume seen so far per exercise
+    for (const [exerciseId, sets] of entriesByEx) {
+      const bestE = Math.max(...sets.map((st) => e1rm(st.weightKg, st.reps)));
+      const vol = sets.reduce((a, st) => a + st.weightKg * st.reps, 0);
+      for (const [metric, value] of [["e1rm", bestE], ["volume", vol]] as const) {
+        const [existing] = await db
+          .select()
+          .from(personalRecords)
+          .where(sql`user_id = ${demoUserId} AND exercise_id = ${exerciseId} AND metric = ${metric}`);
+        if (!existing) {
+          await db.insert(personalRecords).values({ userId: demoUserId, exerciseId, metric, value, workoutLogId: log.id, achievedAt: log.performedAt });
+        } else if (value > existing.value) {
+          await db.update(personalRecords).set({ value, workoutLogId: log.id, achievedAt: log.performedAt }).where(sql`id = ${existing.id}`);
+        }
+      }
+    }
+  }
+  console.log(`  ${sessions.length} demo workout sessions + PRs`);
+
+  // ─── meal prep plans composed from seeded recipes ───────────────────────────
+  const PLANS: { author: string; title: string; description: string; days: number; storage: string; items: [recipeName: string, servings: number][]; ups: number; savesN: number }[] = [
+    {
+      author: "prep_king", title: "The $40 Cutting Week", days: 5,
+      description: "Five lunches, five dinners, two breakfasts on repeat. Boring? Maybe. 150g protein a day under 2100 kcal? Absolutely.",
+      storage: "Everything keeps 4 days in the fridge; freeze Friday's chili portion.",
+      items: [["Meal Prep Chicken Burrito Bowls", 5], ["Turkey Chili (Big Batch)", 5], ["Protein Overnight Oats", 5]],
+      ups: 14, savesN: 9,
+    },
+    {
+      author: "chef_maria", title: "Lean Bulk Foundation Week", days: 5,
+      description: "Surplus without the seed oils. Beef bowls for size, salmon for sanity.",
+      storage: "Beef bowls fridge 4 days. Cook salmon fresh — 12 minutes, worth it.",
+      items: [["Beef & Rice Power Bowls", 8], ["Air Fryer Salmon & Sweet Potato", 4], ["Post-Workout Protein Pancakes", 3]],
+      ups: 8, savesN: 5,
+    },
+  ];
+  for (const p of PLANS) {
+    const memberRows = p.items.map(([name, servings], i) => {
+      const rec = recipeIds.find((r) => r.name === name);
+      if (!rec) throw new Error(`Seed plan recipe missing: ${name}`);
+      return { recipeId: rec.id, servings, position: i };
+    });
+    const fullRecipes = await db.select().from(recipes).where(inArray(recipes.id, memberRows.map((m) => m.recipeId)));
+    const byId = new Map(fullRecipes.map((r) => [r.id, r]));
+    const totalServings = memberRows.reduce((a, m) => a + m.servings, 0);
+    const tot = { calories: 0, proteinG: 0, carbsG: 0, fatG: 0, cost: 0 };
+    for (const m of memberRows) {
+      const r = byId.get(m.recipeId)!;
+      tot.calories += r.calories * m.servings;
+      tot.proteinG += r.proteinG * m.servings;
+      tot.carbsG += r.carbsG * m.servings;
+      tot.fatG += r.fatG * m.servings;
+      tot.cost += (r.costCents ?? 0) * m.servings;
+    }
+    const per = (n: number) => Math.round((n / totalServings) * 10) / 10;
+    const [plan] = await db
+      .insert(mealPrepPlans)
+      .values({
+        authorId: userByUsername.get(p.author)!,
+        title: p.title, description: p.description, daysCovered: p.days,
+        totalServings: Math.round(totalServings), storageNotes: p.storage,
+        calories: per(tot.calories), proteinG: per(tot.proteinG), carbsG: per(tot.carbsG), fatG: per(tot.fatG),
+        costPerServingCents: Math.round(tot.cost / totalServings),
+        upvotes: p.ups, saveCount: p.savesN,
+      })
+      .returning();
+    await db.insert(mealPrepItems).values(memberRows.map((m) => ({ planId: plan.id, ...m })));
+  }
+  console.log(`  ${PLANS.length} meal prep plans`);
 
   console.log("Done. Sign in as demo@macromap.app / password123 (admin@macromap.app for /admin/imports)");
   await client.close();
