@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getCurrentUser } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { listRecipes, getSuggestedUsers } from "@/lib/queries";
 import { RecipeCard } from "@/components/RecipeCard";
 import { Card, UserChip, btnGhost } from "@/components/ui";
@@ -24,7 +24,7 @@ function Shelf({ title, href, children }: { title: string; href?: string; childr
 }
 
 export default async function DiscoverPage() {
-  const user = (await getCurrentUser())!;
+  const user = await requireUser();
   const [trending, highProtein, fresh, creators] = await Promise.all([
     listRecipes({ sort: "hot", limit: 6 }),
     listRecipes({ sort: "protein", limit: 6 }),

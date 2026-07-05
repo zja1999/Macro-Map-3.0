@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ilike, desc } from "drizzle-orm";
 import { db } from "@/db/client";
 import { foods } from "@/db/schema";
-import { getCurrentUser } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { getSavedRecipes, getFrequents } from "@/lib/queries";
 import { getMyOrders, getMyUsuals } from "@/lib/restaurants";
 import { searchFallback, type FallbackFood } from "@/lib/fallback-foods";
@@ -19,7 +19,7 @@ export default async function AddFoodPage({
 }: {
   searchParams: Promise<{ date?: string; slot?: string; q?: string; tab?: string }>;
 }) {
-  const user = (await getCurrentUser())!;
+  const user = await requireUser();
   const sp = await searchParams;
   const date = /^\d{4}-\d{2}-\d{2}$/.test(sp.date ?? "") ? sp.date! : todayStr();
   const slot = MEAL_SLOTS.includes((sp.slot ?? "") as (typeof MEAL_SLOTS)[number]) ? sp.slot! : "snack";
@@ -186,7 +186,7 @@ export default async function AddFoodPage({
                     type="number"
                     name="servings"
                     defaultValue={1}
-                    step={0.25}
+                    step="any"
                     min={0.1}
                     max={50}
                     className={`${inputCls} w-16 px-2 py-1 text-center`}

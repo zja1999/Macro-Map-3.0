@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { challenges, groupMembers, groups, profiles } from "@/db/schema";
-import { getCurrentUser } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { getGroupFeed } from "@/lib/queries";
 import { todayStr } from "@/lib/utils";
 import { toggleGroupMembership } from "@/actions/groups";
@@ -12,7 +12,7 @@ import { PostComposer } from "@/components/PostComposer";
 import { PostCard } from "@/components/PostCard";
 
 export default async function GroupPage({ params }: { params: Promise<{ slug: string }> }) {
-  const user = (await getCurrentUser())!;
+  const user = await requireUser();
   const { slug } = await params;
 
   const [group] = await db.select().from(groups).where(eq(groups.slug, slug)).limit(1);

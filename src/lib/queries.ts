@@ -220,10 +220,13 @@ export async function getWeekSummary(userId: string, endDate: string) {
 }
 
 export async function getStreak(userId: string, fromDate: string): Promise<number> {
+  // runs in the shell layout on every page — bound the scan to the last year
+  // (a 365+ day streak displays as 365; revisit if that's ever a real complaint)
   const rows = await db
     .selectDistinct({ logDate: foodLogs.logDate })
     .from(foodLogs)
-    .where(eq(foodLogs.userId, userId));
+    .where(and(eq(foodLogs.userId, userId), gte(foodLogs.logDate, shiftDate(fromDate, -366))))
+    .limit(400);
   return streakFromDates(new Set(rows.map((r) => r.logDate)), fromDate);
 }
 

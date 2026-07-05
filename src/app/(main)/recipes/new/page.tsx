@@ -1,13 +1,13 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { foods, personalIngredients } from "@/db/schema";
-import { getCurrentUser } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { RecipeForm, type FoodOption } from "@/components/RecipeForm";
 
 export const metadata = { title: "Submit recipe" };
 
 export default async function NewRecipePage() {
-  const user = (await getCurrentUser())!;
+  const user = await requireUser();
   const [foodRows, personalRows] = await Promise.all([
     db
       .select({

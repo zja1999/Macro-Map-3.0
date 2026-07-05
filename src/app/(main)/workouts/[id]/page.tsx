@@ -3,13 +3,13 @@ import { notFound } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { saves } from "@/db/schema";
-import { getCurrentUser } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { getWorkoutWithExercises } from "@/lib/workouts";
 import { toggleSaveWorkout } from "@/actions/workouts";
 import { Card, Badge, btnGhost } from "@/components/ui";
 
 export default async function WorkoutDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const user = (await getCurrentUser())!;
+  const user = await requireUser();
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
 

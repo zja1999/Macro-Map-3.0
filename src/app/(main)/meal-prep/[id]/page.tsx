@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db/client";
 import { mealPrepItems, mealPrepPlans, profiles, recipes, saves, votes } from "@/db/schema";
-import { getCurrentUser } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { todayStr, MEAL_SLOTS, slotForNow } from "@/lib/utils";
 import { votePlan, toggleSavePlan } from "@/actions/mealPreps";
 import { addPlanToGroceries } from "@/actions/groceries";
@@ -12,7 +12,7 @@ import { Card, UserChip, btnGhost } from "@/components/ui";
 import { MacroPills } from "@/components/macros";
 
 export default async function MealPrepDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const user = (await getCurrentUser())!;
+  const user = await requireUser();
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
 

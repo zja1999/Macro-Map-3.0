@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { getRemainingMacros } from "@/lib/queries";
 import { geocode, getAroundMe, getSavedRestaurantSubjectIds, type AroundMeFilters } from "@/lib/restaurants";
 import { todayStr, slotForNow } from "@/lib/utils";
@@ -30,7 +30,7 @@ type SP = {
 };
 
 export default async function RestaurantsPage({ searchParams }: { searchParams: Promise<SP> }) {
-  const user = (await getCurrentUser())!;
+  const user = await requireUser();
   const sp = await searchParams;
 
   // address search → Nominatim → canonical lat/lng URL

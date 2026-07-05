@@ -1,4 +1,4 @@
-import { getCurrentUser } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { SettingsForms, ClaimAccountForm, FeedbackForm } from "@/components/SettingsForms";
 
 export const metadata = { title: "Settings" };
@@ -8,7 +8,7 @@ export default async function SettingsPage({
 }: {
   searchParams: Promise<{ claimed?: string }>;
 }) {
-  const user = (await getCurrentUser())!;
+  const user = await requireUser();
   const { claimed } = await searchParams;
   return (
     <div className="mx-auto max-w-xl space-y-6">

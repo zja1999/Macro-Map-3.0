@@ -2,7 +2,7 @@
 
 A community-driven macro tracking, recipe, meal prep, restaurant, and workout platform — MyFitnessPal's data layer with Strava's social graph and Reddit's content ranking, minus the AI prompt box. The community is the content engine: users discover, share, vote on, save, log, and discuss recipes, meal preps, restaurant orders, and workouts created by other users.
 
-**Status:** Phases 0–6 built and running — auth (+ guest mode), onboarding, macro tracker, community recipes (+ personal ingredient library), social feed, profiles, restaurants ("Around me" map/list, build-a-bowl, go-to orders), progress dashboard + habits, workouts (logger with PR detection, community workouts, templates), grocery lists, meal prep plans, groups, auto-scored challenges, and the moderation stack (reports → admin queue → audit log, rate limits, content warnings). Admin tools live at `/admin/reports` and `/admin/imports` (admin@macromap.app / password123). Remaining: Phase 7 beta hardening (docs/08 §3). Full design in [`docs/`](docs/); deployment guide in [docs/09-deployment.md](docs/09-deployment.md).
+**Status:** All 8 dev phases (0–7) built — the full MVP vertical slice is running: auth (+ guest mode), onboarding, macro tracker, community recipes (+ personal ingredient library), social feed, profiles, restaurants ("Around me" map/list, build-a-bowl, go-to orders), progress dashboard + habits (+ no-scale mode), workouts (logger with PR detection, community workouts, templates), grocery lists, meal prep plans, groups, auto-scored challenges, the moderation stack (reports → admin queue → audit log, rate limits, content warnings), Playwright e2e on the critical flows, and PWA installability with an offline shell. Admin tools live at `/admin/reports` and `/admin/imports` (admin@macromap.app / password123). Full design in [`docs/`](docs/); deployment guide in [docs/09-deployment.md](docs/09-deployment.md).
 
 ## Run it
 
@@ -14,7 +14,15 @@ npm run dev        # http://localhost:3000
 
 Demo login: **demo@macromap.app** / **password123** (pre-onboarded, follows the seeded creators, has a logged diary). Or register a fresh account to walk the onboarding wizard.
 
-Dev database lives in `./.data/pglite` (gitignored). To reset: delete `.data/` and rerun `npm run db:setup`. For hosted Postgres later, swap the driver in [src/db/client.ts](src/db/client.ts) — schema and queries are Postgres-native.
+Dev database lives in `./.data/pglite` (gitignored). To reset: delete `.data/` and rerun `npm run db:setup`. Setting `DATABASE_URL` switches to hosted Postgres automatically ([src/db/client.ts](src/db/client.ts), [docs/09-deployment.md](docs/09-deployment.md)).
+
+E2E tests (Playwright against the dev server — start `npm run dev` first, or let the config spawn one):
+
+```bash
+npm run test:e2e
+```
+
+Note: PGlite allows one process on the data dir — don't run `npm run build` while the dev server is up (it corrupts `.next`), and expect harmless WASM warnings during builds (parallel build workers touching PGlite; absent with `DATABASE_URL`).
 
 ## Design documents
 

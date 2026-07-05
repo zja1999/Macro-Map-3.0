@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { and, eq, asc } from "drizzle-orm";
 import { db } from "@/db/client";
 import { recipes, recipeIngredients, profiles, foods, contentWarnings } from "@/db/schema";
-import { getCurrentUser } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { getRecipeInteractions } from "@/lib/queries";
 import { todayStr, MEAL_SLOTS } from "@/lib/utils";
 import { voteRecipe, toggleSaveRecipe, reviewRecipe } from "@/actions/recipes";
@@ -16,7 +16,7 @@ import { CommentSection } from "@/components/CommentSection";
 import { ReportButton } from "@/components/ReportButton";
 
 export default async function RecipePage({ params }: { params: Promise<{ id: string }> }) {
-  const user = (await getCurrentUser())!;
+  const user = await requireUser();
   const { id } = await params;
 
   const [row] = await db

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 
 export default async function MePage() {
-  const user = (await getCurrentUser())!;
+  const user = await requireUser();
   redirect(`/u/${user.profile.username}`);
 }

@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { createHash, randomBytes } from "crypto";
 import { eq, gt, and, desc } from "drizzle-orm";
 import { cache } from "react";
@@ -73,3 +74,11 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     targets: targets[0] ?? null,
   };
 });
+
+/** Page-level session guard. Layouts redirect too, but Next renders pages in
+ *  parallel with layouts — pages must not assume the layout got there first. */
+export async function requireUser(): Promise<CurrentUser> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  return user;
+}

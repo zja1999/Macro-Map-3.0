@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getCurrentUser } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { listWorkouts, getSavedWorkouts, getRecentWorkoutLogs, getMyPrs, prLabel } from "@/lib/workouts";
 import { sharePr } from "@/actions/workouts";
 import { timeAgo } from "@/lib/utils";
@@ -12,7 +12,7 @@ export default async function WorkoutsPage({
 }: {
   searchParams: Promise<{ tab?: string; logged?: string; prs?: string }>;
 }) {
-  const user = (await getCurrentUser())!;
+  const user = await requireUser();
   const sp = await searchParams;
   const tab = sp.tab === "templates" ? "templates" : sp.tab === "saved" ? "saved" : sp.tab === "mine" ? "mine" : "community";
 

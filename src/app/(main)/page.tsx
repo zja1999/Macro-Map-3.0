@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getCurrentUser } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { getFeed, getSuggestedUsers } from "@/lib/queries";
 import { PostCard } from "@/components/PostCard";
 import { PostComposer } from "@/components/PostComposer";
@@ -11,7 +11,7 @@ export default async function FeedPage({
 }: {
   searchParams: Promise<{ tab?: string }>;
 }) {
-  const user = (await getCurrentUser())!;
+  const user = await requireUser();
   const { tab } = await searchParams;
   const scope = tab === "trending" ? "trending" : "following";
   const [feed, suggested] = await Promise.all([getFeed(user.id, scope), getSuggestedUsers(user.id, 4)]);

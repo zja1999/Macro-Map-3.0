@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getCurrentUser } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { listRecipes, getSavedRecipes, type RecipeSort } from "@/lib/queries";
 import { RECIPE_TAGS } from "@/lib/utils";
 import { RecipeCard } from "@/components/RecipeCard";
@@ -19,7 +19,7 @@ export default async function RecipesPage({
 }: {
   searchParams: Promise<{ q?: string; tag?: string; sort?: string; view?: string }>;
 }) {
-  const user = (await getCurrentUser())!;
+  const user = await requireUser();
   const sp = await searchParams;
   const sort = (SORTS.find((s) => s.key === sp.sort)?.key ?? "hot") as RecipeSort;
   const tag = RECIPE_TAGS.includes((sp.tag ?? "") as (typeof RECIPE_TAGS)[number]) ? sp.tag : undefined;

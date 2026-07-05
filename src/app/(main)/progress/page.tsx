@@ -1,4 +1,4 @@
-import { getCurrentUser } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { getProgressEntries, getProgressPhotos, getHabitsWithStreaks, getWeekSummary } from "@/lib/queries";
 import { ensureDefaultHabits, toggleHabit, addHabit, archiveHabit } from "@/actions/progress";
 import { todayStr, formatDateLabel } from "@/lib/utils";
@@ -34,7 +34,7 @@ function WeightChart({ points }: { points: { date: string; kg: number }[] }) {
 }
 
 export default async function ProgressPage() {
-  const user = (await getCurrentUser())!;
+  const user = await requireUser();
   const today = todayStr();
   await ensureDefaultHabits(user.id);
 
@@ -69,40 +69,55 @@ export default async function ProgressPage() {
 
   const loggedDays = week.length;
 
+  // No-scale mode (docs/07 §4): weight prompts, charts, and measurements are
+  // suppressed globally — habits and adherence carry the page instead.
+  const noScale = user.profile.trackingStyle === "no_scale";
+
   return (
     <div className="mx-auto max-w-xl space-y-4">
       <h1 className="text-base font-bold">📈 Progress</h1>
 
+      {noScale && (
+        <p className="rounded-xl border border-edge bg-card px-4 py-3 text-xs text-ink-dim">
+          You&apos;re tracking <span className="font-semibold text-accent">scale-free</span> — progress here is habits
+          and consistency, not weight. You can change this any time in your tracking style.
+        </p>
+      )}
+
       {/* weigh-in */}
-      <Card className="p-4">
-        <h2 className="mb-3 text-sm font-semibold">
-          {latest?.entryDate === today ? "Today's entry (edits merge in)" : "Log a weigh-in"}
-        </h2>
-        <WeighInForm today={today} />
-      </Card>
+      {!noScale && (
+        <Card className="p-4">
+          <h2 className="mb-3 text-sm font-semibold">
+            {latest?.entryDate === today ? "Today's entry (edits merge in)" : "Log a weigh-in"}
+          </h2>
+          <WeighInForm today={today} />
+        </Card>
+      )}
 
       {/* weight trend */}
-      <Card className="p-4">
-        <div className="mb-2 flex items-baseline justify-between">
-          <h2 className="text-sm font-semibold">Weight trend</h2>
-          {delta != null && weightPoints.length >= 2 && (
-            <span className={`text-xs font-semibold tabular-nums ${delta <= 0 ? "text-accent" : "text-carbs"}`}>
-              {delta > 0 ? "+" : ""}
-              {delta.toFixed(1)} kg since {formatDateLabel(weightPoints[0].date)}
-            </span>
+      {!noScale && (
+        <Card className="p-4">
+          <div className="mb-2 flex items-baseline justify-between">
+            <h2 className="text-sm font-semibold">Weight trend</h2>
+            {delta != null && weightPoints.length >= 2 && (
+              <span className={`text-xs font-semibold tabular-nums ${delta <= 0 ? "text-accent" : "text-carbs"}`}>
+                {delta > 0 ? "+" : ""}
+                {delta.toFixed(1)} kg since {formatDateLabel(weightPoints[0].date)}
+              </span>
+            )}
+          </div>
+          {weightPoints.length >= 2 ? (
+            <WeightChart points={weightPoints} />
+          ) : (
+            <p className="py-4 text-center text-xs text-ink-faint">
+              Log two or more weigh-ins to see your trend line.
+            </p>
           )}
-        </div>
-        {weightPoints.length >= 2 ? (
-          <WeightChart points={weightPoints} />
-        ) : (
-          <p className="py-4 text-center text-xs text-ink-faint">
-            Log two or more weigh-ins to see your trend line.
-          </p>
-        )}
-      </Card>
+        </Card>
+      )}
 
       {/* measurements */}
-      {measurements.length > 0 && (
+      {!noScale && measurements.length > 0 && (
         <Card className="p-4">
           <h2 className="mb-2 text-sm font-semibold">Latest measurements</h2>
           <div className="flex flex-wrap gap-2">
@@ -195,7 +210,7 @@ export default async function ProgressPage() {
       </Card>
 
       {/* history */}
-      {entries.length > 0 ? (
+      {!noScale && entries.length > 0 ? (
         <Card className="p-4">
           <h2 className="mb-2 text-sm font-semibold">History</h2>
           <ul className="divide-y divide-edge">
@@ -212,9 +227,9 @@ export default async function ProgressPage() {
             ))}
           </ul>
         </Card>
-      ) : (
+      ) : !noScale ? (
         <EmptyState title="No entries yet" hint="Weigh-ins, measurements, and habits all live here — private by default." />
-      )}
+      ) : null}
 
       <p className="text-center text-[10px] text-ink-faint">Everything on this page is private by default.</p>
     </div>

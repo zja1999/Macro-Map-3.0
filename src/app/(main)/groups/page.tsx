@@ -2,7 +2,7 @@ import Link from "next/link";
 import { desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db/client";
 import { groupMembers, groups } from "@/db/schema";
-import { getCurrentUser } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { toggleGroupMembership } from "@/actions/groups";
 import { Card, Badge, EmptyState } from "@/components/ui";
 import { GroupCreateForm } from "./GroupCreateForm";
@@ -18,7 +18,7 @@ const KIND_EMOJI: Record<string, string> = {
 };
 
 export default async function GroupsPage() {
-  const user = (await getCurrentUser())!;
+  const user = await requireUser();
   const rows = await db.select().from(groups).orderBy(desc(groups.memberCount)).limit(50);
   const myMemberships = rows.length
     ? await db

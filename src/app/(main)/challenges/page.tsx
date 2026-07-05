@@ -2,7 +2,7 @@ import Link from "next/link";
 import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { groupMembers, groups } from "@/db/schema";
-import { getCurrentUser } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { listChallenges } from "@/lib/challenges";
 import { joinChallenge } from "@/actions/groups";
 import { todayStr, shiftDate } from "@/lib/utils";
@@ -12,7 +12,7 @@ import { ChallengeCreateForm } from "./ChallengeCreateForm";
 export const metadata = { title: "Challenges" };
 
 export default async function ChallengesPage() {
-  const user = (await getCurrentUser())!;
+  const user = await requireUser();
   const [rows, myGroups] = await Promise.all([
     listChallenges(user.id),
     db

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { asc, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { groceryItems, groceryLists, recipes } from "@/db/schema";
-import { getCurrentUser } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { addGroceryItem, toggleGroceryItem, deleteGroceryItem, clearPurchased } from "@/actions/groceries";
 import { Card, EmptyState, inputCls, btnGhost } from "@/components/ui";
 
@@ -23,7 +23,7 @@ export default async function GroceriesPage({
 }: {
   searchParams: Promise<{ added?: string }>;
 }) {
-  const user = (await getCurrentUser())!;
+  const user = await requireUser();
   const { added } = await searchParams;
 
   const [list] = await db.select().from(groceryLists).where(eq(groceryLists.userId, user.id)).limit(1);

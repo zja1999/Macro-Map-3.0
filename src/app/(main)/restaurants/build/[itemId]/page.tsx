@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { chains, menuItems } from "@/db/schema";
-import { getCurrentUser } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { getRemainingMacros } from "@/lib/queries";
 import { getOptionGroups } from "@/lib/restaurants";
 import { todayStr, slotForNow } from "@/lib/utils";
@@ -12,7 +12,7 @@ import { BowlBuilder } from "@/components/BowlBuilder";
 export const metadata = { title: "Build your order" };
 
 export default async function BuildPage({ params }: { params: Promise<{ itemId: string }> }) {
-  const user = (await getCurrentUser())!;
+  const user = await requireUser();
   const { itemId } = await params;
   if (!/^[0-9a-f-]{36}$/.test(itemId)) notFound();
 

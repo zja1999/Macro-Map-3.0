@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { getRemainingMacros } from "@/lib/queries";
 import { getChainWithItems, getPopularOrders, getSavedRestaurantSubjectIds, fitLabel } from "@/lib/restaurants";
 import { todayStr, slotForNow } from "@/lib/utils";
@@ -9,7 +9,7 @@ import { Card, Badge } from "@/components/ui";
 import { MacroPills } from "@/components/macros";
 
 export default async function ChainPage({ params }: { params: Promise<{ chainId: string }> }) {
-  const user = (await getCurrentUser())!;
+  const user = await requireUser();
   const { chainId } = await params;
   if (!/^[0-9a-f-]{36}$/.test(chainId)) notFound();
 

@@ -3,14 +3,14 @@ import { notFound } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { challenges, groups } from "@/db/schema";
-import { getCurrentUser } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { getLeaderboard, CHALLENGE_METRICS } from "@/lib/challenges";
 import { joinChallenge, checkinChallenge } from "@/actions/groups";
 import { todayStr } from "@/lib/utils";
 import { Card, Badge, Avatar, btnGhost } from "@/components/ui";
 
 export default async function ChallengeDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const user = (await getCurrentUser())!;
+  const user = await requireUser();
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
 

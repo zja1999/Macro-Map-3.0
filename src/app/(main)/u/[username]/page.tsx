@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { getProfileByUsername, getFollowStats, getUserPosts, listRecipes } from "@/lib/queries";
 import { toggleFollow } from "@/actions/social";
 import { logout } from "@/actions/auth";
@@ -15,7 +15,7 @@ export default async function ProfilePage({
   params: Promise<{ username: string }>;
   searchParams: Promise<{ tab?: string }>;
 }) {
-  const viewer = (await getCurrentUser())!;
+  const viewer = await requireUser();
   const { username } = await params;
   const { tab } = await searchParams;
 

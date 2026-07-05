@@ -62,7 +62,8 @@ export async function submitRecipe(
   let payload: z.infer<typeof submitSchema>;
   try {
     payload = submitSchema.parse({
-      ...Object.fromEntries(formData),
+      // empty optional inputs must be absent, not "" — z.coerce turns "" into 0
+      ...Object.fromEntries([...formData.entries()].filter(([, v]) => v !== "")),
       tags: formData.getAll("tags"),
       ingredients: JSON.parse(String(formData.get("ingredients") ?? "[]")),
     });
