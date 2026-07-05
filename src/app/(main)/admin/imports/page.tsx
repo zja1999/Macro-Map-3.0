@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { desc, eq } from "drizzle-orm";
 import { db } from "@/db/client";
@@ -22,7 +23,12 @@ export default async function AdminImportsPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
-      <h1 className="text-base font-bold">🛠 Nutrition data import</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-base font-bold">🛠 Nutrition data import</h1>
+        <Link href="/admin/reports" className="text-xs text-accent hover:underline">
+          Reports queue →
+        </Link>
+      </div>
       <p className="text-xs text-ink-dim">
         Paste CSV from chain nutrition pages or USDA exports. Rows are validated (required fields, numeric sanity,
         4/4/9 consistency) and deduplicated against the file and existing data. Every batch is logged below.

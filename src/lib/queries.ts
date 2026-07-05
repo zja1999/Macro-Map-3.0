@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, ilike, inArray, or, sql } from "drizzle-orm";
+import { and, desc, eq, gte, ilike, inArray, isNull, or, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import {
   posts,
@@ -36,13 +36,19 @@ export async function getFeed(viewerId: string, scope: "following" | "trending")
     .from(posts)
     .innerJoin(profiles, eq(profiles.userId, posts.authorId));
 
+  // home feeds exclude group posts (those live on the group page) and moderated content
+  const homeVisible = and(isNull(posts.groupId), eq(posts.isRemoved, false));
+
   let rows;
   if (scope === "following") {
     rows = await base
       .where(
-        or(
-          eq(posts.authorId, viewerId),
-          inArray(posts.authorId, db.select({ id: follows.followeeId }).from(follows).where(eq(follows.followerId, viewerId))),
+        and(
+          homeVisible,
+          or(
+            eq(posts.authorId, viewerId),
+            inArray(posts.authorId, db.select({ id: follows.followeeId }).from(follows).where(eq(follows.followerId, viewerId))),
+          ),
         ),
       )
       .orderBy(desc(posts.createdAt))
@@ -50,7 +56,7 @@ export async function getFeed(viewerId: string, scope: "following" | "trending")
   } else {
     const cutoff = new Date(Date.now() - 14 * 86400_000);
     rows = await base
-      .where(gte(posts.createdAt, cutoff))
+      .where(and(homeVisible, gte(posts.createdAt, cutoff)))
       .orderBy(desc(sql`${posts.reactionCount} * 3 + ${posts.commentCount} * 2`), desc(posts.createdAt))
       .limit(40);
   }
@@ -82,7 +88,7 @@ export async function getUserPosts(viewerId: string, authorId: string): Promise<
     .select({ post: posts, username: profiles.username, displayName: profiles.displayName, goal: profiles.goal })
     .from(posts)
     .innerJoin(profiles, eq(profiles.userId, posts.authorId))
-    .where(eq(posts.authorId, authorId))
+    .where(and(eq(posts.authorId, authorId), isNull(posts.groupId), eq(posts.isRemoved, false)))
     .orderBy(desc(posts.createdAt))
     .limit(40);
 
@@ -103,6 +109,32 @@ export async function getUserPosts(viewerId: string, authorId: string): Promise<
     post: r.post,
     author: { username: r.username, displayName: r.displayName, goal: r.goal },
     recipe: r.post.refId ? (recipeById.get(r.post.refId) ?? null) : null,
+    myReaction: myReactionByPost.get(r.post.id) ?? null,
+  }));
+}
+
+export async function getGroupFeed(viewerId: string, groupId: string): Promise<FeedPost[]> {
+  const rows = await db
+    .select({ post: posts, username: profiles.username, displayName: profiles.displayName, goal: profiles.goal })
+    .from(posts)
+    .innerJoin(profiles, eq(profiles.userId, posts.authorId))
+    .where(and(eq(posts.groupId, groupId), eq(posts.isRemoved, false)))
+    .orderBy(desc(posts.createdAt))
+    .limit(40);
+
+  const postIds = rows.map((r) => r.post.id);
+  const myReactions = postIds.length
+    ? await db
+        .select()
+        .from(reactions)
+        .where(and(eq(reactions.userId, viewerId), eq(reactions.subjectType, "post"), inArray(reactions.subjectId, postIds)))
+    : [];
+  const myReactionByPost = new Map(myReactions.map((r) => [r.subjectId, r.kind]));
+
+  return rows.map((r) => ({
+    post: r.post,
+    author: { username: r.username, displayName: r.displayName, goal: r.goal },
+    recipe: null, // group posts are text posts in MVP (docs/05 §4: tag-filtered tabs come later)
     myReaction: myReactionByPost.get(r.post.id) ?? null,
   }));
 }

@@ -19,6 +19,7 @@ const {
   chains, restaurants, menuItems, menuItemOptionGroups, menuItemOptions, goToOrders,
   progressEntries, habits, habitLogs,
   exercises, workouts, workoutLogs, personalRecords, mealPrepPlans, mealPrepItems,
+  groups, groupMembers, challenges, challengeParticipants, reports,
 } = schema;
 
 // name, kcal, P, C, F per 100 g (fiber, sodium omitted for brevity)
@@ -251,6 +252,8 @@ async function main() {
 
   // wipe (dev convenience — order matters for FKs)
   for (const t of [
+    "content_warnings", "moderation_actions", "reports",
+    "challenge_participants", "challenges", "group_members", "groups",
     "media_attachments", "photos",
     "personal_records", "workout_logs", "workouts", "exercises",
     "meal_prep_items", "meal_prep_plans", "grocery_items", "grocery_lists",
@@ -991,7 +994,105 @@ async function main() {
   }
   console.log(`  ${PLANS.length} meal prep plans`);
 
-  console.log("Done. Sign in as demo@macromap.app / password123 (admin@macromap.app for /admin/imports)");
+  // ─── groups, challenges, sample reports (Phase 6) ───────────────────────────
+  
+
+  const GROUPS: { name: string; slug: string; kind: string; description: string; owner: string; members: string[]; posts: [author: string, body: string][] }[] = [
+    {
+      name: "Cutting Crew", slug: "cutting-crew", kind: "goal", owner: "coach_dan",
+      description: "Deficit season, together. Protein high, patience higher.",
+      members: ["chef_maria", "demo"],
+      posts: [
+        ["coach_dan", "Weekly check-in thread 🧵 — drop your adherence % and one win from this week. Mine: 6/7 days on target, finally stopped snacking after dinner."],
+        ["demo", "First week in the group — 4/7 days on target. The burrito bowl prep is carrying me honestly."],
+        ["chef_maria", "Cutting tip: volume vegetables are free real estate. Half the plate, every plate."],
+      ],
+    },
+    {
+      name: "Meal Prep Sunday", slug: "meal-prep-sunday", kind: "interest", owner: "prep_king",
+      description: "One day of cooking, a week of not thinking about it. Show us your containers.",
+      members: ["chef_maria", "coach_dan"],
+      posts: [
+        ["prep_king", "This week's spread: turkey chili ×8, burrito bowls ×5, overnight oats ×5. 90 minutes total. Ask me anything."],
+        ["chef_maria", "Container recommendation thread — glass or the good plastic ones that don't stain? Wrong answers only."],
+      ],
+    },
+    {
+      name: "ATX Lifters", slug: "atx-lifters", kind: "location", owner: "coach_dan",
+      description: "Austin-area lifters. Gym meetups, PR celebrations, taco macro debates.",
+      members: ["demo"],
+      posts: [["coach_dan", "Saturday 9am squat session at Big Tex Gym — first-timers welcome, we'll sort your form out."]],
+    },
+  ];
+  const groupIdBySlug = new Map<string, string>();
+  for (const g of GROUPS) {
+    const memberCount = g.members.length + 1;
+    const [group] = await db
+      .insert(groups)
+      .values({ name: g.name, slug: g.slug, kind: g.kind, description: g.description, createdBy: userByUsername.get(g.owner)!, memberCount })
+      .returning();
+    groupIdBySlug.set(g.slug, group.id);
+    await db.insert(groupMembers).values([
+      { groupId: group.id, userId: userByUsername.get(g.owner)!, role: "owner" },
+      ...g.members.map((m) => ({ groupId: group.id, userId: userByUsername.get(m)! })),
+    ]);
+    let gt = 30;
+    for (const [author, body] of g.posts) {
+      await db.insert(posts).values({ authorId: userByUsername.get(author)!, type: "general", body, groupId: group.id, createdAt: hoursAgo(gt) });
+      gt -= 8;
+    }
+  }
+  console.log(`  ${GROUPS.length} groups with posts`);
+
+  const CHALLENGES: { title: string; description: string; metric: string; target: number; unit: string; startsOn: string; endsOn: string; group?: string; creator: string; participants: string[] }[] = [
+    {
+      title: "28-Day Protein Streak", description: "Hit your protein target (within 5%) on 20 of the next 28 days. Auto-scored from your diary.",
+      metric: "protein_days", target: 20, unit: "days", startsOn: day(-7), endsOn: day(21),
+      creator: "coach_dan", participants: ["demo", "chef_maria", "prep_king"],
+    },
+    {
+      title: "Log Everything Week", description: "7 straight days with every meal logged. The habit that makes every other habit measurable.",
+      metric: "logged_days", target: 7, unit: "days", startsOn: day(-3), endsOn: day(4),
+      group: "cutting-crew", creator: "coach_dan", participants: ["demo", "chef_maria"],
+    },
+    {
+      title: "12 Workouts in 30 Days", description: "Three a week, roughly. Any session logged counts.",
+      metric: "workouts", target: 12, unit: "sessions", startsOn: day(-10), endsOn: day(20),
+      creator: "prep_king", participants: ["demo", "coach_dan"],
+    },
+  ];
+  for (const c of CHALLENGES) {
+    const [challenge] = await db
+      .insert(challenges)
+      .values({
+        title: c.title, description: c.description, metric: c.metric, target: c.target, unit: c.unit,
+        startsOn: c.startsOn, endsOn: c.endsOn,
+        groupId: c.group ? groupIdBySlug.get(c.group)! : null,
+        createdBy: userByUsername.get(c.creator)!,
+      })
+      .returning();
+    await db.insert(challengeParticipants).values(
+      [c.creator, ...c.participants].map((u) => ({ challengeId: challenge.id, userId: userByUsername.get(u)! })),
+    );
+  }
+  console.log(`  ${CHALLENGES.length} challenges`);
+
+  // a couple of open reports so the admin queue demonstrates the pipeline
+  const spamPost = await db
+    .insert(posts)
+    .values({
+      authorId: userByUsername.get("prep_king")!, type: "general",
+      body: "🔥🔥 MELT FAT FAST with my new SUPPLEMENT STACK — DM me for the discount code!! Not medical advice 😉",
+      createdAt: hoursAgo(3),
+    })
+    .returning();
+  await db.insert(reports).values([
+    { reporterId: userByUsername.get("chef_maria")!, subjectType: "post", subjectId: spamPost[0].id, reason: "spam", detail: "Supplement affiliate spam, out of character for this account — possibly compromised?" },
+    { reporterId: userByUsername.get("demo")!, subjectType: "recipe", subjectId: recipeIds[0].id, reason: "inaccurate_macros", detail: "Weighed my batch and got ~15% more calories per bowl than listed." },
+  ]);
+  console.log("  2 open reports");
+
+  console.log("Done. Sign in as demo@macromap.app / password123 (admin@macromap.app for /admin/reports + /admin/imports)");
   await client.close();
 }
 

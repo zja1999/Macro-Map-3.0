@@ -105,6 +105,8 @@ export const posts = pgTable(
     body: text(),
     refType: text(), // recipe (more types later)
     refId: uuid(),
+    groupId: uuid(), // group feed post; excluded from home feeds (FK added via groups table below)
+    isRemoved: boolean().notNull().default(false), // moderation soft-hide; author sees a notice
     visibility: text().notNull().default("public"),
     commentCount: integer().notNull().default(0),
     reactionCount: integer().notNull().default(0),
@@ -693,4 +695,125 @@ export const mealPrepItems = pgTable(
     position: smallint().notNull().default(0),
   },
   (t) => [primaryKey({ columns: [t.planId, t.position] })],
+);
+
+// ─── groups & challenges (docs/05 §4–5) ──────────────────────────────────────
+
+export const groups = pgTable("groups", {
+  id: uuid().primaryKey().defaultRandom(),
+  name: text().notNull(),
+  slug: text().notNull().unique(),
+  description: text(),
+  kind: text().notNull().default("goal"), // goal | diet | location | gym | interest
+  memberCount: integer().notNull().default(0),
+  createdBy: uuid()
+    .notNull()
+    .references(() => users.id),
+  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+});
+
+export const groupMembers = pgTable(
+  "group_members",
+  {
+    groupId: uuid()
+      .notNull()
+      .references(() => groups.id, { onDelete: "cascade" }),
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    role: text().notNull().default("member"), // member | moderator | owner
+    joinedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.groupId, t.userId] })],
+);
+
+// A challenge = metric + target + window (+ optional group). Behavior-based only —
+// never weight-loss-amount (docs/07 §4). Auto-scored metrics compute from existing logs.
+export const challenges = pgTable(
+  "challenges",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    groupId: uuid().references(() => groups.id, { onDelete: "cascade" }), // null = global
+    createdBy: uuid()
+      .notNull()
+      .references(() => users.id),
+    title: text().notNull(),
+    description: text(),
+    metric: text().notNull(), // logged_days | protein_days | workouts | custom_checkin
+    target: real().notNull(),
+    unit: text().notNull().default("days"),
+    startsOn: date().notNull(),
+    endsOn: date().notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("challenges_group_idx").on(t.groupId), index("challenges_window_idx").on(t.endsOn)],
+);
+
+export const challengeParticipants = pgTable(
+  "challenge_participants",
+  {
+    challengeId: uuid()
+      .notNull()
+      .references(() => challenges.id, { onDelete: "cascade" }),
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    progress: real().notNull().default(0), // auto-scored metrics recompute on view; custom = check-ins
+    lastCheckinOn: date(), // custom_checkin: one per day
+    completedAt: timestamp({ withTimezone: true }),
+    joinedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.challengeId, t.userId] })],
+);
+
+// ─── moderation (docs/07) ────────────────────────────────────────────────────
+
+export const reports = pgTable(
+  "reports",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    reporterId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    subjectType: text().notNull(), // post | recipe | comment | user
+    subjectId: uuid().notNull(),
+    reason: text().notNull(), // inaccurate_macros | unsafe_advice | harassment | body_shaming | ed_content | spam | stolen_content | fake_transformation | medical_claim | other
+    detail: text(),
+    status: text().notNull().default("open"), // open | actioned | dismissed
+    reviewedBy: uuid().references(() => users.id),
+    reviewedAt: timestamp({ withTimezone: true }),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("reports_status_idx").on(t.status, t.createdAt),
+    index("reports_subject_idx").on(t.subjectType, t.subjectId),
+  ],
+);
+
+export const moderationActions = pgTable("moderation_actions", {
+  id: uuid().primaryKey().defaultRandom(),
+  actorId: uuid()
+    .notNull()
+    .references(() => users.id),
+  kind: text().notNull(), // remove_content | restore_content | add_warning_label | dismiss_report | auto_hide
+  subjectType: text().notNull(),
+  subjectId: uuid().notNull(),
+  reportId: uuid().references(() => reports.id),
+  reason: text().notNull(),
+  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+});
+
+export const contentWarnings = pgTable(
+  "content_warnings",
+  {
+    subjectType: text().notNull(),
+    subjectId: uuid().notNull(),
+    kind: text().notNull(), // misinformation | unsafe_diet | unverified_macros
+    note: text(),
+    addedBy: uuid()
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.subjectType, t.subjectId, t.kind] })],
 );

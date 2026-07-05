@@ -2,7 +2,7 @@
 
 A community-driven macro tracking, recipe, meal prep, restaurant, and workout platform — MyFitnessPal's data layer with Strava's social graph and Reddit's content ranking, minus the AI prompt box. The community is the content engine: users discover, share, vote on, save, log, and discuss recipes, meal preps, restaurant orders, and workouts created by other users.
 
-**Status:** Phases 0–5 built and running — auth (+ guest mode), onboarding, macro tracker, community recipes (+ personal ingredient library), social feed, profiles, restaurants ("Around me" map/list, build-a-bowl, go-to orders), progress dashboard + habits, workouts (logger with PR detection, community workouts, templates), grocery lists, and meal prep plans. Admin nutrition import lives at `/admin/imports` (admin@macromap.app / password123). Full product + technical design lives in [`docs/`](docs/); deployment guide in [docs/09-deployment.md](docs/09-deployment.md).
+**Status:** Phases 0–6 built and running — auth (+ guest mode), onboarding, macro tracker, community recipes (+ personal ingredient library), social feed, profiles, restaurants ("Around me" map/list, build-a-bowl, go-to orders), progress dashboard + habits, workouts (logger with PR detection, community workouts, templates), grocery lists, meal prep plans, groups, auto-scored challenges, and the moderation stack (reports → admin queue → audit log, rate limits, content warnings). Admin tools live at `/admin/reports` and `/admin/imports` (admin@macromap.app / password123). Remaining: Phase 7 beta hardening (docs/08 §3). Full design in [`docs/`](docs/); deployment guide in [docs/09-deployment.md](docs/09-deployment.md).
 
 ## Run it
 

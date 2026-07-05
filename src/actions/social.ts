@@ -5,8 +5,9 @@ import { redirect } from "next/navigation";
 import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db/client";
-import { follows, posts, comments, reactions, recipes } from "@/db/schema";
+import { follows, groupMembers, posts, comments, reactions, recipes } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
+import { checkRateLimit } from "@/lib/rateLimit";
 import { REACTION_KINDS } from "@/lib/utils";
 
 export async function toggleFollow(formData: FormData) {
@@ -27,6 +28,8 @@ export async function toggleFollow(formData: FormData) {
 const postSchema = z.object({
   body: z.string().min(1).max(2000),
   type: z.enum(["general", "tip", "question", "progress", "personal_record"]).default("general"),
+  groupId: z.string().uuid().optional(), // group feed post (docs/05 §4)
+  groupSlug: z.string().max(60).optional(),
 });
 
 export async function createPost(
@@ -38,10 +41,29 @@ export async function createPost(
   const parsed = postSchema.safeParse({
     body: formData.get("body"),
     type: formData.get("type") || "general",
+    groupId: formData.get("groupId") || undefined,
+    groupSlug: formData.get("groupSlug") || undefined,
   });
   if (!parsed.success) return { error: "Write something first" };
-  await db.insert(posts).values({ authorId: user.id, type: parsed.data.type, body: parsed.data.body });
-  revalidatePath("/");
+
+  const rateError = await checkRateLimit(user.id, "post", user.reputation);
+  if (rateError) return { error: rateError };
+
+  if (parsed.data.groupId) {
+    const [member] = await db
+      .select()
+      .from(groupMembers)
+      .where(and(eq(groupMembers.groupId, parsed.data.groupId), eq(groupMembers.userId, user.id)));
+    if (!member) return { error: "Join the group to post in it." };
+  }
+
+  await db.insert(posts).values({
+    authorId: user.id,
+    type: parsed.data.type,
+    body: parsed.data.body,
+    groupId: parsed.data.groupId ?? null,
+  });
+  revalidatePath(parsed.data.groupSlug ? `/groups/${parsed.data.groupSlug}` : "/");
   return {};
 }
 
@@ -113,6 +135,9 @@ export async function addComment(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const d = commentSchema.parse(Object.fromEntries(formData));
+
+  const rateError = await checkRateLimit(user.id, "comment", user.reputation);
+  if (rateError) throw new Error(rateError);
 
   await db.transaction(async (tx) => {
     await tx.insert(comments).values({ authorId: user.id, ...d });

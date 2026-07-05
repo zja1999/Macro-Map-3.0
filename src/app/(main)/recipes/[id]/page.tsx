@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { eq, asc } from "drizzle-orm";
+import { and, eq, asc } from "drizzle-orm";
 import { db } from "@/db/client";
-import { recipes, recipeIngredients, profiles, foods } from "@/db/schema";
+import { recipes, recipeIngredients, profiles, foods, contentWarnings } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
 import { getRecipeInteractions } from "@/lib/queries";
 import { todayStr, MEAL_SLOTS } from "@/lib/utils";
@@ -13,6 +13,7 @@ import { shareRecipeToFeed } from "@/actions/social";
 import { Card, Badge, UserChip, inputCls, btnGhost } from "@/components/ui";
 import { MacroPills, ProvenanceBadge } from "@/components/macros";
 import { CommentSection } from "@/components/CommentSection";
+import { ReportButton } from "@/components/ReportButton";
 
 export default async function RecipePage({ params }: { params: Promise<{ id: string }> }) {
   const user = (await getCurrentUser())!;
@@ -27,7 +28,7 @@ export default async function RecipePage({ params }: { params: Promise<{ id: str
   if (!row) notFound();
   const { recipe, username, displayName } = row;
 
-  const [ingredients, { myVote, saved }] = await Promise.all([
+  const [ingredients, { myVote, saved }, warnings] = await Promise.all([
     db
       .select({ ing: recipeIngredients, foodName: foods.name })
       .from(recipeIngredients)
@@ -35,6 +36,10 @@ export default async function RecipePage({ params }: { params: Promise<{ id: str
       .where(eq(recipeIngredients.recipeId, id))
       .orderBy(asc(recipeIngredients.position)),
     getRecipeInteractions(user.id, id),
+    db
+      .select()
+      .from(contentWarnings)
+      .where(and(eq(contentWarnings.subjectType, "recipe"), eq(contentWarnings.subjectId, id))),
   ]);
 
   const net = recipe.upvotes - recipe.downvotes;
@@ -42,6 +47,12 @@ export default async function RecipePage({ params }: { params: Promise<{ id: str
 
   return (
     <div className="mx-auto max-w-xl space-y-5">
+      {warnings.map((w) => (
+        <p key={w.kind} className="rounded-xl border border-carbs/40 bg-carbs/10 px-4 py-3 text-xs text-carbs">
+          ⚠ Community warning: {w.kind.replace(/_/g, " ")}
+          {w.note && ` — ${w.note}`}
+        </p>
+      ))}
       {/* header */}
       <div className="space-y-3">
         <div className="flex items-start justify-between gap-3">
@@ -188,6 +199,7 @@ export default async function RecipePage({ params }: { params: Promise<{ id: str
         </form>
       </Card>
 
+      {recipe.authorId !== user.id && <ReportButton subjectType="recipe" subjectId={recipe.id} />}
       <CommentSection subjectType="recipe" subjectId={recipe.id} />
     </div>
   );

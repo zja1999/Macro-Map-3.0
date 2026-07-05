@@ -4,7 +4,7 @@ import { useActionState, useRef } from "react";
 import { createPost } from "@/actions/social";
 import { inputCls, btnPrimary } from "./ui";
 
-export function PostComposer() {
+export function PostComposer({ group }: { group?: { id: string; slug: string; name: string } }) {
   const formRef = useRef<HTMLFormElement>(null);
   const [state, action, pending] = useActionState(
     async (prev: { error?: string } | undefined, formData: FormData) => {
@@ -17,12 +17,14 @@ export function PostComposer() {
 
   return (
     <form ref={formRef} action={action} className="space-y-2 rounded-xl border border-edge bg-card p-3">
+      {group && <input type="hidden" name="groupId" value={group.id} />}
+      {group && <input type="hidden" name="groupSlug" value={group.slug} />}
       <textarea
         name="body"
         rows={2}
         required
         maxLength={2000}
-        placeholder="Share a win, a tip, a question…"
+        placeholder={group ? `Post to ${group.name}…` : "Share a win, a tip, a question…"}
         className={`${inputCls} resize-none`}
       />
       <div className="flex items-center justify-between">

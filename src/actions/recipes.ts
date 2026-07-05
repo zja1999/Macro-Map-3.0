@@ -7,6 +7,7 @@ import { z } from "zod";
 import { db } from "@/db/client";
 import { recipes, recipeIngredients, recipeReviews, votes, saves, foods, users, personalIngredients } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
+import { checkRateLimit } from "@/lib/rateLimit";
 import { round1, RECIPE_TAGS } from "@/lib/utils";
 
 // ─── submit ──────────────────────────────────────────────────────────────────
@@ -54,6 +55,9 @@ export async function submitRecipe(
 ): Promise<{ error?: string }> {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+
+  const rateError = await checkRateLimit(user.id, "recipe", user.reputation);
+  if (rateError) return { error: rateError };
 
   let payload: z.infer<typeof submitSchema>;
   try {

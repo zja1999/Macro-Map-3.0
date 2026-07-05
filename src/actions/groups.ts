@@ -1,0 +1,167 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { and, eq, sql } from "drizzle-orm";
+import { z } from "zod";
+import { db } from "@/db/client";
+import { challengeParticipants, challenges, groupMembers, groups } from "@/db/schema";
+import { getCurrentUser } from "@/lib/auth";
+import { CHALLENGE_METRICS } from "@/lib/challenges";
+import { todayStr } from "@/lib/utils";
+
+const GROUP_KINDS = ["goal", "diet", "location", "gym", "interest"] as const;
+
+const slugify = (s: string) =>
+  s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 48);
+
+const createGroupSchema = z.object({
+  name: z.string().min(3).max(60),
+  description: z.string().max(300).optional(),
+  kind: z.enum(GROUP_KINDS),
+});
+
+export async function createGroup(
+  _prev: { error?: string } | undefined,
+  formData: FormData,
+): Promise<{ error?: string }> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  const parsed = createGroupSchema.safeParse({
+    name: formData.get("name"),
+    description: formData.get("description") || undefined,
+    kind: formData.get("kind"),
+  });
+  if (!parsed.success) return { error: "Group needs a name (3+ characters)." };
+
+  const slug = slugify(parsed.data.name);
+  if (!slug) return { error: "Pick a name with some letters in it." };
+  const [taken] = await db.select({ id: groups.id }).from(groups).where(eq(groups.slug, slug)).limit(1);
+  if (taken) return { error: "A group with that name already exists." };
+
+  const groupId = await db.transaction(async (tx) => {
+    const [group] = await tx
+      .insert(groups)
+      .values({ ...parsed.data, slug, memberCount: 1, createdBy: user.id })
+      .returning({ id: groups.id });
+    await tx.insert(groupMembers).values({ groupId: group.id, userId: user.id, role: "owner" });
+    return group.id;
+  });
+  void groupId;
+  redirect(`/groups/${slug}`);
+}
+
+export async function toggleGroupMembership(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  const groupId = z.string().uuid().parse(formData.get("groupId"));
+  const slug = z.string().max(60).parse(formData.get("slug"));
+
+  const where = and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, user.id));
+  const [existing] = await db.select().from(groupMembers).where(where);
+  if (existing?.role === "owner") return; // owners transfer, not vanish — later phase
+
+  await db.transaction(async (tx) => {
+    if (existing) {
+      await tx.delete(groupMembers).where(where);
+      await tx.update(groups).set({ memberCount: sql`${groups.memberCount} - 1` }).where(eq(groups.id, groupId));
+    } else {
+      await tx.insert(groupMembers).values({ groupId, userId: user.id });
+      await tx.update(groups).set({ memberCount: sql`${groups.memberCount} + 1` }).where(eq(groups.id, groupId));
+    }
+  });
+  revalidatePath(`/groups/${slug}`);
+  revalidatePath("/groups");
+}
+
+// ─── challenges ──────────────────────────────────────────────────────────────
+
+const METRIC_KEYS = CHALLENGE_METRICS.map((m) => m.key);
+
+const createChallengeSchema = z.object({
+  title: z.string().min(3).max(80),
+  description: z.string().max(300).optional(),
+  metric: z.string().refine((m) => METRIC_KEYS.includes(m as (typeof METRIC_KEYS)[number])),
+  target: z.coerce.number().min(1).max(1000),
+  startsOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  endsOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  groupId: z.string().uuid().optional(),
+});
+
+export async function createChallenge(
+  _prev: { error?: string } | undefined,
+  formData: FormData,
+): Promise<{ error?: string }> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  const parsed = createChallengeSchema.safeParse({
+    title: formData.get("title"),
+    description: formData.get("description") || undefined,
+    metric: formData.get("metric"),
+    target: formData.get("target"),
+    startsOn: formData.get("startsOn"),
+    endsOn: formData.get("endsOn"),
+    groupId: formData.get("groupId") || undefined,
+  });
+  if (!parsed.success) return { error: "Fill in title, metric, target, and dates." };
+  const d = parsed.data;
+  if (d.endsOn <= d.startsOn) return { error: "End date must be after the start date." };
+
+  if (d.groupId) {
+    const [member] = await db
+      .select()
+      .from(groupMembers)
+      .where(and(eq(groupMembers.groupId, d.groupId), eq(groupMembers.userId, user.id)));
+    if (!member) return { error: "Join the group before creating a challenge in it." };
+  }
+
+  const metricInfo = CHALLENGE_METRICS.find((m) => m.key === d.metric)!;
+  const [challenge] = await db
+    .insert(challenges)
+    .values({ ...d, unit: metricInfo.unit, createdBy: user.id, groupId: d.groupId ?? null })
+    .returning({ id: challenges.id });
+  // creator joins their own challenge — an empty leaderboard helps nobody
+  await db.insert(challengeParticipants).values({ challengeId: challenge.id, userId: user.id });
+  redirect(`/challenges/${challenge.id}`);
+}
+
+export async function joinChallenge(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  const challengeId = z.string().uuid().parse(formData.get("challengeId"));
+  const [challenge] = await db.select().from(challenges).where(eq(challenges.id, challengeId)).limit(1);
+  if (!challenge) throw new Error("Challenge not found");
+  await db.insert(challengeParticipants).values({ challengeId, userId: user.id }).onConflictDoNothing();
+  revalidatePath(`/challenges/${challengeId}`);
+  revalidatePath("/challenges");
+}
+
+/** custom_checkin metric: one self-reported check-in per day. */
+export async function checkinChallenge(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  const challengeId = z.string().uuid().parse(formData.get("challengeId"));
+
+  const [challenge] = await db.select().from(challenges).where(eq(challenges.id, challengeId)).limit(1);
+  if (!challenge || challenge.metric !== "custom_checkin") throw new Error("Not a check-in challenge");
+  const today = todayStr();
+  if (challenge.endsOn < today || challenge.startsOn > today) return; // outside window
+
+  const where = and(
+    eq(challengeParticipants.challengeId, challengeId),
+    eq(challengeParticipants.userId, user.id),
+  );
+  const [participant] = await db.select().from(challengeParticipants).where(where);
+  if (!participant || participant.lastCheckinOn === today) return;
+
+  const progress = participant.progress + 1;
+  await db
+    .update(challengeParticipants)
+    .set({
+      progress,
+      lastCheckinOn: today,
+      completedAt: progress >= challenge.target && !participant.completedAt ? new Date() : participant.completedAt,
+    })
+    .where(where);
+  revalidatePath(`/challenges/${challengeId}`);
+}
