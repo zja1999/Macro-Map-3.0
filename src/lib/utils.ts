@@ -43,6 +43,15 @@ export function initials(name: string): string {
 
 export const MEAL_SLOTS = ["breakfast", "lunch", "dinner", "snack"] as const;
 
+/** Sensible default meal slot for "log it now" flows. */
+export function slotForNow(): (typeof MEAL_SLOTS)[number] {
+  const h = new Date().getHours();
+  if (h < 11) return "breakfast";
+  if (h < 15) return "lunch";
+  if (h < 21) return "dinner";
+  return "snack";
+}
+
 export const REACTION_KINDS = [
   { kind: "like", emoji: "❤️", label: "Like" },
   { kind: "strong", emoji: "💪", label: "Strong" },

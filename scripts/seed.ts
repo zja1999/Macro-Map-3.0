@@ -5,7 +5,7 @@ import { mkdirSync } from "fs";
 import { drizzle } from "drizzle-orm/pglite";
 import { PGlite } from "@electric-sql/pglite";
 import bcrypt from "bcryptjs";
-import { sql } from "drizzle-orm";
+import { inArray, sql } from "drizzle-orm";
 import * as schema from "../src/db/schema";
 
 mkdirSync("./.data", { recursive: true });
@@ -14,6 +14,8 @@ const db = drizzle(client, { schema, casing: "snake_case" });
 const {
   users, profiles, nutritionTargets, follows, posts, comments, reactions,
   votes, saves, foods, foodLogs, waterLogs, recipes, recipeIngredients, recipeReviews,
+  chains, restaurants, menuItems, menuItemOptionGroups, menuItemOptions, goToOrders,
+  progressEntries, habits, habitLogs,
 } = schema;
 
 // name, kcal, P, C, F per 100 g (fiber, sodium omitted for brevity)
@@ -246,9 +248,15 @@ async function main() {
 
   // wipe (dev convenience — order matters for FKs)
   for (const t of [
+    "media_attachments", "photos",
+    "habit_logs", "habits", "progress_entries", "go_to_orders",
+    "menu_item_options", "menu_item_option_groups",
     "food_logs", "water_logs", "recipe_reviews", "recipe_ingredients", "comments",
     "reactions", "votes", "saves", "posts", "follows", "nutrition_targets",
-    "recipes", "foods", "sessions", "profiles", "users",
+    "recipes", "personal_ingredients", "foods",
+    "menu_items", "restaurants", "chains",
+    "feedback", "nutrition_import_batches",
+    "sessions", "profiles", "users",
   ]) {
     await db.execute(sql.raw(`DELETE FROM ${t}`));
   }
@@ -273,10 +281,11 @@ async function main() {
     { email: "prepking@macromap.app", username: "prep_king", displayName: "Marcus (Prep King)", bio: "I cook once and eat all week. Budget meal prep, big batches, zero sad desk lunches.", goal: "muscle_gain", reputation: 350 },
     { email: "dan@macromap.app", username: "coach_dan", displayName: "Coach Dan", bio: "Strength coach. Protein evangelist. Your squat is high.", goal: "performance", reputation: 290 },
     { email: "demo@macromap.app", username: "demo", displayName: "Demo User", bio: "Just here trying to hit my macros.", goal: "fat_loss", reputation: 10 },
+    { email: "admin@macromap.app", username: "macromap_admin", displayName: "MacroMap Admin", bio: "Keeping the nutrition data honest.", goal: "maintenance", reputation: 100, role: "admin" },
   ];
   const userByUsername = new Map<string, string>();
   for (const d of defs) {
-    const [u] = await db.insert(users).values({ email: d.email, passwordHash: hash, reputation: d.reputation }).returning();
+    const [u] = await db.insert(users).values({ email: d.email, passwordHash: hash, reputation: d.reputation, role: (d as { role?: string }).role ?? "user" }).returning();
     await db.insert(profiles).values({
       userId: u.id, username: d.username, displayName: d.displayName, bio: d.bio,
       goal: d.goal, trackingStyle: "strict_macro", activityLevel: "moderate",
@@ -463,7 +472,334 @@ async function main() {
   await db.insert(waterLogs).values({ userId: demoId, logDate: day(0), ml: 750 });
   console.log("  demo diary (3 past days + today)");
 
-  console.log("Done. Sign in as demo@macromap.app / password123");
+  // ─── restaurants: chains, locations (downtown Austin demo area), menus ──────
+  // Fixed-item macros: [name, category, kcal, P, C, F, sodiumMg?, comboGroup?]
+  type FixedDef = [string, string, number, number, number, number, number?, ("entree" | "side")?];
+  // Option macros: [name, kcal, P, C, F, isDefault?, portionDesc?]
+  type OptDef = [string, number, number, number, number, (0 | 1)?, string?];
+  type GroupDef = { name: string; min: number; max: number | null; options: OptDef[] };
+  type ChainDef = {
+    name: string;
+    emoji: string;
+    locations: [string, number, number][]; // name, lat, lng (around 30.2672,-97.7431)
+    fixed?: FixedDef[];
+    buildable?: { name: string; category: string; groups: GroupDef[] };
+  };
+
+  const CHAINS: ChainDef[] = [
+    {
+      name: "Chipotle",
+      emoji: "🌯",
+      locations: [
+        ["Chipotle — Congress Ave", 30.2668, -97.7428],
+        ["Chipotle — MLK Blvd", 30.2815, -97.7385],
+      ],
+      buildable: {
+        name: "Burrito Bowl",
+        category: "Build your own",
+        groups: [
+          {
+            name: "Base", min: 1, max: 2,
+            options: [
+              ["White rice", 210, 4, 40, 4, 1, "1 scoop (4 oz)"],
+              ["Brown rice", 210, 4, 36, 6, 0, "1 scoop (4 oz)"],
+              ["Supergreens lettuce", 15, 1, 3, 0, 0, "1 portion"],
+            ],
+          },
+          {
+            name: "Protein", min: 1, max: 2,
+            options: [
+              ["Chicken", 180, 32, 0, 7, 1, "4 oz"],
+              ["Steak", 150, 21, 1, 6, 0, "4 oz"],
+              ["Barbacoa", 170, 24, 2, 7, 0, "4 oz"],
+              ["Carnitas", 210, 23, 0, 12, 0, "4 oz"],
+              ["Sofritas", 150, 8, 9, 10, 0, "4 oz"],
+            ],
+          },
+          {
+            name: "Beans", min: 0, max: 1,
+            options: [
+              ["Black beans", 130, 8, 22, 1.5, 1, "1 scoop"],
+              ["Pinto beans", 130, 8, 21, 1.5, 0, "1 scoop"],
+            ],
+          },
+          {
+            name: "Toppings", min: 0, max: null,
+            options: [
+              ["Fajita veggies", 20, 1, 5, 0],
+              ["Fresh tomato salsa", 25, 0, 5, 0, 1],
+              ["Roasted chili-corn salsa", 80, 3, 16, 1.5],
+              ["Tomatillo green salsa", 15, 0, 4, 0],
+              ["Cheese", 110, 6, 1, 8],
+              ["Sour cream", 110, 2, 2, 9],
+              ["Guacamole", 230, 2, 8, 22],
+              ["Queso blanco", 120, 5, 4, 9],
+            ],
+          },
+        ],
+      },
+      fixed: [["Chips & Guacamole", "Sides", 770, 9, 82, 47, 850]],
+    },
+    {
+      name: "Subway",
+      emoji: "🥪",
+      locations: [["Subway — 6th Street", 30.2681, -97.7405]],
+      buildable: {
+        name: '6" Sub',
+        category: "Build your own",
+        groups: [
+          {
+            name: "Bread", min: 1, max: 1,
+            options: [
+              ["Italian bread", 200, 7, 38, 2, 1],
+              ["9-Grain wheat", 180, 8, 36, 2],
+              ["Italian herbs & cheese", 240, 9, 40, 5],
+              ["Flatbread", 230, 8, 40, 5],
+            ],
+          },
+          {
+            name: "Protein", min: 1, max: 2,
+            options: [
+              ["Turkey breast", 50, 10, 2, 1, 1],
+              ["Ham", 60, 10, 3, 1.5],
+              ["Roast beef", 70, 13, 1, 1.5],
+              ["Rotisserie chicken", 80, 16, 2, 1.5],
+              ["Tuna", 250, 10, 1, 22],
+              ["Steak", 110, 17, 3, 4],
+            ],
+          },
+          {
+            name: "Cheese", min: 0, max: 1,
+            options: [
+              ["American", 40, 2, 1, 3.5],
+              ["Provolone", 50, 4, 0, 4],
+              ["Pepper jack", 50, 3, 0, 4],
+            ],
+          },
+          {
+            name: "Veggies", min: 0, max: null,
+            options: [
+              ["Lettuce", 3, 0, 1, 0, 1],
+              ["Tomatoes", 5, 0, 1, 0, 1],
+              ["Cucumbers", 3, 0, 1, 0],
+              ["Green peppers", 3, 0, 1, 0],
+              ["Red onions", 5, 0, 1, 0],
+              ["Spinach", 3, 0, 1, 0],
+              ["Pickles", 0, 0, 0, 0],
+              ["Jalapeños", 2, 0, 1, 0],
+            ],
+          },
+          {
+            name: "Sauce", min: 0, max: 2,
+            options: [
+              ["Mayonnaise", 100, 0, 0, 11],
+              ["Ranch", 110, 0, 1, 11],
+              ["Sweet onion", 40, 0, 9, 0],
+              ["Yellow mustard", 10, 1, 1, 0],
+              ["Oil & vinegar", 45, 0, 0, 5],
+            ],
+          },
+        ],
+      },
+    },
+    {
+      name: "McDonald's",
+      emoji: "🍟",
+      locations: [
+        ["McDonald's — Guadalupe St", 30.2712, -97.7455],
+        ["McDonald's — I-35 Frontage", 30.2601, -97.7362],
+      ],
+      fixed: [
+        ["Big Mac", "Burgers", 590, 25, 46, 34, 1050, "entree"],
+        ["Quarter Pounder with Cheese", "Burgers", 520, 30, 42, 26, 1140, "entree"],
+        ["McDouble", "Burgers", 400, 22, 33, 20, 920, "entree"],
+        ["McChicken", "Chicken", 400, 14, 39, 21, 560, "entree"],
+        ["10 pc Chicken McNuggets", "Chicken", 410, 23, 26, 24, 900, "entree"],
+        ["Filet-O-Fish", "Fish", 390, 16, 39, 19, 580, "entree"],
+        ["Small French Fries", "Sides", 230, 3, 29, 11, 190, "side"],
+        ["Medium French Fries", "Sides", 320, 5, 43, 15, 260, "side"],
+        ["Apple Slices", "Sides", 15, 0, 4, 0, 0, "side"],
+        ["Side Salad", "Sides", 15, 1, 3, 0, 10, "side"],
+      ],
+    },
+    {
+      name: "Chick-fil-A",
+      emoji: "🐔",
+      locations: [["Chick-fil-A — Lamar Blvd", 30.2645, -97.7521]],
+      fixed: [
+        ["Grilled Chicken Sandwich", "Entrees", 390, 28, 44, 12, 820, "entree"],
+        ["Chicken Sandwich", "Entrees", 420, 26, 41, 18, 1400, "entree"],
+        ["12 ct Grilled Nuggets", "Entrees", 200, 38, 2, 4.5, 720, "entree"],
+        ["Grilled Chicken Cool Wrap", "Entrees", 350, 42, 29, 14, 960, "entree"],
+        ["Spicy Southwest Salad (grilled)", "Salads", 450, 33, 27, 23, 900, "entree"],
+        ["Medium Waffle Fries", "Sides", 420, 5, 45, 24, 240, "side"],
+        ["Fruit Cup", "Sides", 60, 1, 15, 0, 0, "side"],
+        ["Kale Crunch Side", "Sides", 120, 3, 14, 7, 140, "side"],
+        ["Side Salad", "Sides", 160, 3, 8, 13, 125, "side"],
+      ],
+    },
+    {
+      name: "Sweetgreen",
+      emoji: "🥗",
+      locations: [["Sweetgreen — 2nd Street District", 30.2652, -97.7469]],
+      buildable: {
+        name: "Custom Bowl",
+        category: "Build your own",
+        groups: [
+          {
+            name: "Base", min: 1, max: 2,
+            options: [
+              ["Chopped romaine", 15, 1, 3, 0, 1],
+              ["Baby spinach", 10, 1, 1, 0],
+              ["Wild rice", 210, 6, 35, 4],
+              ["Warm quinoa", 250, 6, 40, 7],
+            ],
+          },
+          {
+            name: "Protein", min: 1, max: 2,
+            options: [
+              ["Roasted chicken", 150, 26, 1, 5, 1, "4 oz"],
+              ["Blackened chicken thigh", 220, 20, 2, 15, 0, "4 oz"],
+              ["Roasted tofu", 150, 11, 5, 10],
+              ["Hard-boiled egg", 140, 12, 1, 9, 0, "2 eggs"],
+            ],
+          },
+          {
+            name: "Toppings", min: 0, max: null,
+            options: [
+              ["Roasted sweet potatoes", 100, 1, 20, 2],
+              ["Chickpeas", 80, 3, 12, 2],
+              ["Avocado", 90, 1, 5, 8, 1],
+              ["Goat cheese", 80, 5, 1, 6],
+              ["Almonds", 100, 3, 3, 9],
+              ["Tomatoes", 10, 0, 2, 0, 1],
+              ["Cucumbers", 5, 0, 1, 0],
+            ],
+          },
+          {
+            name: "Dressing", min: 0, max: 1,
+            options: [
+              ["Green goddess ranch", 130, 1, 3, 13],
+              ["Balsamic vinaigrette", 120, 0, 5, 11],
+              ["Lime cilantro jalapeño vinaigrette", 80, 0, 2, 8, 1],
+              ["Lemon squeeze", 5, 0, 1, 0],
+            ],
+          },
+        ],
+      },
+    },
+  ];
+
+  const chainIdByName = new Map<string, string>();
+  const buildableByChain = new Map<string, { itemId: string; optionIdByName: Map<string, string> }>();
+  let itemCount = 0;
+  for (const c of CHAINS) {
+    const [chain] = await db.insert(chains).values({ name: c.name, emoji: c.emoji, verified: true }).returning();
+    chainIdByName.set(c.name, chain.id);
+    await db.insert(restaurants).values(
+      c.locations.map(([name, lat, lng]) => ({ chainId: chain.id, name, lat, lng, source: "seed" })),
+    );
+    for (const [name, category, calories, proteinG, carbsG, fatG, sodiumMg, comboGroup] of c.fixed ?? []) {
+      await db.insert(menuItems).values({
+        chainId: chain.id, name, category, kind: "fixed",
+        calories, proteinG, carbsG, fatG, sodiumMg: sodiumMg ?? null, comboGroup: comboGroup ?? null,
+      });
+      itemCount++;
+    }
+    if (c.buildable) {
+      // menu_items row carries the default-build macros
+      const defaults = c.buildable.groups.flatMap((g) => g.options.filter((o) => o[5] === 1));
+      const sum = (i: 1 | 2 | 3 | 4) => defaults.reduce((a, o) => a + o[i], 0);
+      const [item] = await db
+        .insert(menuItems)
+        .values({
+          chainId: chain.id, name: c.buildable.name, category: c.buildable.category, kind: "buildable",
+          calories: sum(1), proteinG: sum(2), carbsG: sum(3), fatG: sum(4),
+        })
+        .returning();
+      itemCount++;
+      const optionIdByName = new Map<string, string>();
+      for (let gi = 0; gi < c.buildable.groups.length; gi++) {
+        const g = c.buildable.groups[gi];
+        const [group] = await db
+          .insert(menuItemOptionGroups)
+          .values({ menuItemId: item.id, name: g.name, minChoices: g.min, maxChoices: g.max, position: gi })
+          .returning();
+        for (let oi = 0; oi < g.options.length; oi++) {
+          const [name, calories, proteinG, carbsG, fatG, isDefault, portionDesc] = g.options[oi];
+          const [opt] = await db
+            .insert(menuItemOptions)
+            .values({
+              groupId: group.id, name, portionDesc: portionDesc ?? null,
+              calories, proteinG, carbsG, fatG, isDefault: isDefault === 1, position: oi,
+            })
+            .returning();
+          optionIdByName.set(name, opt.id);
+        }
+      }
+      buildableByChain.set(c.name, { itemId: item.id, optionIdByName });
+    }
+  }
+  console.log(`  ${CHAINS.length} chains, ${itemCount} menu items`);
+
+  // community go-to orders → "popular builds" on chain pages
+  const seedOrder = async (
+    username: string, chainName: string, orderName: string, optionNames: string[], logCount: number,
+  ) => {
+    const b = buildableByChain.get(chainName)!;
+    const optionIds = optionNames.map((n) => {
+      const id = b.optionIdByName.get(n);
+      if (!id) throw new Error(`Seed option missing: ${chainName} / ${n}`);
+      return id;
+    });
+    const opts = await db.select().from(menuItemOptions).where(inArray(menuItemOptions.id, optionIds));
+    const byId = new Map(opts.map((o) => [o.id, o]));
+    const sum = (k: "calories" | "proteinG" | "carbsG" | "fatG") =>
+      optionIds.reduce((a, id) => a + Number(byId.get(id)![k]), 0);
+    await db.insert(goToOrders).values({
+      userId: userByUsername.get(username)!, chainId: chainIdByName.get(chainName)!,
+      name: orderName, items: [{ menuItemId: b.itemId, optionIds }],
+      calories: sum("calories"), proteinG: sum("proteinG"), carbsG: sum("carbsG"), fatG: sum("fatG"),
+      logCount,
+    });
+  };
+  await seedOrder("coach_dan", "Chipotle", "Double chicken cutting bowl",
+    ["Supergreens lettuce", "Chicken", "Chicken", "Black beans", "Fajita veggies", "Fresh tomato salsa"], 14);
+  await seedOrder("prep_king", "Chipotle", "The bulk bowl",
+    ["White rice", "White rice", "Steak", "Steak", "Black beans", "Cheese", "Fresh tomato salsa"], 9);
+  await seedOrder("chef_maria", "Subway", "Turkey double-meat, no mayo",
+    ["9-Grain wheat", "Turkey breast", "Turkey breast", "Lettuce", "Tomatoes", "Red onions", "Yellow mustard"], 7);
+  await seedOrder("coach_dan", "Sweetgreen", "Post-lift greens",
+    ["Chopped romaine", "Roasted chicken", "Roasted chicken", "Chickpeas", "Tomatoes", "Lime cilantro jalapeño vinaigrette"], 5);
+  console.log("  4 go-to orders");
+
+  // ─── demo progress: 6 weeks of weigh-ins trending down + default habits ──────
+  const demoUserId = userByUsername.get("demo")!;
+  const weights = [84.2, 83.8, 83.5, 82.9, 82.6, 82.1, 81.9];
+  await db.insert(progressEntries).values(
+    weights.map((w, i) => ({
+      userId: demoUserId,
+      entryDate: day(-(weights.length - 1 - i) * 7),
+      weightKg: w,
+      waistCm: i % 2 === 0 ? 92 - i * 0.5 : null,
+      note: i === weights.length - 1 ? "Cut is working — keeping protein high." : null,
+    })),
+  );
+  const habitDefs = [
+    { name: "Hit protein goal", emoji: "🍗" },
+    { name: "Drink 2L water", emoji: "💧" },
+    { name: "Move today", emoji: "🏃" },
+    { name: "Eat veggies", emoji: "🥦" },
+  ];
+  for (const h of habitDefs) {
+    const [habit] = await db.insert(habits).values({ userId: demoUserId, ...h, isDefault: true }).returning();
+    // protein + water done the last 3 days; move done 2 of 3 — streaks render
+    const days = h.name === "Move today" ? [-2, -1] : h.name === "Eat veggies" ? [-1] : [-3, -2, -1];
+    if (days.length) await db.insert(habitLogs).values(days.map((o) => ({ habitId: habit.id, logDate: day(o) })));
+  }
+  console.log(`  ${weights.length} progress entries, ${habitDefs.length} habits`);
+
+  console.log("Done. Sign in as demo@macromap.app / password123 (admin@macromap.app for /admin/imports)");
   await client.close();
 }
 

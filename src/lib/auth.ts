@@ -36,6 +36,7 @@ export type CurrentUser = {
   email: string;
   role: string;
   reputation: number;
+  isGuest: boolean;
   profile: typeof profiles.$inferSelect;
   targets: typeof nutritionTargets.$inferSelect | null;
 };
@@ -67,6 +68,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     email: user.email,
     role: user.role,
     reputation: user.reputation,
+    isGuest: user.isGuest,
     profile,
     targets: targets[0] ?? null,
   };

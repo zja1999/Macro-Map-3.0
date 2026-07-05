@@ -12,8 +12,14 @@ import {
   votes,
   comments,
   reactions,
+  progressEntries,
+  habits,
+  habitLogs,
+  photos,
+  mediaAttachments,
 } from "@/db/schema";
-import { shiftDate } from "./utils";
+import { shiftDate, todayStr } from "./utils";
+import type { Remaining } from "./restaurants";
 
 // ─── feed ────────────────────────────────────────────────────────────────────
 
@@ -186,15 +192,115 @@ export async function getStreak(userId: string, fromDate: string): Promise<numbe
     .selectDistinct({ logDate: foodLogs.logDate })
     .from(foodLogs)
     .where(eq(foodLogs.userId, userId));
-  const dates = new Set(rows.map((r) => r.logDate));
+  return streakFromDates(new Set(rows.map((r) => r.logDate)), fromDate);
+}
+
+/** What's left of today's targets — the input to restaurant fit ranking (docs/06 §7b). */
+export async function getRemainingMacros(
+  userId: string,
+  targets: { calories: number; proteinG: number } | null,
+  logDate: string,
+): Promise<Remaining | null> {
+  if (!targets) return null;
+  const [row] = await db
+    .select({
+      calories: sql<number>`COALESCE(SUM(${foodLogs.calories}), 0)`,
+      proteinG: sql<number>`COALESCE(SUM(${foodLogs.proteinG}), 0)`,
+      n: sql<number>`COUNT(*)`,
+    })
+    .from(foodLogs)
+    .where(and(eq(foodLogs.userId, userId), eq(foodLogs.logDate, logDate)));
+  return {
+    calories: targets.calories - Number(row.calories),
+    proteinG: targets.proteinG - Number(row.proteinG),
+    logged: Number(row.n) > 0,
+  };
+}
+
+/** Non-curated computed frequents (docs/08 §1b): GROUP BY over recent logs, no new table. */
+export async function getFrequents(userId: string, limit = 6) {
+  const cutoff = shiftDate(todayStr(), -30);
+  return db
+    .select({
+      name: foodLogs.name,
+      count: sql<number>`COUNT(*)`,
+      calories: sql<number>`AVG(${foodLogs.calories})`,
+      proteinG: sql<number>`AVG(${foodLogs.proteinG})`,
+      carbsG: sql<number>`AVG(${foodLogs.carbsG})`,
+      fatG: sql<number>`AVG(${foodLogs.fatG})`,
+    })
+    .from(foodLogs)
+    .where(and(eq(foodLogs.userId, userId), gte(foodLogs.logDate, cutoff)))
+    .groupBy(foodLogs.name)
+    .having(sql`COUNT(*) >= 2`)
+    .orderBy(desc(sql`COUNT(*)`))
+    .limit(limit);
+}
+
+// ─── progress + habits ───────────────────────────────────────────────────────
+
+export async function getProgressEntries(userId: string, limit = 120) {
+  const rows = await db
+    .select()
+    .from(progressEntries)
+    .where(eq(progressEntries.userId, userId))
+    .orderBy(desc(progressEntries.entryDate))
+    .limit(limit);
+  return rows.reverse(); // oldest → newest for charting
+}
+
+/** Consecutive-day walk-back over a set of logged dates — shared by logging + habit streaks. */
+export async function getProgressPhotos(userId: string, limit = 24) {
+  return db
+    .select({ photo: photos, entryDate: progressEntries.entryDate })
+    .from(mediaAttachments)
+    .innerJoin(photos, eq(photos.id, mediaAttachments.photoId))
+    .innerJoin(progressEntries, eq(progressEntries.id, mediaAttachments.subjectId))
+    .where(
+      and(
+        eq(photos.userId, userId),
+        eq(photos.purpose, "progress"),
+        eq(photos.isPrivate, true),
+        eq(mediaAttachments.subjectType, "progress_entry"),
+      ),
+    )
+    .orderBy(desc(progressEntries.entryDate), desc(photos.createdAt))
+    .limit(limit);
+}
+
+export function streakFromDates(dates: Set<string>, fromDate: string): number {
   let streak = 0;
   let d = fromDate;
-  if (!dates.has(d)) d = shiftDate(d, -1); // today not logged yet doesn't break the streak
+  if (!dates.has(d)) d = shiftDate(d, -1); // today not done yet doesn't break the streak
   while (dates.has(d)) {
     streak++;
     d = shiftDate(d, -1);
   }
   return streak;
+}
+
+export type HabitWithStreak = typeof habits.$inferSelect & { streak: number; doneToday: boolean };
+
+export async function getHabitsWithStreaks(userId: string, today: string): Promise<HabitWithStreak[]> {
+  const rows = await db
+    .select()
+    .from(habits)
+    .where(and(eq(habits.userId, userId), eq(habits.archived, false)))
+    .orderBy(desc(habits.isDefault), habits.createdAt);
+  if (!rows.length) return [];
+  const logs = await db
+    .select()
+    .from(habitLogs)
+    .where(inArray(habitLogs.habitId, rows.map((h) => h.id)));
+  const datesByHabit = new Map<string, Set<string>>();
+  for (const l of logs) {
+    if (!datesByHabit.has(l.habitId)) datesByHabit.set(l.habitId, new Set());
+    datesByHabit.get(l.habitId)!.add(l.logDate);
+  }
+  return rows.map((h) => {
+    const dates = datesByHabit.get(h.id) ?? new Set<string>();
+    return { ...h, streak: streakFromDates(dates, today), doneToday: dates.has(today) };
+  });
 }
 
 // ─── profiles ────────────────────────────────────────────────────────────────

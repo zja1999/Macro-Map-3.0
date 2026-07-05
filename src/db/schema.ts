@@ -10,6 +10,8 @@ import {
   smallint,
   primaryKey,
   index,
+  doublePrecision,
+  jsonb,
 } from "drizzle-orm/pg-core";
 
 // Column names are derived via casing: "snake_case" (see db/client.ts + drizzle.config.ts).
@@ -22,6 +24,7 @@ export const users = pgTable("users", {
   passwordHash: text().notNull(),
   role: text().notNull().default("user"), // user | moderator | admin
   reputation: integer().notNull().default(0),
+  isGuest: boolean().notNull().default(false), // anonymous session; claimed via settings (docs/08 §1a)
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -174,6 +177,38 @@ export const saves = pgTable(
 
 // ─── foods + logging ─────────────────────────────────────────────────────────
 
+export const photos = pgTable(
+  "photos",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    storageKey: text().notNull(),
+    mimeType: text().notNull(),
+    purpose: text().notNull(), // avatar | recipe | post | progress | review | workout
+    width: integer(),
+    height: integer(),
+    isPrivate: boolean().notNull().default(false),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("photos_user_idx").on(t.userId, t.createdAt), index("photos_purpose_idx").on(t.purpose)],
+);
+
+export const mediaAttachments = pgTable(
+  "media_attachments",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    photoId: uuid()
+      .notNull()
+      .references(() => photos.id, { onDelete: "cascade" }),
+    subjectType: text().notNull(),
+    subjectId: uuid().notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("media_subject_idx").on(t.subjectType, t.subjectId)],
+);
+
 export const foods = pgTable(
   "foods",
   {
@@ -205,6 +240,7 @@ export const foodLogs = pgTable(
     mealSlot: text().notNull(), // breakfast | lunch | dinner | snack
     foodId: uuid().references(() => foods.id),
     recipeId: uuid().references(() => recipes.id),
+    menuItemId: uuid().references(() => menuItems.id),
     name: text().notNull(), // display snapshot
     servings: real().notNull().default(1),
     // macro snapshot at log time — editing a source never rewrites diary history
@@ -284,6 +320,7 @@ export const recipeIngredients = pgTable(
       .notNull()
       .references(() => recipes.id, { onDelete: "cascade" }),
     foodId: uuid().references(() => foods.id),
+    personalIngredientId: uuid().references(() => personalIngredients.id), // alternative link (docs/08 §1b)
     rawText: text().notNull(),
     grams: real(),
     position: smallint().notNull().default(0),
@@ -306,3 +343,208 @@ export const recipeReviews = pgTable(
   },
   (t) => [primaryKey({ columns: [t.recipeId, t.userId] })],
 );
+
+// Private, freeform, unverified — speeds up repeat recipe-building (docs/08 §1b).
+// Additive to `foods`: still yields ingredient_calculated provenance, just not community-visible.
+export const personalIngredients = pgTable(
+  "personal_ingredients",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text().notNull(),
+    servingDesc: text().notNull().default("100 g"),
+    servingGrams: real().notNull().default(100),
+    calories: real().notNull(),
+    proteinG: real().notNull(),
+    carbsG: real().notNull(),
+    fatG: real().notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("personal_ingredients_user_idx").on(t.userId, t.name)],
+);
+
+// ─── restaurants (docs/06 §7) ────────────────────────────────────────────────
+
+export const chains = pgTable("chains", {
+  id: uuid().primaryKey().defaultRandom(),
+  name: text().notNull().unique(),
+  emoji: text(), // lightweight logo stand-in until the media pipeline lands
+  verified: boolean().notNull().default(false),
+});
+
+export const restaurants = pgTable(
+  "restaurants",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    chainId: uuid()
+      .notNull()
+      .references(() => chains.id, { onDelete: "cascade" }),
+    name: text().notNull(),
+    lat: doublePrecision().notNull(),
+    lng: doublePrecision().notNull(),
+    address: text(),
+    source: text().notNull().default("seed"), // seed | admin | overpass
+  },
+  (t) => [index("restaurants_chain_idx").on(t.chainId), index("restaurants_geo_idx").on(t.lat, t.lng)],
+);
+
+export const menuItems = pgTable(
+  "menu_items",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    chainId: uuid()
+      .notNull()
+      .references(() => chains.id, { onDelete: "cascade" }),
+    name: text().notNull(),
+    category: text(), // Entrees | Sides | Drinks | …
+    kind: text().notNull().default("fixed"), // fixed | buildable
+    comboGroup: text(), // entree|side pairing tag for combo recommendations (docs/06 §7c)
+    // for kind='buildable' these are the default build; real macros come from options
+    calories: real().notNull(),
+    proteinG: real().notNull(),
+    carbsG: real().notNull(),
+    fatG: real().notNull(),
+    fiberG: real(),
+    sodiumMg: real(),
+    macroSource: text().notNull().default("label_imported"),
+    verified: boolean().notNull().default(true),
+  },
+  (t) => [index("menu_items_chain_idx").on(t.chainId)],
+);
+
+export const menuItemOptionGroups = pgTable(
+  "menu_item_option_groups",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    menuItemId: uuid()
+      .notNull()
+      .references(() => menuItems.id, { onDelete: "cascade" }),
+    name: text().notNull(), // "Base", "Protein", "Toppings"
+    minChoices: smallint().notNull().default(0),
+    maxChoices: smallint(), // null = unlimited; double protein = tap twice
+    position: smallint().notNull().default(0),
+  },
+  (t) => [index("option_groups_item_idx").on(t.menuItemId)],
+);
+
+export const menuItemOptions = pgTable(
+  "menu_item_options",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    groupId: uuid()
+      .notNull()
+      .references(() => menuItemOptionGroups.id, { onDelete: "cascade" }),
+    name: text().notNull(),
+    portionDesc: text(), // "1 scoop (4 oz)"
+    calories: real().notNull(),
+    proteinG: real().notNull(),
+    carbsG: real().notNull(),
+    fatG: real().notNull(),
+    sodiumMg: real(),
+    isDefault: boolean().notNull().default(false),
+    position: smallint().notNull().default(0),
+  },
+  (t) => [index("options_group_idx").on(t.groupId)],
+);
+
+export const goToOrders = pgTable(
+  "go_to_orders",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    chainId: uuid()
+      .notNull()
+      .references(() => chains.id, { onDelete: "cascade" }),
+    name: text().notNull(),
+    // [{menuItemId, optionIds?: string[], servings?: number}] — option ids for buildables
+    items: jsonb().notNull(),
+    // macro snapshot so lists render without re-summing options
+    calories: real().notNull(),
+    proteinG: real().notNull(),
+    carbsG: real().notNull(),
+    fatG: real().notNull(),
+    isPublic: boolean().notNull().default(true),
+    logCount: integer().notNull().default(0), // "popular builds" ranking signal
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("go_to_orders_user_idx").on(t.userId), index("go_to_orders_chain_idx").on(t.chainId)],
+);
+
+// ─── progress + habits ───────────────────────────────────────────────────────
+
+export const progressEntries = pgTable(
+  "progress_entries",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    entryDate: date().notNull(),
+    weightKg: real(),
+    bodyFatPct: real(),
+    waistCm: real(),
+    chestCm: real(),
+    hipsCm: real(),
+    armsCm: real(),
+    note: text(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("progress_user_date_idx").on(t.userId, t.entryDate)],
+);
+
+export const habits = pgTable(
+  "habits",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text().notNull(),
+    emoji: text().notNull().default("✅"),
+    isDefault: boolean().notNull().default(false),
+    archived: boolean().notNull().default(false),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("habits_user_idx").on(t.userId)],
+);
+
+export const habitLogs = pgTable(
+  "habit_logs",
+  {
+    habitId: uuid()
+      .notNull()
+      .references(() => habits.id, { onDelete: "cascade" }),
+    logDate: date().notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.habitId, t.logDate] })],
+);
+
+// ─── feedback + admin import changelog ───────────────────────────────────────
+
+export const feedback = pgTable("feedback", {
+  id: uuid().primaryKey().defaultRandom(),
+  userId: uuid().references(() => users.id, { onDelete: "set null" }),
+  body: text().notNull(),
+  pageContext: text(),
+  status: text().notNull().default("open"), // open | reviewed | actioned
+  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+});
+
+export const nutritionImportBatches = pgTable("nutrition_import_batches", {
+  id: uuid().primaryKey().defaultRandom(),
+  uploadedBy: uuid()
+    .notNull()
+    .references(() => users.id),
+  target: text().notNull(), // foods | menu_items
+  filename: text().notNull(),
+  rowCount: integer().notNull(),
+  insertedCount: integer().notNull(),
+  duplicateCount: integer().notNull().default(0),
+  errorCount: integer().notNull().default(0),
+  errors: jsonb(), // [{row, message}]
+  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+});

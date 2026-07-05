@@ -13,33 +13,58 @@ export type FoodOption = {
   proteinG: number;
   carbsG: number;
   fatG: number;
+  personal?: boolean; // from the user's private ingredient library (docs/08 §1b)
 };
 
-type IngredientRow = { rawText: string; foodName: string; grams: string };
+type Per100 = { calories: string; proteinG: string; carbsG: string; fatG: string };
+type IngredientRow = { rawText: string; foodName: string; grams: string; per100: Per100 | null };
+
+const emptyPer100: Per100 = { calories: "", proteinG: "", carbsG: "", fatG: "" };
 
 export function RecipeForm({ foodOptions }: { foodOptions: FoodOption[] }) {
-  const [rows, setRows] = useState<IngredientRow[]>([{ rawText: "", foodName: "", grams: "" }]);
+  const [rows, setRows] = useState<IngredientRow[]>([{ rawText: "", foodName: "", grams: "", per100: null }]);
   const [servings, setServings] = useState(4);
   const [tags, setTags] = useState<string[]>([]);
   const [state, action, pending] = useActionState(submitRecipe, undefined);
 
-  const foodByName = useMemo(() => new Map(foodOptions.map((f) => [f.name.toLowerCase(), f])), [foodOptions]);
+  // shared foods win name collisions with personal entries
+  const foodByName = useMemo(() => {
+    const m = new Map(foodOptions.filter((f) => f.personal).map((f) => [f.name.toLowerCase(), f]));
+    for (const f of foodOptions) if (!f.personal) m.set(f.name.toLowerCase(), f);
+    return m;
+  }, [foodOptions]);
 
   const resolved = rows.map((r) => {
     const food = foodByName.get(r.foodName.trim().toLowerCase()) ?? null;
     const grams = parseFloat(r.grams) || null;
-    return { ...r, food, grams };
+    // an unmatched ingredient with per-100g macros entered counts as linked —
+    // it becomes a personal ingredient on submit
+    const per100 =
+      !food && r.per100 && Object.values(r.per100).every((v) => v !== "" && isFinite(parseFloat(v)))
+        ? {
+            calories: parseFloat(r.per100.calories),
+            proteinG: parseFloat(r.per100.proteinG),
+            carbsG: parseFloat(r.per100.carbsG),
+            fatG: parseFloat(r.per100.fatG),
+          }
+        : null;
+    return { ...r, food, grams, per100Parsed: per100 };
   });
-  const allLinked = resolved.length > 0 && resolved.every((r) => r.food && r.grams);
+  const allLinked = resolved.length > 0 && resolved.every((r) => (r.food || r.per100Parsed) && r.grams);
 
   const tally = resolved.reduce(
     (acc, r) => {
-      if (r.food?.servingGrams && r.grams) {
-        const f = r.grams / r.food.servingGrams;
-        acc.calories += r.food.calories * f;
-        acc.proteinG += r.food.proteinG * f;
-        acc.carbsG += r.food.carbsG * f;
-        acc.fatG += r.food.fatG * f;
+      if (!r.grams) return acc;
+      const src = r.food?.servingGrams
+        ? { f: r.grams / r.food.servingGrams, m: r.food }
+        : r.per100Parsed
+          ? { f: r.grams / 100, m: r.per100Parsed }
+          : null;
+      if (src) {
+        acc.calories += src.m.calories * src.f;
+        acc.proteinG += src.m.proteinG * src.f;
+        acc.carbsG += src.m.carbsG * src.f;
+        acc.fatG += src.m.fatG * src.f;
       }
       return acc;
     },
@@ -50,8 +75,11 @@ export function RecipeForm({ foodOptions }: { foodOptions: FoodOption[] }) {
   const ingredientsPayload = JSON.stringify(
     resolved.map((r) => ({
       rawText: r.rawText || `${r.grams ?? ""}g ${r.foodName}`.trim(),
-      foodId: r.food && r.grams ? r.food.id : null,
+      foodId: r.food && !r.food.personal && r.grams ? r.food.id : null,
+      personalIngredientId: r.food?.personal && r.grams ? r.food.id : null,
       grams: r.grams,
+      newPersonal:
+        r.per100Parsed && r.grams && r.foodName.trim() ? { name: r.foodName.trim(), ...r.per100Parsed } : null,
     })),
   );
 
@@ -90,42 +118,93 @@ export function RecipeForm({ foodOptions }: { foodOptions: FoodOption[] }) {
         </div>
         <datalist id="food-options">
           {foodOptions.map((f) => (
-            <option key={f.id} value={f.name} />
+            <option key={f.id} value={f.name} label={f.personal ? `${f.name} (my library)` : f.name} />
           ))}
         </datalist>
         {rows.map((row, i) => {
           const r = resolved[i];
+          const linked = (r.food || r.per100Parsed) && r.grams;
           return (
-            <div key={i} className="flex items-center gap-2">
-              <input
-                list="food-options"
-                value={row.foodName}
-                onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, foodName: e.target.value, rawText: e.target.value } : x)))}
-                placeholder="Ingredient (e.g. Chicken breast)"
-                className={inputCls}
-              />
-              <input
-                type="number"
-                value={row.grams}
-                onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, grams: e.target.value } : x)))}
-                placeholder="g"
-                className={`${inputCls} w-24`}
-              />
-              <span className={`w-5 text-center text-sm ${r.food && r.grams ? "text-accent" : "text-ink-faint"}`}>
-                {r.food && r.grams ? "✓" : "–"}
-              </span>
-              <button
-                type="button"
-                onClick={() => setRows(rows.filter((_, j) => j !== i))}
-                className="text-ink-faint hover:text-danger"
-                aria-label="Remove ingredient"
-              >
-                ✕
-              </button>
+            <div key={i} className="space-y-1.5">
+              <div className="flex items-center gap-2">
+                <input
+                  list="food-options"
+                  value={row.foodName}
+                  onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, foodName: e.target.value, rawText: e.target.value } : x)))}
+                  placeholder="Ingredient (e.g. Chicken breast)"
+                  className={inputCls}
+                />
+                <input
+                  type="number"
+                  value={row.grams}
+                  onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, grams: e.target.value } : x)))}
+                  placeholder="g"
+                  className={`${inputCls} w-24`}
+                />
+                <span
+                  className={`w-5 text-center text-sm ${linked ? "text-accent" : "text-ink-faint"}`}
+                  title={r.food?.personal ? "From your ingredient library" : undefined}
+                >
+                  {linked ? (r.food?.personal || r.per100Parsed ? "✓*" : "✓") : "–"}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setRows(rows.filter((_, j) => j !== i))}
+                  className="text-ink-faint hover:text-danger"
+                  aria-label="Remove ingredient"
+                >
+                  ✕
+                </button>
+              </div>
+              {/* no database match → enter macros once, it saves to the personal library */}
+              {!r.food && row.foodName.trim().length > 1 && (
+                <div className="ml-1 rounded-lg border border-dashed border-edge px-2.5 py-2">
+                  {row.per100 ? (
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="mr-1 text-[10px] text-ink-faint">per 100g:</span>
+                      {(
+                        [
+                          ["calories", "kcal"],
+                          ["proteinG", "P"],
+                          ["carbsG", "C"],
+                          ["fatG", "F"],
+                        ] as const
+                      ).map(([k, label]) => (
+                        <input
+                          key={k}
+                          type="number"
+                          step="0.1"
+                          min={0}
+                          value={row.per100![k]}
+                          onChange={(e) =>
+                            setRows(rows.map((x, j) => (j === i ? { ...x, per100: { ...x.per100!, [k]: e.target.value } } : x)))
+                          }
+                          placeholder={label}
+                          className={`${inputCls} w-16 px-2 py-1 text-xs`}
+                          aria-label={`${label} per 100g`}
+                        />
+                      ))}
+                      <span className="text-[10px] text-ink-faint">→ saved to your library</span>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setRows(rows.map((x, j) => (j === i ? { ...x, per100: emptyPer100 } : x)))}
+                      className="text-[11px] text-accent hover:underline"
+                    >
+                      Not in the database — add its macros once (saves to your library)
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           );
         })}
-        <button type="button" onClick={() => setRows([...rows, { rawText: "", foodName: "", grams: "" }])} className={btnGhost}>
+        <button
+          type="button"
+          onClick={() => setRows([...rows, { rawText: "", foodName: "", grams: "", per100: null }])}
+          className={btnGhost}
+        >
           + Add ingredient
         </button>
 

@@ -1,4 +1,222 @@
-import { ComingSoon } from "@/components/ui";
-export default function Page() {
-  return <ComingSoon title="Progress dashboard" phase="Phase 4" />;
+import { getCurrentUser } from "@/lib/auth";
+import { getProgressEntries, getProgressPhotos, getHabitsWithStreaks, getWeekSummary } from "@/lib/queries";
+import { ensureDefaultHabits, toggleHabit, addHabit, archiveHabit } from "@/actions/progress";
+import { todayStr, formatDateLabel } from "@/lib/utils";
+import { Card, EmptyState, inputCls } from "@/components/ui";
+import { ProgressPhotoForm, WeighInForm } from "@/components/ProgressForms";
+
+export const metadata = { title: "Progress" };
+
+function WeightChart({ points }: { points: { date: string; kg: number }[] }) {
+  const W = 560;
+  const H = 150;
+  const PAD = 6;
+  const kgs = points.map((p) => p.kg);
+  const min = Math.min(...kgs);
+  const max = Math.max(...kgs);
+  const span = Math.max(0.5, max - min);
+  const x = (i: number) => PAD + (i / Math.max(1, points.length - 1)) * (W - PAD * 2);
+  const y = (kg: number) => PAD + (1 - (kg - min) / span) * (H - PAD * 2);
+  const path = points.map((p, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(p.kg).toFixed(1)}`).join(" ");
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Weight trend">
+      <path d={path} fill="none" stroke="var(--color-accent)" strokeWidth={2} strokeLinejoin="round" />
+      {points.map((p, i) => (
+        <circle key={p.date} cx={x(i)} cy={y(p.kg)} r={2.5} fill="var(--color-accent)">
+          <title>{`${p.date}: ${p.kg} kg`}</title>
+        </circle>
+      ))}
+      <text x={W - PAD} y={y(points[points.length - 1].kg) - 8} textAnchor="end" fontSize={11} fill="var(--color-ink)" fontWeight="bold">
+        {points[points.length - 1].kg} kg
+      </text>
+    </svg>
+  );
+}
+
+export default async function ProgressPage() {
+  const user = (await getCurrentUser())!;
+  const today = todayStr();
+  await ensureDefaultHabits(user.id);
+
+  const [entries, photos, habitList, week] = await Promise.all([
+    getProgressEntries(user.id),
+    getProgressPhotos(user.id),
+    getHabitsWithStreaks(user.id, today),
+    getWeekSummary(user.id, today),
+  ]);
+
+  const weightPoints = entries.filter((e) => e.weightKg != null).map((e) => ({ date: e.entryDate, kg: e.weightKg! }));
+  const latest = entries[entries.length - 1];
+  const firstWeight = weightPoints[0]?.kg;
+  const lastWeight = weightPoints[weightPoints.length - 1]?.kg;
+  const delta = firstWeight != null && lastWeight != null ? lastWeight - firstWeight : null;
+
+  const latestOf = (key: "waistCm" | "chestCm" | "hipsCm" | "armsCm" | "bodyFatPct") => {
+    for (let i = entries.length - 1; i >= 0; i--) if (entries[i][key] != null) return entries[i][key];
+    return null;
+  };
+  const measurements = (
+    [
+      ["bodyFatPct", "Body fat", "%"],
+      ["waistCm", "Waist", "cm"],
+      ["chestCm", "Chest", "cm"],
+      ["hipsCm", "Hips", "cm"],
+      ["armsCm", "Arms", "cm"],
+    ] as const
+  )
+    .map(([key, label, unit]) => ({ label, unit, value: latestOf(key) }))
+    .filter((m) => m.value != null);
+
+  const loggedDays = week.length;
+
+  return (
+    <div className="mx-auto max-w-xl space-y-4">
+      <h1 className="text-base font-bold">📈 Progress</h1>
+
+      {/* weigh-in */}
+      <Card className="p-4">
+        <h2 className="mb-3 text-sm font-semibold">
+          {latest?.entryDate === today ? "Today's entry (edits merge in)" : "Log a weigh-in"}
+        </h2>
+        <WeighInForm today={today} />
+      </Card>
+
+      {/* weight trend */}
+      <Card className="p-4">
+        <div className="mb-2 flex items-baseline justify-between">
+          <h2 className="text-sm font-semibold">Weight trend</h2>
+          {delta != null && weightPoints.length >= 2 && (
+            <span className={`text-xs font-semibold tabular-nums ${delta <= 0 ? "text-accent" : "text-carbs"}`}>
+              {delta > 0 ? "+" : ""}
+              {delta.toFixed(1)} kg since {formatDateLabel(weightPoints[0].date)}
+            </span>
+          )}
+        </div>
+        {weightPoints.length >= 2 ? (
+          <WeightChart points={weightPoints} />
+        ) : (
+          <p className="py-4 text-center text-xs text-ink-faint">
+            Log two or more weigh-ins to see your trend line.
+          </p>
+        )}
+      </Card>
+
+      {/* measurements */}
+      {measurements.length > 0 && (
+        <Card className="p-4">
+          <h2 className="mb-2 text-sm font-semibold">Latest measurements</h2>
+          <div className="flex flex-wrap gap-2">
+            {measurements.map((m) => (
+              <div key={m.label} className="rounded-lg bg-surface px-3 py-2 text-center">
+                <div className="text-sm font-bold tabular-nums">
+                  {m.value}
+                  <span className="text-[10px] font-normal text-ink-faint"> {m.unit}</span>
+                </div>
+                <div className="text-[10px] text-ink-faint">{m.label}</div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* habits (docs/08 §1b) — each with its own streak */}
+      <Card className="p-4">
+        <div className="mb-3 flex items-baseline justify-between">
+          <h2 className="text-sm font-semibold">Daily habits</h2>
+          <span className="text-[10px] text-ink-faint">tracked days this week: {loggedDays}/7 logged</span>
+        </div>
+        <ul className="space-y-2">
+          {habitList.map((h) => (
+            <li key={h.id} className="flex items-center justify-between gap-2">
+              <form action={toggleHabit} className="min-w-0 flex-1">
+                <input type="hidden" name="habitId" value={h.id} />
+                <input type="hidden" name="logDate" value={today} />
+                <button
+                  className={`flex w-full items-center gap-2.5 rounded-lg border px-3 py-2 text-left text-sm transition ${
+                    h.doneToday ? "border-accent/40 bg-accent/10" : "border-edge bg-surface hover:border-ink-faint"
+                  }`}
+                >
+                  <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[10px] ${h.doneToday ? "border-accent bg-accent text-black" : "border-edge"}`}>
+                    {h.doneToday ? "✓" : ""}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate">
+                    {h.emoji} {h.name}
+                  </span>
+                  {h.streak > 0 && (
+                    <span className="shrink-0 text-xs font-semibold text-carbs" title={`${h.streak}-day streak`}>
+                      🔥 {h.streak}
+                    </span>
+                  )}
+                </button>
+              </form>
+              {!h.isDefault && (
+                <form action={archiveHabit}>
+                  <input type="hidden" name="habitId" value={h.id} />
+                  <button className="px-1 text-ink-faint hover:text-danger" aria-label={`Archive ${h.name}`}>
+                    ✕
+                  </button>
+                </form>
+              )}
+            </li>
+          ))}
+        </ul>
+        <form action={addHabit} className="mt-3 flex gap-2">
+          <input name="name" required minLength={2} maxLength={50} placeholder="Add a habit… (e.g. 10k steps)" className={inputCls} />
+          <button className="rounded-lg bg-accent/10 px-3 py-1.5 text-xs font-semibold text-accent hover:bg-accent/20">
+            Add
+          </button>
+        </form>
+      </Card>
+
+      <Card className="p-4">
+        <div className="mb-3 flex items-baseline justify-between">
+          <h2 className="text-sm font-semibold">Private photos</h2>
+          <span className="text-[10px] text-ink-faint">{photos.length} attached</span>
+        </div>
+        <ProgressPhotoForm today={today} />
+        {photos.length > 0 && (
+          <ul className="mt-3 divide-y divide-edge">
+            {photos.map(({ photo, entryDate }) => (
+              <li key={photo.id} className="flex items-center justify-between gap-3 py-2 text-xs">
+                <div className="min-w-0">
+                  <div className="truncate font-medium">{photo.storageKey}</div>
+                  <div className="text-[10px] text-ink-faint">
+                    {formatDateLabel(entryDate)} · {photo.mimeType}
+                    {photo.width && photo.height ? ` · ${photo.width}x${photo.height}` : ""}
+                  </div>
+                </div>
+                <span className="rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 text-[10px] text-accent">
+                  private
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+
+      {/* history */}
+      {entries.length > 0 ? (
+        <Card className="p-4">
+          <h2 className="mb-2 text-sm font-semibold">History</h2>
+          <ul className="divide-y divide-edge">
+            {[...entries].reverse().slice(0, 14).map((e) => (
+              <li key={e.id} className="flex items-baseline justify-between py-1.5 text-sm">
+                <span className="text-xs text-ink-faint">{formatDateLabel(e.entryDate)}</span>
+                <span className="tabular-nums">
+                  {e.weightKg != null && <span className="font-medium">{e.weightKg} kg</span>}
+                  {e.bodyFatPct != null && <span className="ml-2 text-xs text-ink-dim">{e.bodyFatPct}% bf</span>}
+                  {e.waistCm != null && <span className="ml-2 text-xs text-ink-dim">{e.waistCm}cm waist</span>}
+                  {e.note && <span className="ml-2 text-xs italic text-ink-faint">“{e.note}”</span>}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      ) : (
+        <EmptyState title="No entries yet" hint="Weigh-ins, measurements, and habits all live here — private by default." />
+      )}
+
+      <p className="text-center text-[10px] text-ink-faint">Everything on this page is private by default.</p>
+    </div>
+  );
 }

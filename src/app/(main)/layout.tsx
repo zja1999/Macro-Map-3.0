@@ -31,6 +31,19 @@ export default async function MainLayout({ children }: { children: React.ReactNo
           </div>
         </div>
       </header>
+      {user.isGuest && (
+        <div className="border-b border-accent/30 bg-accent/10">
+          <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-2 text-xs">
+            <span className="text-ink-dim">
+              👋 You&apos;re in <span className="font-semibold text-ink">guest mode</span> — your data lives on this
+              device only.
+            </span>
+            <Link href="/settings#claim" className="shrink-0 font-semibold text-accent hover:underline">
+              Save your progress →
+            </Link>
+          </div>
+        </div>
+      )}
       <div className="mx-auto flex max-w-5xl gap-8 px-4 pt-6">
         <SideNav />
         <main className="min-w-0 flex-1">{children}</main>

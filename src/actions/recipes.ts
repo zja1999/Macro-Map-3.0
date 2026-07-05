@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { and, eq, sql, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db/client";
-import { recipes, recipeIngredients, recipeReviews, votes, saves, foods, users } from "@/db/schema";
+import { recipes, recipeIngredients, recipeReviews, votes, saves, foods, users, personalIngredients } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
 import { round1, RECIPE_TAGS } from "@/lib/utils";
 
@@ -14,7 +14,19 @@ import { round1, RECIPE_TAGS } from "@/lib/utils";
 const ingredientSchema = z.object({
   rawText: z.string().min(1).max(120),
   foodId: z.string().uuid().nullable(),
+  personalIngredientId: z.string().uuid().nullable().default(null), // user's private library (docs/08 §1b)
   grams: z.number().min(0).max(5000).nullable(),
+  // macros entered inline for an unmatched ingredient — becomes a personal_ingredients row
+  newPersonal: z
+    .object({
+      name: z.string().min(1).max(80),
+      calories: z.number().min(0).max(900),
+      proteinG: z.number().min(0).max(100),
+      carbsG: z.number().min(0).max(100),
+      fatG: z.number().min(0).max(100),
+    })
+    .nullable()
+    .default(null),
 });
 
 const submitSchema = z.object({
@@ -54,8 +66,11 @@ export async function submitRecipe(
     return { error: e instanceof z.ZodError ? e.issues[0].message : "Invalid submission" };
   }
 
-  // Compute macros from linked ingredients (per-100g foods scaled by grams).
-  const linked = payload.ingredients.filter((i) => i.foodId && i.grams);
+  // Compute macros from linked ingredients: shared foods, the user's personal
+  // library, and inline "save to my library" entries all count as linked.
+  const isLinked = (i: (typeof payload.ingredients)[number]) =>
+    (i.foodId || i.personalIngredientId || i.newPersonal) && i.grams;
+  const linked = payload.ingredients.filter(isLinked);
   const allLinked = linked.length === payload.ingredients.length && linked.length > 0;
 
   let perServing = { calories: 0, proteinG: 0, carbsG: 0, fatG: 0 };
@@ -63,20 +78,33 @@ export async function submitRecipe(
   let macroConfidence = 0.3;
 
   if (allLinked) {
-    const foodRows = await db
-      .select()
-      .from(foods)
-      .where(inArray(foods.id, linked.map((i) => i.foodId!)));
-    const byId = new Map(foodRows.map((f) => [f.id, f]));
+    const foodIds = [...new Set(linked.map((i) => i.foodId).filter((v): v is string => !!v))];
+    const personalIds = [...new Set(linked.map((i) => i.personalIngredientId).filter((v): v is string => !!v))];
+    const foodRows = foodIds.length ? await db.select().from(foods).where(inArray(foods.id, foodIds)) : [];
+    const personalRows = personalIds.length
+      ? await db
+          .select()
+          .from(personalIngredients)
+          .where(and(inArray(personalIngredients.id, personalIds), eq(personalIngredients.userId, user.id)))
+      : [];
+    if (foodRows.length !== foodIds.length || personalRows.length !== personalIds.length) {
+      return { error: "One ingredient no longer exists. Refresh and try again." };
+    }
+    const byId = new Map<string, { servingGrams: number | null; calories: number; proteinG: number; carbsG: number; fatG: number }>([
+      ...foodRows.map((f) => [f.id, f] as const),
+      ...personalRows.map((p) => [p.id, p] as const),
+    ]);
     const totals = { calories: 0, proteinG: 0, carbsG: 0, fatG: 0 };
     for (const ing of linked) {
-      const f = byId.get(ing.foodId!);
-      if (!f || !f.servingGrams) continue;
-      const factor = ing.grams! / f.servingGrams;
-      totals.calories += f.calories * factor;
-      totals.proteinG += f.proteinG * factor;
-      totals.carbsG += f.carbsG * factor;
-      totals.fatG += f.fatG * factor;
+      const src = ing.newPersonal
+        ? { servingGrams: 100, ...ing.newPersonal }
+        : byId.get(ing.foodId ?? ing.personalIngredientId ?? "");
+      if (!src || !src.servingGrams) continue;
+      const factor = ing.grams! / src.servingGrams;
+      totals.calories += src.calories * factor;
+      totals.proteinG += src.proteinG * factor;
+      totals.carbsG += src.carbsG * factor;
+      totals.fatG += src.fatG * factor;
     }
     perServing = {
       calories: round1(totals.calories / payload.servings),
@@ -99,6 +127,17 @@ export async function submitRecipe(
   }
 
   const recipeId = await db.transaction(async (tx) => {
+    const newPersonalIds = new Map<number, string>();
+    for (let i = 0; i < payload.ingredients.length; i++) {
+      const np = payload.ingredients[i].newPersonal;
+      if (!np) continue;
+      const [row] = await tx
+        .insert(personalIngredients)
+        .values({ userId: user.id, ...np })
+        .returning({ id: personalIngredients.id });
+      newPersonalIds.set(i, row.id);
+    }
+
     const [recipe] = await tx
       .insert(recipes)
       .values({
@@ -122,6 +161,7 @@ export async function submitRecipe(
       payload.ingredients.map((ing, i) => ({
         recipeId: recipe.id,
         foodId: ing.foodId,
+        personalIngredientId: ing.personalIngredientId ?? newPersonalIds.get(i) ?? null,
         rawText: ing.rawText,
         grams: ing.grams,
         position: i,
