@@ -8,7 +8,9 @@
     "start": "next start",
     "db:push": "drizzle-kit push",
     "db:seed": "tsx scripts/seed.ts",
+    "db:seed:reference": "tsx scripts/seed.ts --reference-only",
     "db:setup": "npm run db:push && npm run db:seed",
+    "make-admin": "tsx scripts/make-admin.ts",
     "test:e2e": "playwright test"
   },
   "dependencies": {

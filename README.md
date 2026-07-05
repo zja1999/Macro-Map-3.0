@@ -16,6 +16,8 @@ Demo login: **demo@macromap.app** / **password123** (pre-onboarded, follows the 
 
 Dev database lives in `./.data/pglite` (gitignored). To reset: delete `.data/` and rerun `npm run db:setup`. Setting `DATABASE_URL` switches to hosted Postgres automatically ([src/db/client.ts](src/db/client.ts), [docs/09-deployment.md](docs/09-deployment.md)).
 
+To deploy: against `DATABASE_URL`, push the schema (`npm run db:push`) and bootstrap reference data (`npm run db:seed:reference` — foods, restaurants, exercises, workout templates; insert-only, no demo accounts), then register in the app and run `npm run make-admin -- you@example.com`. A `Dockerfile` is included for container hosts; Vercel needs no config beyond the env var. Full walkthrough in [docs/09-deployment.md](docs/09-deployment.md).
+
 E2E tests (Playwright against the dev server — start `npm run dev` first, or let the config spawn one):
 
 ```bash

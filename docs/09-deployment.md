@@ -19,8 +19,11 @@ Steps:
 # 1. Create a database, copy the connection string (use the *pooled* URL on Neon/Supabase)
 # 2. Push the schema
 DATABASE_URL="postgres://user:pass@host/db?sslmode=require" npm run db:push
-# 3. (optional) seed demo content — the seed script targets PGlite; for hosted seeding run:
-DATABASE_URL="..." npx tsx scripts/seed.ts    # after pointing its client at DATABASE_URL, see note in file
+# 3. Bootstrap reference data: foods, restaurant chains + menus, exercises, workout templates.
+#    Insert-only — it skips any table that already has rows, so it's safe to re-run.
+DATABASE_URL="..." npm run db:seed:reference
+# (The full demo seed WIPES every table, so it refuses to run when DATABASE_URL is set;
+#  a staging DB that really wants demo content can pass --force-demo.)
 ```
 
 For real migrations later (once there are users), switch from `db:push` to generated migrations:
@@ -39,31 +42,18 @@ Notes:
   the built-in 24h `revalidate` on geocoding keeps traffic trivial.
 
 ### Option B — Railway / Fly.io / Render (single container)
-```dockerfile
-FROM node:22-alpine AS build
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-COPY . .
-RUN npm run build
-
-FROM node:22-alpine
-WORKDIR /app
-ENV NODE_ENV=production
-COPY --from=build /app ./
-EXPOSE 3000
-CMD ["npm", "start"]
-```
-Set `DATABASE_URL` in the platform's env settings. Railway can host the Postgres next to it.
+The repo root has a ready [`Dockerfile`](../Dockerfile) (+ `.dockerignore`) — the platforms above
+auto-detect it. Set `DATABASE_URL` in the platform's env settings. Railway can host the Postgres
+next to it.
 
 ### Option C — bare VPS
 `npm ci && npm run build && npm start` behind nginx/Caddy with TLS. Use a process manager (pm2/systemd).
 
 **Production checklist**
 - [ ] `DATABASE_URL` set (pooled connection string)
-- [ ] Seed the exercises library + chains via `/admin/imports` or a one-off seed run
-- [ ] Create your admin account, set `role='admin'` on its `users` row
-- [ ] Turn off the demo credentials hint on the login page before public launch
+- [ ] `DATABASE_URL="..." npm run db:seed:reference` — foods, chains + menus, exercises, workout templates
+- [ ] Register your account in the app, then `DATABASE_URL="..." npm run make-admin -- you@example.com`
+- [x] Demo credentials hint on the login page is dev-only (hidden automatically in production builds)
 
 ## 3. OAuth ("Sign in with Google/Apple")
 

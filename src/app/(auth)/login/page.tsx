@@ -30,9 +30,12 @@ export default function LoginPage() {
             Create an account
           </Link>
         </p>
-        <p className="rounded-lg bg-surface px-3 py-2 text-center text-[11px] text-ink-faint">
-          Demo account: <span className="text-ink-dim">demo@macromap.app</span> / <span className="text-ink-dim">password123</span>
-        </p>
+        {/* dev-only: the demo account exists only in locally-seeded databases */}
+        {process.env.NODE_ENV !== "production" && (
+          <p className="rounded-lg bg-surface px-3 py-2 text-center text-[11px] text-ink-faint">
+            Demo account: <span className="text-ink-dim">demo@macromap.app</span> / <span className="text-ink-dim">password123</span>
+          </p>
+        )}
       </form>
       {/* guest mode (docs/08 §1a): zero-signup start; claim the account later in Settings */}
       <form action={continueAsGuest}>

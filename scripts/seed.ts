@@ -1,18 +1,47 @@
-/* Seeds the dev database: foods, demo users, recipes (ingredient-calculated macros),
+/* Seeds the database: foods, demo users, recipes (ingredient-calculated macros),
  * votes/saves/reviews, posts, follows, and a pre-onboarded demo account with logs.
  * Run: npm run db:seed  (idempotent-ish: wipes and recreates demo content)
- * Targets the local PGlite store; to seed a hosted DB (docs/09-deployment.md),
- * swap the PGlite client below for drizzle-orm/node-postgres + DATABASE_URL. */
+ * Targets local PGlite by default; with DATABASE_URL set it seeds that Postgres instead
+ * (docs/09-deployment.md). Hosted safety: the full demo seed WIPES every table, so with
+ * DATABASE_URL it requires --force-demo. For production bootstrap use --reference-only:
+ * foods, restaurants, exercises, workout templates — insert-only, skips non-empty tables. */
 import { mkdirSync } from "fs";
-import { drizzle } from "drizzle-orm/pglite";
+import { drizzle as drizzlePglite } from "drizzle-orm/pglite";
+import { drizzle as drizzlePg } from "drizzle-orm/node-postgres";
 import { PGlite } from "@electric-sql/pglite";
+import { Pool } from "pg";
 import bcrypt from "bcryptjs";
 import { inArray, sql } from "drizzle-orm";
 import * as schema from "../src/db/schema";
 
-mkdirSync("./.data", { recursive: true });
-const client = new PGlite("./.data/pglite");
-const db = drizzle(client, { schema, casing: "snake_case" });
+const DATABASE_URL = process.env.DATABASE_URL;
+const args = process.argv.slice(2);
+const referenceOnly = args.includes("--reference-only");
+if (DATABASE_URL && !referenceOnly && !args.includes("--force-demo")) {
+  console.error(
+    "DATABASE_URL is set — refusing the full demo seed, which WIPES every table.\n" +
+      "  Production bootstrap:   npm run db:seed -- --reference-only\n" +
+      "  Demo data, on purpose:  npm run db:seed -- --force-demo",
+  );
+  process.exit(1);
+}
+
+function makePglite() {
+  mkdirSync("./.data", { recursive: true });
+  const client = new PGlite("./.data/pglite");
+  return { db: drizzlePglite(client, { schema, casing: "snake_case" }), close: () => client.close() };
+}
+type Db = ReturnType<typeof makePglite>["db"];
+function makePg(url: string): { db: Db; close: () => Promise<void> } {
+  const pool = new Pool({ connectionString: url });
+  return {
+    db: drizzlePg(pool, { schema, casing: "snake_case" }) as unknown as Db,
+    close: async () => {
+      await pool.end();
+    },
+  };
+}
+const { db, close: closeDb } = DATABASE_URL ? makePg(DATABASE_URL) : makePglite();
 const {
   users, profiles, nutritionTargets, follows, posts, comments, reactions,
   votes, saves, foods, foodLogs, waterLogs, recipes, recipeIngredients, recipeReviews,
@@ -247,29 +276,7 @@ const POSTS: { author: string; type: string; body: string }[] = [
   { author: "chef_maria", type: "progress", body: "12 weeks of logging every day 📈 — down 6kg, protein average 152g/day. This app's streak flame is genuinely doing psychological damage (the good kind)." },
 ];
 
-async function main() {
-  console.log("Seeding…");
-
-  // wipe (dev convenience — order matters for FKs)
-  for (const t of [
-    "content_warnings", "moderation_actions", "reports",
-    "challenge_participants", "challenges", "group_members", "groups",
-    "media_attachments", "photos",
-    "personal_records", "workout_logs", "workouts", "exercises",
-    "meal_prep_items", "meal_prep_plans", "grocery_items", "grocery_lists",
-    "habit_logs", "habits", "progress_entries", "go_to_orders",
-    "menu_item_options", "menu_item_option_groups",
-    "food_logs", "water_logs", "recipe_reviews", "recipe_ingredients", "comments",
-    "reactions", "votes", "saves", "posts", "follows", "nutrition_targets",
-    "recipes", "personal_ingredients", "foods",
-    "menu_items", "restaurants", "chains",
-    "feedback", "nutrition_import_batches",
-    "sessions", "profiles", "users",
-  ]) {
-    await db.execute(sql.raw(`DELETE FROM ${t}`));
-  }
-
-  // foods
+async function seedFoods() {
   const foodRows = await db
     .insert(foods)
     .values(
@@ -279,208 +286,11 @@ async function main() {
       })),
     )
     .returning();
-  const foodByName = new Map(foodRows.map((f) => [f.name, f]));
   console.log(`  ${foodRows.length} foods`);
+  return new Map(foodRows.map((f) => [f.name, f]));
+}
 
-  // users
-  const hash = await bcrypt.hash("password123", 10);
-  const defs = [
-    { email: "maria@macromap.app", username: "chef_maria", displayName: "Maria Delgado", bio: "High-protein recipes that don't taste like a chore. 400+ meal preps and counting.", goal: "recomp", reputation: 480 },
-    { email: "prepking@macromap.app", username: "prep_king", displayName: "Marcus (Prep King)", bio: "I cook once and eat all week. Budget meal prep, big batches, zero sad desk lunches.", goal: "muscle_gain", reputation: 350 },
-    { email: "dan@macromap.app", username: "coach_dan", displayName: "Coach Dan", bio: "Strength coach. Protein evangelist. Your squat is high.", goal: "performance", reputation: 290 },
-    { email: "demo@macromap.app", username: "demo", displayName: "Demo User", bio: "Just here trying to hit my macros.", goal: "fat_loss", reputation: 10 },
-    { email: "admin@macromap.app", username: "macromap_admin", displayName: "MacroMap Admin", bio: "Keeping the nutrition data honest.", goal: "maintenance", reputation: 100, role: "admin" },
-  ];
-  const userByUsername = new Map<string, string>();
-  for (const d of defs) {
-    const [u] = await db.insert(users).values({ email: d.email, passwordHash: hash, reputation: d.reputation, role: (d as { role?: string }).role ?? "user" }).returning();
-    await db.insert(profiles).values({
-      userId: u.id, username: d.username, displayName: d.displayName, bio: d.bio,
-      goal: d.goal, trackingStyle: "strict_macro", activityLevel: "moderate",
-      sex: "male", heightCm: 178, weightKg: 80, birthYear: 1996, onboardedAt: new Date(),
-    });
-    await db.insert(nutritionTargets).values({
-      userId: u.id,
-      calories: d.goal === "fat_loss" ? 2100 : 2700,
-      proteinG: 170, carbsG: d.goal === "fat_loss" ? 190 : 300, fatG: d.goal === "fat_loss" ? 60 : 80,
-    });
-    userByUsername.set(d.username, u.id);
-  }
-  console.log(`  ${defs.length} users`);
-
-  // follows: demo follows everyone; creators follow each other
-  const pairs: [string, string][] = [
-    ["demo", "chef_maria"], ["demo", "prep_king"], ["demo", "coach_dan"],
-    ["chef_maria", "prep_king"], ["prep_king", "chef_maria"], ["coach_dan", "chef_maria"],
-    ["chef_maria", "coach_dan"],
-  ];
-  await db.insert(follows).values(
-    pairs.map(([a, b]) => ({ followerId: userByUsername.get(a)!, followeeId: userByUsername.get(b)! })),
-  );
-
-  // recipes with ingredient-calculated macros
-  const recipeIds: { id: string; author: string; name: string }[] = [];
-  for (const r of RECIPES) {
-    const totals = { calories: 0, proteinG: 0, carbsG: 0, fatG: 0 };
-    for (const [name, grams] of r.ingredients) {
-      const f = foodByName.get(name);
-      if (!f) throw new Error(`Seed food missing: ${name}`);
-      const k = grams / 100;
-      totals.calories += f.calories * k;
-      totals.proteinG += f.proteinG * k;
-      totals.carbsG += f.carbsG * k;
-      totals.fatG += f.fatG * k;
-    }
-    const per = (n: number) => Math.round((n / r.servings) * 10) / 10;
-    const [rec] = await db
-      .insert(recipes)
-      .values({
-        authorId: userByUsername.get(r.author)!,
-        name: r.name, description: r.description, instructions: r.instructions,
-        servings: r.servings, servingDesc: r.servingDesc,
-        calories: per(totals.calories), proteinG: per(totals.proteinG),
-        carbsG: per(totals.carbsG), fatG: per(totals.fatG),
-        macroSource: "ingredient_calculated", macroConfidence: 0.8,
-        prepMin: r.prepMin, cookMin: r.cookMin, difficulty: r.difficulty,
-        costCents: r.costCents, tags: r.tags,
-      })
-      .returning();
-    await db.insert(recipeIngredients).values(
-      r.ingredients.map(([name, grams], i) => ({
-        recipeId: rec.id, foodId: foodByName.get(name)!.id,
-        rawText: `${grams}g ${name}`, grams, position: i,
-      })),
-    );
-    recipeIds.push({ id: rec.id, author: r.author, name: r.name });
-  }
-  console.log(`  ${recipeIds.length} recipes`);
-
-  // votes, saves, tried/reviews — everyone interacts with others' recipes
-  const allUsernames = defs.map((d) => d.username);
-  const reviewBodies = [
-    "Made this twice already. Macros checked out on my scale.",
-    "Solid. Doubled the seasoning like Maria says and it slaps.",
-    "Survived 4 days in the fridge no problem.",
-    "My whole gym group meal preps this now.",
-  ];
-  let interactions = 0;
-  for (const rec of recipeIds) {
-    for (const uname of allUsernames) {
-      if (uname === rec.author) continue;
-      const uid = userByUsername.get(uname)!;
-      const roll = (uname.length + rec.name.length) % 4; // deterministic variety
-      if (roll < 3) {
-        await db.insert(votes).values({ userId: uid, subjectType: "recipe", subjectId: rec.id, value: 1 });
-        await db.update(recipes).set({ upvotes: sql`${recipes.upvotes} + 1` }).where(sql`id = ${rec.id}`);
-        interactions++;
-      }
-      if (roll % 2 === 0) {
-        await db.insert(saves).values({ userId: uid, subjectType: "recipe", subjectId: rec.id });
-        await db.update(recipes).set({ saveCount: sql`${recipes.saveCount} + 1` }).where(sql`id = ${rec.id}`);
-        interactions++;
-      }
-      if (roll === 0) {
-        const rating = 4 + ((uname.length + rec.name.length) % 2);
-        await db.insert(recipeReviews).values({
-          recipeId: rec.id, userId: uid, rating,
-          body: reviewBodies[(uname.length + rec.name.length) % reviewBodies.length],
-        });
-        await db
-          .update(recipes)
-          .set({
-            triedCount: sql`${recipes.triedCount} + 1`,
-            ratingSum: sql`${recipes.ratingSum} + ${rating}`,
-            ratingCount: sql`${recipes.ratingCount} + 1`,
-          })
-          .where(sql`id = ${rec.id}`);
-        interactions++;
-      }
-    }
-  }
-  console.log(`  ${interactions} recipe interactions`);
-
-  // posts: text posts + recipe shares
-  const hoursAgo = (h: number) => new Date(Date.now() - h * 3600_000);
-  let t = 60;
-  for (const p of POSTS) {
-    const [post] = await db
-      .insert(posts)
-      .values({ authorId: userByUsername.get(p.author)!, type: p.type, body: p.body, createdAt: hoursAgo(t) })
-      .returning();
-    t -= 9;
-    // sprinkle reactions from the others
-    for (const uname of allUsernames) {
-      if (uname === p.author) continue;
-      if ((uname.length + p.body.length) % 3 === 0) continue;
-      const kinds = ["like", "strong", "macro_win", "pr", "high_protein"];
-      await db.insert(reactions).values({
-        userId: userByUsername.get(uname)!, subjectType: "post", subjectId: post.id,
-        kind: kinds[(uname.length + p.body.length) % kinds.length],
-      });
-      await db.update(posts).set({ reactionCount: sql`${posts.reactionCount} + 1` }).where(sql`id = ${post.id}`);
-    }
-  }
-  const shares: [string, string, string][] = [
-    ["chef_maria", "Meal Prep Chicken Burrito Bowls", "New recipe up — my most-requested prep, finally written down properly. 5 bowls, 44g protein each."],
-    ["prep_king", "Turkey Chili (Big Batch)", "The freezer chili. $2.10 a serving, 8 servings, macros in the card. You're welcome."],
-    ["coach_dan", "Greek Yogurt Protein Bowl", "For everyone who says they 'don't have time' — this is 45g of protein in 4 minutes with zero cooking."],
-  ];
-  for (const [author, recipeName, body] of shares) {
-    const rec = recipeIds.find((r) => r.name === recipeName)!;
-    const [post] = await db
-      .insert(posts)
-      .values({
-        authorId: userByUsername.get(author)!, type: "recipe", body,
-        refType: "recipe", refId: rec.id, createdAt: hoursAgo(t),
-      })
-      .returning();
-    t -= 7;
-    await db.insert(comments).values({
-      authorId: userByUsername.get(author === "coach_dan" ? "chef_maria" : "coach_dan")!,
-      subjectType: "post", subjectId: post.id, body: "Adding this to next week's rotation 🔥",
-    });
-    await db.update(posts).set({ commentCount: 1 }).where(sql`id = ${post.id}`);
-  }
-  console.log(`  ${POSTS.length + shares.length} posts`);
-
-  // demo user's diary: yesterday full, today partial (uses recipes → logCount)
-  const demoId = userByUsername.get("demo")!;
-  const day = (offset: number) => {
-    const d = new Date(Date.now() + offset * 86400_000);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  };
-  const logRecipeFor = async (dateStr: string, slot: string, recipeName: string, servings = 1) => {
-    const rec = recipeIds.find((r) => r.name === recipeName)!;
-    const [full] = await db.select().from(recipes).where(sql`id = ${rec.id}`);
-    await db.insert(foodLogs).values({
-      userId: demoId, logDate: dateStr, mealSlot: slot, recipeId: rec.id, name: full.name,
-      servings,
-      calories: full.calories * servings, proteinG: full.proteinG * servings,
-      carbsG: full.carbsG * servings, fatG: full.fatG * servings,
-    });
-    await db.update(recipes).set({ logCount: sql`${recipes.logCount} + 1` }).where(sql`id = ${rec.id}`);
-  };
-  const logFoodFor = async (dateStr: string, slot: string, foodName: string, servings: number) => {
-    const f = foodByName.get(foodName)!;
-    await db.insert(foodLogs).values({
-      userId: demoId, logDate: dateStr, mealSlot: slot, foodId: f.id, name: f.name, servings,
-      calories: f.calories * servings, proteinG: f.proteinG * servings,
-      carbsG: f.carbsG * servings, fatG: f.fatG * servings,
-    });
-  };
-  for (const offset of [-3, -2, -1]) {
-    await logRecipeFor(day(offset), "breakfast", "Protein Overnight Oats");
-    await logRecipeFor(day(offset), "lunch", "Meal Prep Chicken Burrito Bowls");
-    await logRecipeFor(day(offset), "dinner", offset === -1 ? "Air Fryer Salmon & Sweet Potato" : "Turkey Chili (Big Batch)");
-    await logFoodFor(day(offset), "snack", "Greek yogurt, nonfat", 1.7);
-    await db.insert(waterLogs).values({ userId: demoId, logDate: day(offset), ml: 2250 });
-  }
-  await logRecipeFor(day(0), "breakfast", "10-Minute Egg White Scramble Wrap");
-  await logFoodFor(day(0), "snack", "Apple", 1.8);
-  await db.insert(waterLogs).values({ userId: demoId, logDate: day(0), ml: 750 });
-  console.log("  demo diary (3 past days + today)");
-
-  // ─── restaurants: chains, locations (downtown Austin demo area), menus ──────
+async function seedChainsAndMenus() {
   // Fixed-item macros: [name, category, kcal, P, C, F, sodiumMg?, comboGroup?]
   type FixedDef = [string, string, number, number, number, number, number?, ("entree" | "side")?];
   // Option macros: [name, kcal, P, C, F, isDefault?, portionDesc?]
@@ -749,6 +559,354 @@ async function main() {
     }
   }
   console.log(`  ${CHAINS.length} chains, ${itemCount} menu items`);
+  return { chainIdByName, buildableByChain };
+}
+
+async function seedExercises() {
+  const EXERCISES: [name: string, muscles: string[], equipment: string, bodyweight?: 1][] = [
+    ["Barbell Back Squat", ["quads", "glutes"], "barbell"],
+    ["Front Squat", ["quads", "core"], "barbell"],
+    ["Barbell Bench Press", ["chest", "triceps"], "barbell"],
+    ["Incline Dumbbell Press", ["chest", "shoulders"], "dumbbell"],
+    ["Deadlift", ["hamstrings", "back"], "barbell"],
+    ["Romanian Deadlift", ["hamstrings", "glutes"], "barbell"],
+    ["Overhead Press", ["shoulders", "triceps"], "barbell"],
+    ["Barbell Row", ["back", "biceps"], "barbell"],
+    ["Lat Pulldown", ["back", "biceps"], "cable"],
+    ["Pull-up", ["back", "biceps"], "bodyweight", 1],
+    ["Push-up", ["chest", "triceps"], "bodyweight", 1],
+    ["Dip", ["chest", "triceps"], "bodyweight", 1],
+    ["Dumbbell Lunge", ["quads", "glutes"], "dumbbell"],
+    ["Leg Press", ["quads", "glutes"], "machine"],
+    ["Leg Curl", ["hamstrings"], "machine"],
+    ["Calf Raise", ["calves"], "machine"],
+    ["Dumbbell Curl", ["biceps"], "dumbbell"],
+    ["Triceps Pushdown", ["triceps"], "cable"],
+    ["Lateral Raise", ["shoulders"], "dumbbell"],
+    ["Face Pull", ["rear delts", "upper back"], "cable"],
+    ["Plank", ["core"], "bodyweight", 1],
+    ["Hanging Leg Raise", ["core"], "bodyweight", 1],
+    ["Hip Thrust", ["glutes"], "barbell"],
+    ["Seated Cable Row", ["back"], "cable"],
+    ["Goblet Squat", ["quads", "glutes"], "dumbbell"],
+    ["Farmer's Carry", ["grip", "core"], "dumbbell"],
+    ["Rowing Machine", ["full body"], "machine"],
+    ["Treadmill Run", ["cardio"], "machine"],
+  ];
+  const exerciseRows = await db
+    .insert(exercises)
+    .values(EXERCISES.map(([name, muscleGroups, equipment, bw]) => ({ name, muscleGroups, equipment, isBodyweight: bw === 1 })))
+    .returning();
+  const exByName = new Map(exerciseRows.map((e) => [e.name, e]));
+  console.log(`  ${exByName.size} exercises`);
+  return exByName;
+}
+
+async function seedWorkouts(
+  exByName: Awaited<ReturnType<typeof seedExercises>>,
+  authorIdFor: ((username: string) => string) | null, // null = seed official templates only
+) {
+  const ex = (name: string) => {
+    const row = exByName.get(name);
+    if (!row) throw new Error(`Seed exercise missing: ${name}`);
+    return row.id;
+  };
+  type WDef = {
+    author: string | null; // null = official template
+    title: string; description: string; kind: string; difficulty: number; est: number;
+    structure: [exercise: string, sets: number, reps: string][];
+    completed?: number; saves?: number;
+  };
+  const WORKOUTS: WDef[] = [
+    {
+      author: null, title: "Full Body Starter A", kind: "strength", difficulty: 1, est: 45,
+      description: "Three compound lifts, three accessories. Run A/B alternating, 3 days a week.",
+      structure: [["Barbell Back Squat", 3, "5"], ["Barbell Bench Press", 3, "5"], ["Barbell Row", 3, "8"], ["Plank", 3, "45s"], ["Dumbbell Curl", 2, "12"], ["Calf Raise", 3, "15"]],
+    },
+    {
+      author: null, title: "Full Body Starter B", kind: "strength", difficulty: 1, est: 45,
+      description: "The B day: hinge + press + pull. Pairs with Starter A.",
+      structure: [["Deadlift", 3, "5"], ["Overhead Press", 3, "5"], ["Lat Pulldown", 3, "10"], ["Dumbbell Lunge", 3, "10"], ["Face Pull", 3, "15"]],
+    },
+    {
+      author: null, title: "Push Day (PPL)", kind: "strength", difficulty: 3, est: 60,
+      description: "Chest / shoulders / triceps volume day from the classic PPL split.",
+      structure: [["Barbell Bench Press", 4, "6-8"], ["Overhead Press", 3, "8-10"], ["Incline Dumbbell Press", 3, "10-12"], ["Lateral Raise", 4, "12-15"], ["Triceps Pushdown", 3, "12-15"], ["Dip", 3, "AMRAP"]],
+    },
+    {
+      author: "coach_dan", title: "Dan's 40-min Lunch Break Full Body", kind: "strength", difficulty: 2, est: 40,
+      description: "For my clients who 'don't have time'. Superset everything, leave strong.",
+      structure: [["Goblet Squat", 3, "10"], ["Push-up", 3, "AMRAP"], ["Seated Cable Row", 3, "10"], ["Romanian Deadlift", 3, "10"], ["Farmer's Carry", 3, "40m"]],
+      completed: 23, saves: 11,
+    },
+    {
+      author: "coach_dan", title: "Glute Hypertrophy Day", kind: "strength", difficulty: 3, est: 55,
+      description: "Hip thrust focus, quads and hamstrings supporting cast.",
+      structure: [["Hip Thrust", 4, "8-10"], ["Barbell Back Squat", 3, "8"], ["Romanian Deadlift", 3, "10"], ["Dumbbell Lunge", 3, "12"], ["Leg Curl", 3, "12-15"]],
+      completed: 9, saves: 6,
+    },
+  ];
+  const workoutIdByTitle = new Map<string, string>();
+  const defs = authorIdFor ? WORKOUTS : WORKOUTS.filter((w) => w.author == null);
+  for (const w of defs) {
+    const [row] = await db
+      .insert(workouts)
+      .values({
+        authorId: w.author ? authorIdFor!(w.author) : null,
+        title: w.title, description: w.description, kind: w.kind,
+        difficulty: w.difficulty, estDurationMin: w.est, isTemplate: w.author == null,
+        structure: w.structure.map(([name, sets, reps]) => ({ exerciseId: ex(name), sets, reps })),
+        completedCount: w.completed ?? 0, saveCount: w.saves ?? 0,
+      })
+      .returning();
+    workoutIdByTitle.set(w.title, row.id);
+  }
+  console.log(`  ${defs.length} workouts (${defs.filter((w) => !w.author).length} templates)`);
+  return workoutIdByTitle;
+}
+
+async function main() {
+  // Production bootstrap: reference data only, insert-only — never touches existing rows
+  // (chains/exercises cascade-delete into user go-to orders and PRs, so no wipe here).
+  if (referenceOnly) {
+    console.log(`Seeding reference data (${DATABASE_URL ? "hosted Postgres" : "local PGlite"})…`);
+    if (await db.$count(foods)) console.log("  foods: table not empty, skipped");
+    else await seedFoods();
+    if (await db.$count(chains)) console.log("  chains: table not empty, skipped");
+    else await seedChainsAndMenus();
+    const exByName = (await db.$count(exercises))
+      ? new Map((await db.select().from(exercises)).map((e) => [e.name, e]))
+      : await seedExercises();
+    if (await db.$count(workouts)) console.log("  workouts: table not empty, skipped");
+    else await seedWorkouts(exByName, null);
+    console.log("Done (reference data only — no demo accounts created).");
+    return;
+  }
+
+  console.log("Seeding…");
+
+  // wipe (dev convenience — order matters for FKs)
+  for (const t of [
+    "content_warnings", "moderation_actions", "reports",
+    "challenge_participants", "challenges", "group_members", "groups",
+    "media_attachments", "photos",
+    "personal_records", "workout_logs", "workouts", "exercises",
+    "meal_prep_items", "meal_prep_plans", "grocery_items", "grocery_lists",
+    "habit_logs", "habits", "progress_entries", "go_to_orders",
+    "menu_item_options", "menu_item_option_groups",
+    "food_logs", "water_logs", "recipe_reviews", "recipe_ingredients", "comments",
+    "reactions", "votes", "saves", "posts", "follows", "nutrition_targets",
+    "recipes", "personal_ingredients", "foods",
+    "menu_items", "restaurants", "chains",
+    "feedback", "nutrition_import_batches",
+    "sessions", "profiles", "users",
+  ]) {
+    await db.execute(sql.raw(`DELETE FROM ${t}`));
+  }
+
+  // foods
+  const foodByName = await seedFoods();
+
+  // users
+  const hash = await bcrypt.hash("password123", 10);
+  const defs = [
+    { email: "maria@macromap.app", username: "chef_maria", displayName: "Maria Delgado", bio: "High-protein recipes that don't taste like a chore. 400+ meal preps and counting.", goal: "recomp", reputation: 480 },
+    { email: "prepking@macromap.app", username: "prep_king", displayName: "Marcus (Prep King)", bio: "I cook once and eat all week. Budget meal prep, big batches, zero sad desk lunches.", goal: "muscle_gain", reputation: 350 },
+    { email: "dan@macromap.app", username: "coach_dan", displayName: "Coach Dan", bio: "Strength coach. Protein evangelist. Your squat is high.", goal: "performance", reputation: 290 },
+    { email: "demo@macromap.app", username: "demo", displayName: "Demo User", bio: "Just here trying to hit my macros.", goal: "fat_loss", reputation: 10 },
+    { email: "admin@macromap.app", username: "macromap_admin", displayName: "MacroMap Admin", bio: "Keeping the nutrition data honest.", goal: "maintenance", reputation: 100, role: "admin" },
+  ];
+  const userByUsername = new Map<string, string>();
+  for (const d of defs) {
+    const [u] = await db.insert(users).values({ email: d.email, passwordHash: hash, reputation: d.reputation, role: (d as { role?: string }).role ?? "user" }).returning();
+    await db.insert(profiles).values({
+      userId: u.id, username: d.username, displayName: d.displayName, bio: d.bio,
+      goal: d.goal, trackingStyle: "strict_macro", activityLevel: "moderate",
+      sex: "male", heightCm: 178, weightKg: 80, birthYear: 1996, onboardedAt: new Date(),
+    });
+    await db.insert(nutritionTargets).values({
+      userId: u.id,
+      calories: d.goal === "fat_loss" ? 2100 : 2700,
+      proteinG: 170, carbsG: d.goal === "fat_loss" ? 190 : 300, fatG: d.goal === "fat_loss" ? 60 : 80,
+    });
+    userByUsername.set(d.username, u.id);
+  }
+  console.log(`  ${defs.length} users`);
+
+  // follows: demo follows everyone; creators follow each other
+  const pairs: [string, string][] = [
+    ["demo", "chef_maria"], ["demo", "prep_king"], ["demo", "coach_dan"],
+    ["chef_maria", "prep_king"], ["prep_king", "chef_maria"], ["coach_dan", "chef_maria"],
+    ["chef_maria", "coach_dan"],
+  ];
+  await db.insert(follows).values(
+    pairs.map(([a, b]) => ({ followerId: userByUsername.get(a)!, followeeId: userByUsername.get(b)! })),
+  );
+
+  // recipes with ingredient-calculated macros
+  const recipeIds: { id: string; author: string; name: string }[] = [];
+  for (const r of RECIPES) {
+    const totals = { calories: 0, proteinG: 0, carbsG: 0, fatG: 0 };
+    for (const [name, grams] of r.ingredients) {
+      const f = foodByName.get(name);
+      if (!f) throw new Error(`Seed food missing: ${name}`);
+      const k = grams / 100;
+      totals.calories += f.calories * k;
+      totals.proteinG += f.proteinG * k;
+      totals.carbsG += f.carbsG * k;
+      totals.fatG += f.fatG * k;
+    }
+    const per = (n: number) => Math.round((n / r.servings) * 10) / 10;
+    const [rec] = await db
+      .insert(recipes)
+      .values({
+        authorId: userByUsername.get(r.author)!,
+        name: r.name, description: r.description, instructions: r.instructions,
+        servings: r.servings, servingDesc: r.servingDesc,
+        calories: per(totals.calories), proteinG: per(totals.proteinG),
+        carbsG: per(totals.carbsG), fatG: per(totals.fatG),
+        macroSource: "ingredient_calculated", macroConfidence: 0.8,
+        prepMin: r.prepMin, cookMin: r.cookMin, difficulty: r.difficulty,
+        costCents: r.costCents, tags: r.tags,
+      })
+      .returning();
+    await db.insert(recipeIngredients).values(
+      r.ingredients.map(([name, grams], i) => ({
+        recipeId: rec.id, foodId: foodByName.get(name)!.id,
+        rawText: `${grams}g ${name}`, grams, position: i,
+      })),
+    );
+    recipeIds.push({ id: rec.id, author: r.author, name: r.name });
+  }
+  console.log(`  ${recipeIds.length} recipes`);
+
+  // votes, saves, tried/reviews — everyone interacts with others' recipes
+  const allUsernames = defs.map((d) => d.username);
+  const reviewBodies = [
+    "Made this twice already. Macros checked out on my scale.",
+    "Solid. Doubled the seasoning like Maria says and it slaps.",
+    "Survived 4 days in the fridge no problem.",
+    "My whole gym group meal preps this now.",
+  ];
+  let interactions = 0;
+  for (const rec of recipeIds) {
+    for (const uname of allUsernames) {
+      if (uname === rec.author) continue;
+      const uid = userByUsername.get(uname)!;
+      const roll = (uname.length + rec.name.length) % 4; // deterministic variety
+      if (roll < 3) {
+        await db.insert(votes).values({ userId: uid, subjectType: "recipe", subjectId: rec.id, value: 1 });
+        await db.update(recipes).set({ upvotes: sql`${recipes.upvotes} + 1` }).where(sql`id = ${rec.id}`);
+        interactions++;
+      }
+      if (roll % 2 === 0) {
+        await db.insert(saves).values({ userId: uid, subjectType: "recipe", subjectId: rec.id });
+        await db.update(recipes).set({ saveCount: sql`${recipes.saveCount} + 1` }).where(sql`id = ${rec.id}`);
+        interactions++;
+      }
+      if (roll === 0) {
+        const rating = 4 + ((uname.length + rec.name.length) % 2);
+        await db.insert(recipeReviews).values({
+          recipeId: rec.id, userId: uid, rating,
+          body: reviewBodies[(uname.length + rec.name.length) % reviewBodies.length],
+        });
+        await db
+          .update(recipes)
+          .set({
+            triedCount: sql`${recipes.triedCount} + 1`,
+            ratingSum: sql`${recipes.ratingSum} + ${rating}`,
+            ratingCount: sql`${recipes.ratingCount} + 1`,
+          })
+          .where(sql`id = ${rec.id}`);
+        interactions++;
+      }
+    }
+  }
+  console.log(`  ${interactions} recipe interactions`);
+
+  // posts: text posts + recipe shares
+  const hoursAgo = (h: number) => new Date(Date.now() - h * 3600_000);
+  let t = 60;
+  for (const p of POSTS) {
+    const [post] = await db
+      .insert(posts)
+      .values({ authorId: userByUsername.get(p.author)!, type: p.type, body: p.body, createdAt: hoursAgo(t) })
+      .returning();
+    t -= 9;
+    // sprinkle reactions from the others
+    for (const uname of allUsernames) {
+      if (uname === p.author) continue;
+      if ((uname.length + p.body.length) % 3 === 0) continue;
+      const kinds = ["like", "strong", "macro_win", "pr", "high_protein"];
+      await db.insert(reactions).values({
+        userId: userByUsername.get(uname)!, subjectType: "post", subjectId: post.id,
+        kind: kinds[(uname.length + p.body.length) % kinds.length],
+      });
+      await db.update(posts).set({ reactionCount: sql`${posts.reactionCount} + 1` }).where(sql`id = ${post.id}`);
+    }
+  }
+  const shares: [string, string, string][] = [
+    ["chef_maria", "Meal Prep Chicken Burrito Bowls", "New recipe up — my most-requested prep, finally written down properly. 5 bowls, 44g protein each."],
+    ["prep_king", "Turkey Chili (Big Batch)", "The freezer chili. $2.10 a serving, 8 servings, macros in the card. You're welcome."],
+    ["coach_dan", "Greek Yogurt Protein Bowl", "For everyone who says they 'don't have time' — this is 45g of protein in 4 minutes with zero cooking."],
+  ];
+  for (const [author, recipeName, body] of shares) {
+    const rec = recipeIds.find((r) => r.name === recipeName)!;
+    const [post] = await db
+      .insert(posts)
+      .values({
+        authorId: userByUsername.get(author)!, type: "recipe", body,
+        refType: "recipe", refId: rec.id, createdAt: hoursAgo(t),
+      })
+      .returning();
+    t -= 7;
+    await db.insert(comments).values({
+      authorId: userByUsername.get(author === "coach_dan" ? "chef_maria" : "coach_dan")!,
+      subjectType: "post", subjectId: post.id, body: "Adding this to next week's rotation 🔥",
+    });
+    await db.update(posts).set({ commentCount: 1 }).where(sql`id = ${post.id}`);
+  }
+  console.log(`  ${POSTS.length + shares.length} posts`);
+
+  // demo user's diary: yesterday full, today partial (uses recipes → logCount)
+  const demoId = userByUsername.get("demo")!;
+  const day = (offset: number) => {
+    const d = new Date(Date.now() + offset * 86400_000);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
+  const logRecipeFor = async (dateStr: string, slot: string, recipeName: string, servings = 1) => {
+    const rec = recipeIds.find((r) => r.name === recipeName)!;
+    const [full] = await db.select().from(recipes).where(sql`id = ${rec.id}`);
+    await db.insert(foodLogs).values({
+      userId: demoId, logDate: dateStr, mealSlot: slot, recipeId: rec.id, name: full.name,
+      servings,
+      calories: full.calories * servings, proteinG: full.proteinG * servings,
+      carbsG: full.carbsG * servings, fatG: full.fatG * servings,
+    });
+    await db.update(recipes).set({ logCount: sql`${recipes.logCount} + 1` }).where(sql`id = ${rec.id}`);
+  };
+  const logFoodFor = async (dateStr: string, slot: string, foodName: string, servings: number) => {
+    const f = foodByName.get(foodName)!;
+    await db.insert(foodLogs).values({
+      userId: demoId, logDate: dateStr, mealSlot: slot, foodId: f.id, name: f.name, servings,
+      calories: f.calories * servings, proteinG: f.proteinG * servings,
+      carbsG: f.carbsG * servings, fatG: f.fatG * servings,
+    });
+  };
+  for (const offset of [-3, -2, -1]) {
+    await logRecipeFor(day(offset), "breakfast", "Protein Overnight Oats");
+    await logRecipeFor(day(offset), "lunch", "Meal Prep Chicken Burrito Bowls");
+    await logRecipeFor(day(offset), "dinner", offset === -1 ? "Air Fryer Salmon & Sweet Potato" : "Turkey Chili (Big Batch)");
+    await logFoodFor(day(offset), "snack", "Greek yogurt, nonfat", 1.7);
+    await db.insert(waterLogs).values({ userId: demoId, logDate: day(offset), ml: 2250 });
+  }
+  await logRecipeFor(day(0), "breakfast", "10-Minute Egg White Scramble Wrap");
+  await logFoodFor(day(0), "snack", "Apple", 1.8);
+  await db.insert(waterLogs).values({ userId: demoId, logDate: day(0), ml: 750 });
+  console.log("  demo diary (3 past days + today)");
+
+  // ─── restaurants: chains, locations (downtown Austin demo area), menus ──────
+  const { chainIdByName, buildableByChain } = await seedChainsAndMenus();
 
   // community go-to orders → "popular builds" on chain pages
   const seedOrder = async (
@@ -808,98 +966,14 @@ async function main() {
   console.log(`  ${weights.length} progress entries, ${habitDefs.length} habits`);
 
   // ─── exercises library + workouts (templates + community) ──────────────────
-  const EXERCISES: [name: string, muscles: string[], equipment: string, bodyweight?: 1][] = [
-    ["Barbell Back Squat", ["quads", "glutes"], "barbell"],
-    ["Front Squat", ["quads", "core"], "barbell"],
-    ["Barbell Bench Press", ["chest", "triceps"], "barbell"],
-    ["Incline Dumbbell Press", ["chest", "shoulders"], "dumbbell"],
-    ["Deadlift", ["hamstrings", "back"], "barbell"],
-    ["Romanian Deadlift", ["hamstrings", "glutes"], "barbell"],
-    ["Overhead Press", ["shoulders", "triceps"], "barbell"],
-    ["Barbell Row", ["back", "biceps"], "barbell"],
-    ["Lat Pulldown", ["back", "biceps"], "cable"],
-    ["Pull-up", ["back", "biceps"], "bodyweight", 1],
-    ["Push-up", ["chest", "triceps"], "bodyweight", 1],
-    ["Dip", ["chest", "triceps"], "bodyweight", 1],
-    ["Dumbbell Lunge", ["quads", "glutes"], "dumbbell"],
-    ["Leg Press", ["quads", "glutes"], "machine"],
-    ["Leg Curl", ["hamstrings"], "machine"],
-    ["Calf Raise", ["calves"], "machine"],
-    ["Dumbbell Curl", ["biceps"], "dumbbell"],
-    ["Triceps Pushdown", ["triceps"], "cable"],
-    ["Lateral Raise", ["shoulders"], "dumbbell"],
-    ["Face Pull", ["rear delts", "upper back"], "cable"],
-    ["Plank", ["core"], "bodyweight", 1],
-    ["Hanging Leg Raise", ["core"], "bodyweight", 1],
-    ["Hip Thrust", ["glutes"], "barbell"],
-    ["Seated Cable Row", ["back"], "cable"],
-    ["Goblet Squat", ["quads", "glutes"], "dumbbell"],
-    ["Farmer's Carry", ["grip", "core"], "dumbbell"],
-    ["Rowing Machine", ["full body"], "machine"],
-    ["Treadmill Run", ["cardio"], "machine"],
-  ];
-  const exerciseRows = await db
-    .insert(exercises)
-    .values(EXERCISES.map(([name, muscleGroups, equipment, bw]) => ({ name, muscleGroups, equipment, isBodyweight: bw === 1 })))
-    .returning();
-  const exByName = new Map(exerciseRows.map((e) => [e.name, e]));
+  const exByName = await seedExercises();
   const ex = (name: string) => {
     const row = exByName.get(name);
     if (!row) throw new Error(`Seed exercise missing: ${name}`);
     return row.id;
   };
-  console.log(`  ${exerciseRows.length} exercises`);
 
-  type WDef = {
-    author: string | null; // null = official template
-    title: string; description: string; kind: string; difficulty: number; est: number;
-    structure: [exercise: string, sets: number, reps: string][];
-    completed?: number; saves?: number;
-  };
-  const WORKOUTS: WDef[] = [
-    {
-      author: null, title: "Full Body Starter A", kind: "strength", difficulty: 1, est: 45,
-      description: "Three compound lifts, three accessories. Run A/B alternating, 3 days a week.",
-      structure: [["Barbell Back Squat", 3, "5"], ["Barbell Bench Press", 3, "5"], ["Barbell Row", 3, "8"], ["Plank", 3, "45s"], ["Dumbbell Curl", 2, "12"], ["Calf Raise", 3, "15"]],
-    },
-    {
-      author: null, title: "Full Body Starter B", kind: "strength", difficulty: 1, est: 45,
-      description: "The B day: hinge + press + pull. Pairs with Starter A.",
-      structure: [["Deadlift", 3, "5"], ["Overhead Press", 3, "5"], ["Lat Pulldown", 3, "10"], ["Dumbbell Lunge", 3, "10"], ["Face Pull", 3, "15"]],
-    },
-    {
-      author: null, title: "Push Day (PPL)", kind: "strength", difficulty: 3, est: 60,
-      description: "Chest / shoulders / triceps volume day from the classic PPL split.",
-      structure: [["Barbell Bench Press", 4, "6-8"], ["Overhead Press", 3, "8-10"], ["Incline Dumbbell Press", 3, "10-12"], ["Lateral Raise", 4, "12-15"], ["Triceps Pushdown", 3, "12-15"], ["Dip", 3, "AMRAP"]],
-    },
-    {
-      author: "coach_dan", title: "Dan's 40-min Lunch Break Full Body", kind: "strength", difficulty: 2, est: 40,
-      description: "For my clients who 'don't have time'. Superset everything, leave strong.",
-      structure: [["Goblet Squat", 3, "10"], ["Push-up", 3, "AMRAP"], ["Seated Cable Row", 3, "10"], ["Romanian Deadlift", 3, "10"], ["Farmer's Carry", 3, "40m"]],
-      completed: 23, saves: 11,
-    },
-    {
-      author: "coach_dan", title: "Glute Hypertrophy Day", kind: "strength", difficulty: 3, est: 55,
-      description: "Hip thrust focus, quads and hamstrings supporting cast.",
-      structure: [["Hip Thrust", 4, "8-10"], ["Barbell Back Squat", 3, "8"], ["Romanian Deadlift", 3, "10"], ["Dumbbell Lunge", 3, "12"], ["Leg Curl", 3, "12-15"]],
-      completed: 9, saves: 6,
-    },
-  ];
-  const workoutIdByTitle = new Map<string, string>();
-  for (const w of WORKOUTS) {
-    const [row] = await db
-      .insert(workouts)
-      .values({
-        authorId: w.author ? userByUsername.get(w.author)! : null,
-        title: w.title, description: w.description, kind: w.kind,
-        difficulty: w.difficulty, estDurationMin: w.est, isTemplate: w.author == null,
-        structure: w.structure.map(([name, sets, reps]) => ({ exerciseId: ex(name), sets, reps })),
-        completedCount: w.completed ?? 0, saveCount: w.saves ?? 0,
-      })
-      .returning();
-    workoutIdByTitle.set(w.title, row.id);
-  }
-  console.log(`  ${WORKOUTS.length} workouts (${WORKOUTS.filter((w) => !w.author).length} templates)`);
+  const workoutIdByTitle = await seedWorkouts(exByName, (u) => userByUsername.get(u)!);
 
   // demo's training history + the PRs it produced (Epley e1rm, capped at 12 reps)
   const e1rm = (w: number, r: number) => Math.round(w * (1 + Math.min(r, 12) / 30) * 10) / 10;
@@ -1093,10 +1167,12 @@ async function main() {
   console.log("  2 open reports");
 
   console.log("Done. Sign in as demo@macromap.app / password123 (admin@macromap.app for /admin/reports + /admin/imports)");
-  await client.close();
 }
 
-main().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
+main()
+  .then(() => closeDb())
+  .catch(async (e) => {
+    console.error(e);
+    await closeDb().catch(() => {});
+    process.exit(1);
+  });
