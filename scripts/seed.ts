@@ -896,16 +896,7 @@ async function main() {
   ];
   const userByUsername = new Map<string, string>();
   for (const d of defs) {
-    const [u] = await db
-      .insert(users)
-      .values({
-        email: d.email,
-        passwordHash: hash,
-        emailVerifiedAt: new Date(),
-        reputation: d.reputation,
-        role: (d as { role?: string }).role ?? "user",
-      })
-      .returning();
+    const [u] = await db.insert(users).values({ email: d.email, passwordHash: hash, reputation: d.reputation, role: (d as { role?: string }).role ?? "user" }).returning();
     await db.insert(profiles).values({
       userId: u.id, username: d.username, displayName: d.displayName, bio: d.bio,
       goal: d.goal, trackingStyle: "strict_macro", activityLevel: "moderate",

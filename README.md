@@ -16,8 +16,6 @@ Demo login: **demo@macromap.app** / **password123** (pre-onboarded, follows the 
 
 Dev database lives in `./.data/pglite` (gitignored). To reset: delete `.data/` and rerun `npm run db:setup`. Setting `DATABASE_URL` switches to hosted Postgres automatically ([src/db/client.ts](src/db/client.ts), [docs/09-deployment.md](docs/09-deployment.md)).
 
-Email verification logs links to the dev console unless `RESEND_API_KEY` is set. Google sign-in needs `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `NEXT_PUBLIC_APP_URL`; register the callback URL as `${NEXT_PUBLIC_APP_URL}/api/auth/google/callback`.
-
 To deploy: against `DATABASE_URL`, push the schema (`npm run db:push`) and bootstrap reference data (`npm run db:seed:reference` — foods, restaurants, exercises, workout templates; insert-only, no demo accounts), then register in the app and run `npm run make-admin -- you@example.com`. A `Dockerfile` is included for container hosts; Vercel needs no config beyond the env var. Full walkthrough in [docs/09-deployment.md](docs/09-deployment.md).
 
 E2E tests (Playwright against the dev server — start `npm run dev` first, or let the config spawn one):
@@ -43,7 +41,6 @@ Note: PGlite allows one process on the data dir — don't run `npm run build` wh
 | [09-deployment.md](docs/09-deployment.md) | Deploying the app + Postgres backend; adding Google/Apple OAuth |
 | [10-health-integrations-and-tracking.md](docs/10-health-integrations-and-tracking.md) | Planned: micronutrients, barcode scanning, fasting timer, sleep tracking, wearable/health-platform sync |
 | [11-health-integrations-handoff.md](docs/11-health-integrations-handoff.md) | Handoff for continuing health device/app integrations: implemented foundation, scaffolding, gaps, and next steps |
-| [12-auth-email-google-oauth-plan.md](docs/12-auth-email-google-oauth-plan.md) | Email verification and Google OAuth plan |
 
 ## The three ideas everything hangs on
 

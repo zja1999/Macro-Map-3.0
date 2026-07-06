@@ -5,8 +5,8 @@ import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db/client";
-import { users, profiles, emailVerificationTokens } from "@/db/schema";
-import { createSession, destroySession, sendEmailVerification } from "@/lib/auth";
+import { users, profiles } from "@/db/schema";
+import { createSession, destroySession } from "@/lib/auth";
 import { checkRequestRateLimit, requestFingerprint } from "@/lib/rateLimit";
 
 const registerSchema = z.object({
@@ -22,9 +22,9 @@ const registerSchema = z.object({
 });
 
 export async function register(
-  _prev: { error?: string; success?: string } | undefined,
+  _prev: { error?: string } | undefined,
   formData: FormData,
-): Promise<{ error?: string; success?: string }> {
+): Promise<{ error?: string }> {
   const parsed = registerSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const { email, username, displayName, password } = parsed.data;
@@ -50,8 +50,8 @@ export async function register(
   const passwordHash = await bcrypt.hash(password, 10);
   const [user] = await db.insert(users).values({ email, passwordHash }).returning();
   await db.insert(profiles).values({ userId: user.id, username, displayName });
-  await sendEmailVerification(user.id, email);
-  return { success: "Check your email to verify your account. The link expires in 30 minutes." };
+  await createSession(user.id);
+  redirect("/onboarding");
 }
 
 const loginSchema = z.object({
@@ -84,54 +84,14 @@ export async function login(
   if (emailLimitError) return { error: emailLimitError };
 
   const [user] = await db.select().from(users).where(eq(users.email, parsed.data.email)).limit(1);
-  if (!user || !user.passwordHash || !(await bcrypt.compare(parsed.data.password, user.passwordHash))) {
+  if (!user || !(await bcrypt.compare(parsed.data.password, user.passwordHash))) {
     return { error: "Invalid email or password" };
   }
   if (user.bannedAt) {
     return { error: "This account has been suspended." };
   }
-  if (!user.emailVerifiedAt) {
-    const [verificationToken] = await db
-      .select({ tokenHash: emailVerificationTokens.tokenHash })
-      .from(emailVerificationTokens)
-      .where(eq(emailVerificationTokens.userId, user.id))
-      .limit(1);
-    if (verificationToken) {
-      return { error: "Please verify your email before signing in. You can resend the verification link below." };
-    }
-    await db.update(users).set({ emailVerifiedAt: new Date() }).where(eq(users.id, user.id));
-  }
   await createSession(user.id);
   redirect("/");
-}
-
-const resendVerificationSchema = z.object({
-  email: z.string().email().transform((s) => s.toLowerCase().trim()),
-});
-
-export async function resendVerificationEmail(
-  _prev: { error?: string; success?: string } | undefined,
-  formData: FormData,
-): Promise<{ error?: string; success?: string }> {
-  const parsed = resendVerificationSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return { error: "Enter your email" };
-
-  const fingerprint = await requestFingerprint(parsed.data.email);
-  const limitError = await checkRequestRateLimit({
-    kind: "resend_verification",
-    identifier: fingerprint,
-    limit: 5,
-    windowMs: 60 * 60_000,
-    label: "verification email requests",
-  });
-  if (limitError) return { error: limitError };
-
-  const [user] = await db.select().from(users).where(eq(users.email, parsed.data.email)).limit(1);
-  if (user && !user.emailVerifiedAt && !user.bannedAt) {
-    await sendEmailVerification(user.id, user.email);
-  }
-
-  return { success: "If that account needs verification, a new link is on the way." };
 }
 
 export async function logout() {
