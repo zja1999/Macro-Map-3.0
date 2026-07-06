@@ -22,6 +22,7 @@ import {
   notifications,
 } from "@/db/schema";
 import { shiftDate, todayStr } from "./utils";
+import { isMissingTableError } from "./dbErrors";
 import type { Remaining } from "./restaurants";
 
 // ─── feed ────────────────────────────────────────────────────────────────────
@@ -463,25 +464,35 @@ export async function getFollowList(userId: string, kind: "followers" | "followi
 }
 
 export async function getUnreadNotificationCount(userId: string): Promise<number> {
-  const [row] = await db
-    .select({ n: sql<number>`COUNT(*)` })
-    .from(notifications)
-    .where(and(eq(notifications.userId, userId), isNull(notifications.readAt)));
-  return Number(row.n);
+  try {
+    const [row] = await db
+      .select({ n: sql<number>`COUNT(*)` })
+      .from(notifications)
+      .where(and(eq(notifications.userId, userId), isNull(notifications.readAt)));
+    return Number(row.n);
+  } catch (error) {
+    if (isMissingTableError(error, "notifications")) return 0;
+    throw error;
+  }
 }
 
 export async function getNotifications(userId: string, limit = 50) {
-  return db
-    .select({
-      notification: notifications,
-      actorUsername: profiles.username,
-      actorDisplayName: profiles.displayName,
-    })
-    .from(notifications)
-    .innerJoin(profiles, eq(profiles.userId, notifications.actorId))
-    .where(eq(notifications.userId, userId))
-    .orderBy(desc(notifications.createdAt))
-    .limit(limit);
+  try {
+    return await db
+      .select({
+        notification: notifications,
+        actorUsername: profiles.username,
+        actorDisplayName: profiles.displayName,
+      })
+      .from(notifications)
+      .innerJoin(profiles, eq(profiles.userId, notifications.actorId))
+      .where(eq(notifications.userId, userId))
+      .orderBy(desc(notifications.createdAt))
+      .limit(limit);
+  } catch (error) {
+    if (isMissingTableError(error, "notifications")) return [];
+    throw error;
+  }
 }
 
 export async function getComments(subjectType: "post" | "recipe", subjectId: string) {
