@@ -8,7 +8,7 @@ import { Card } from "@/components/ui";
 import { AdminImportForm } from "@/components/AdminImportForm";
 import { AdminNav } from "@/components/AdminNav";
 
-export const metadata = { title: "Admin · Nutrition imports" };
+export const metadata = { title: "Admin - Nutrition imports" };
 
 export default async function AdminImportsPage() {
   await requireAdmin();
@@ -23,15 +23,16 @@ export default async function AdminImportsPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-base font-bold">🛠 Nutrition data import</h1>
+        <h1 className="text-base font-bold">Nutrition data import</h1>
         <Link href="/admin/reports" className="text-xs text-accent hover:underline">
-          Reports queue →
+          Reports queue
         </Link>
       </div>
       <AdminNav isAdmin />
       <p className="text-xs text-ink-dim">
-        Paste CSV from chain nutrition pages or USDA exports. Rows are validated (required fields, numeric sanity,
-        4/4/9 consistency) and deduplicated against the file and existing data. Every batch is logged below.
+        Upload CSV or Excel files from chain nutrition pages or USDA exports. Rows are validated (required fields,
+        numeric sanity, 4/4/9 consistency) and deduplicated against the file and existing data. Every batch is logged
+        below.
       </p>
 
       <AdminImportForm />
@@ -43,10 +44,10 @@ export default async function AdminImportsPage() {
           <Card key={batch.id} className="p-3 text-xs">
             <div className="flex items-center justify-between">
               <span className="font-medium">
-                {batch.filename} → <code>{batch.target}</code>
+                {batch.filename} to <code>{batch.target}</code>
               </span>
               <span className="text-ink-faint">
-                @{username} · {timeAgo(batch.createdAt)}
+                @{username} - {timeAgo(batch.createdAt)}
               </span>
             </div>
             <div className="mt-1 flex gap-3 tabular-nums text-ink-dim">
@@ -73,3 +74,4 @@ export default async function AdminImportsPage() {
     </div>
   );
 }
+

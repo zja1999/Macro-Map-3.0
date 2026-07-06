@@ -1,13 +1,13 @@
 "use client";
 
 import { useActionState } from "react";
-import { importNutritionCsv } from "@/actions/imports";
+import { importNutritionFile } from "@/actions/imports";
 import { inputCls, btnPrimary } from "./ui";
 
 export function AdminImportForm() {
-  const [state, action, pending] = useActionState(importNutritionCsv, undefined);
+  const [state, action, pending] = useActionState(importNutritionFile, undefined);
   return (
-    <form action={action} className="space-y-3 rounded-xl border border-edge bg-card p-4">
+    <form action={action} encType="multipart/form-data" className="space-y-3 rounded-xl border border-edge bg-card p-4">
       <div className="grid grid-cols-2 gap-2">
         <label className="space-y-1 text-xs text-ink-dim">
           Target table
@@ -17,26 +17,28 @@ export function AdminImportForm() {
           </select>
         </label>
         <label className="space-y-1 text-xs text-ink-dim">
-          Source label
-          <input name="filename" maxLength={120} placeholder="e.g. usda-batch-3.csv" className={inputCls} />
+          Batch label
+          <input name="filename" maxLength={120} placeholder="Defaults to uploaded filename" className={inputCls} />
         </label>
       </div>
       <label className="block space-y-1 text-xs text-ink-dim">
-        CSV (header row required)
-        <textarea
-          name="csv"
+        CSV or Excel file
+        <input
+          name="file"
+          type="file"
           required
-          rows={8}
-          placeholder={
-            "foods:      name,calories,protein_g,carbs_g,fat_g[,brand,serving_desc,serving_grams,fiber_g,sodium_mg]\nmenu_items: chain,name,calories,protein_g,carbs_g,fat_g[,category,fiber_g,sodium_mg,combo_group]"
-          }
-          className={`${inputCls} resize-y font-mono text-xs`}
+          accept=".csv,.xlsx,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          className={inputCls}
         />
       </label>
+      <p className="text-xs text-ink-faint">
+        Header columns can use friendly names like Protein, Carbs, Fat, Sodium, Serving Size, Chain, or Item Name.
+        Required for foods: name, calories, protein_g, carbs_g, fat_g. Menu items also require chain.
+      </p>
       {state?.error && <p className="text-sm text-danger">{state.error}</p>}
       {state?.summary && <p className="rounded-lg bg-accent/10 px-3 py-2 text-xs text-accent">{state.summary}</p>}
       <button disabled={pending} className={btnPrimary}>
-        {pending ? "Validating & importing…" : "Validate + import"}
+        {pending ? "Validating and importing..." : "Validate + import"}
       </button>
     </form>
   );

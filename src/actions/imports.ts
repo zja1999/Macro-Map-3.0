@@ -7,40 +7,76 @@ import { db } from "@/db/client";
 import { chains, foods, menuItems, nutritionImportBatches } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
 import { isAdmin } from "@/lib/permissions";
+import { parseTabularFile } from "@/lib/tabularFiles";
 
-/* Admin nutrition import (docs/08 §1d): CSV paste → required-field + numeric-sanity
- * checks, duplicate detection against the file AND existing rows, and a changelog
- * batch so a bad import is auditable. */
+/* Admin nutrition import (docs/08 1d): CSV/Excel upload -> required-field +
+ * numeric-sanity checks, duplicate detection against the file AND existing rows,
+ * and a changelog batch so a bad import is auditable. */
 
 type RowError = { row: number; message: string };
 
-function parseCsv(text: string): string[][] {
-  // minimal CSV: handles quoted fields with commas; no embedded newlines
-  return text
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const cells: string[] = [];
-      let cur = "";
-      let inQ = false;
-      for (const ch of line) {
-        if (ch === '"') inQ = !inQ;
-        else if (ch === "," && !inQ) {
-          cells.push(cur.trim());
-          cur = "";
-        } else cur += ch;
-      }
-      cells.push(cur.trim());
-      return cells;
-    });
-}
+const columnAliases: Record<string, string> = {
+  calories: "calories",
+  calorie: "calories",
+  cals: "calories",
+  kcal: "calories",
+  protein: "protein_g",
+  protein_g: "protein_g",
+  protein_grams: "protein_g",
+  carbs: "carbs_g",
+  carb: "carbs_g",
+  carbohydrates: "carbs_g",
+  carbohydrate: "carbs_g",
+  carbs_g: "carbs_g",
+  carbohydrate_g: "carbs_g",
+  carbohydrate_grams: "carbs_g",
+  fat: "fat_g",
+  fats: "fat_g",
+  fat_g: "fat_g",
+  fat_grams: "fat_g",
+  fiber: "fiber_g",
+  fibre: "fiber_g",
+  fiber_g: "fiber_g",
+  fibre_g: "fiber_g",
+  sodium: "sodium_mg",
+  sodium_mg: "sodium_mg",
+  serving: "serving_desc",
+  serving_size: "serving_desc",
+  serving_desc: "serving_desc",
+  serving_g: "serving_grams",
+  serving_grams: "serving_grams",
+  brand_name: "brand",
+  restaurant: "chain",
+  chain_name: "chain",
+  item: "name",
+  item_name: "name",
+};
 
 const num = (s: string | undefined) => {
   if (s == null || s === "") return null;
   const n = parseFloat(s);
   return Number.isFinite(n) ? n : NaN;
 };
+
+function normalizeHeaderCell(value: string) {
+  const normalized = value
+    .replace(/^\uFEFF/, "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  return columnAliases[normalized] ?? normalized;
+}
+
+function duplicateColumns(header: string[]) {
+  const seen = new Set<string>();
+  const duplicates = new Set<string>();
+  header.forEach((column) => {
+    if (seen.has(column)) duplicates.add(column);
+    seen.add(column);
+  });
+  return [...duplicates];
+}
 
 function checkMacros(row: Record<string, string>, rowNum: number, errors: RowError[]): boolean {
   const calories = num(row.calories);
@@ -55,7 +91,7 @@ function checkMacros(row: Record<string, string>, rowNum: number, errors: RowErr
     errors.push({ row: rowNum, message: "macro values out of sane range" });
     return false;
   }
-  // 4/4/9 sanity: computed kcal should be within 40% of stated (labels round loosely)
+  // 4/4/9 sanity: computed kcal should be within 40% of stated (labels round loosely).
   const computed = p * 4 + c * 4 + f * 9;
   if (calories > 50 && computed > 0 && Math.abs(computed - calories) / calories > 0.4) {
     errors.push({ row: rowNum, message: `calories (${calories}) don't match macros (~${Math.round(computed)} kcal)` });
@@ -64,7 +100,7 @@ function checkMacros(row: Record<string, string>, rowNum: number, errors: RowErr
   return true;
 }
 
-export async function importNutritionCsv(
+export async function importNutritionFile(
   _prev: { error?: string; summary?: string } | undefined,
   formData: FormData,
 ): Promise<{ error?: string; summary?: string }> {
@@ -73,13 +109,24 @@ export async function importNutritionCsv(
   if (!isAdmin(user)) return { error: "Admin only" };
 
   const target = z.enum(["foods", "menu_items"]).catch("foods").parse(formData.get("target"));
-  const filename = String(formData.get("filename") || "pasted.csv").slice(0, 120);
-  const csv = String(formData.get("csv") ?? "");
-  if (csv.length > 500_000) return { error: "File too large (500KB max)" };
+  const upload = formData.get("file");
+  if (!(upload instanceof File)) return { error: "Choose a CSV or Excel file to import" };
 
-  const table = parseCsv(csv);
+  let parsed;
+  try {
+    parsed = await parseTabularFile(upload);
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Could not read uploaded file" };
+  }
+
+  const filename = String(formData.get("filename") || parsed.filename).slice(0, 120);
+  const table = parsed.rows;
   if (table.length < 2) return { error: "Need a header row plus at least one data row" };
-  const header = table[0].map((h) => h.toLowerCase().replace(/\s+/g, "_"));
+
+  const header = table[0].map(normalizeHeaderCell);
+  const duplicateHeaderNames = duplicateColumns(header);
+  if (duplicateHeaderNames.length) return { error: `Duplicate columns after normalization: ${duplicateHeaderNames.join(", ")}` };
+
   const required =
     target === "foods" ? ["name", "calories", "protein_g", "carbs_g", "fat_g"] : ["chain", "name", "calories", "protein_g", "carbs_g", "fat_g"];
   const missing = required.filter((r) => !header.includes(r));
@@ -102,7 +149,7 @@ export async function importNutritionCsv(
       if (!checkMacros(row, rowNum, errors)) return;
       const key = `${row.name.toLowerCase()}|${(row.brand ?? "").toLowerCase()}`;
       if (seen.has(key)) return void duplicates++;
-      seen.add(key); // also catches dupes within the file
+      seen.add(key);
       toInsert.push({
         name: row.name,
         brand: row.brand || null,
@@ -130,7 +177,7 @@ export async function importNutritionCsv(
       const rowNum = i + 2;
       if (!row.name) return void errors.push({ row: rowNum, message: "name is required" });
       const chainId = chainByName.get((row.chain ?? "").toLowerCase());
-      if (!chainId) return void errors.push({ row: rowNum, message: `unknown chain "${row.chain}" — create it first` });
+      if (!chainId) return void errors.push({ row: rowNum, message: `unknown chain "${row.chain}" - create it first` });
       if (!checkMacros(row, rowNum, errors)) return;
       const key = `${chainId}|${row.name.toLowerCase()}`;
       if (seen.has(key)) return void duplicates++;
@@ -166,8 +213,10 @@ export async function importNutritionCsv(
 
   revalidatePath("/admin/imports");
   return {
-    summary: `${inserted} inserted · ${duplicates} duplicates skipped · ${errors.length} errors${
-      errors.length ? ` (first: row ${errors[0].row} — ${errors[0].message})` : ""
+    summary: `${inserted} inserted - ${duplicates} duplicates skipped - ${errors.length} errors${
+      errors.length ? ` (first: row ${errors[0].row} - ${errors[0].message})` : ""
     }`,
   };
 }
+
+export const importNutritionCsv = importNutritionFile;

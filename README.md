@@ -40,6 +40,7 @@ Note: PGlite allows one process on the data dir — don't run `npm run build` wh
 | [08-mvp-roadmap-phases.md](docs/08-mvp-roadmap-phases.md) | MVP scope, roadmap, monetization, 6-phase build plan, full module/file layout, anti-bloat rules |
 | [09-deployment.md](docs/09-deployment.md) | Deploying the app + Postgres backend; adding Google/Apple OAuth |
 | [10-health-integrations-and-tracking.md](docs/10-health-integrations-and-tracking.md) | Planned: micronutrients, barcode scanning, fasting timer, sleep tracking, wearable/health-platform sync |
+| [11-health-integrations-handoff.md](docs/11-health-integrations-handoff.md) | Handoff for continuing health device/app integrations: implemented foundation, scaffolding, gaps, and next steps |
 
 ## The three ideas everything hangs on
 
