@@ -5,7 +5,7 @@ import { createWorkout, logWorkout } from "@/actions/workouts";
 import { lbToKg, type UnitsPref } from "@/lib/units";
 import { inputCls, btnPrimary, btnGhost } from "./ui";
 
-export type ExerciseOption = { id: string; name: string; isBodyweight: boolean };
+export type ExerciseOption = { id: string; name: string; isBodyweight: boolean; isCardio?: boolean };
 
 // ─── create / fork a shareable workout ───────────────────────────────────────
 
@@ -140,8 +140,10 @@ export function WorkoutForm({
 
 // ─── session logger with PR detection on submit ─────────────────────────────
 
-type LoggerSet = { reps: string; weightKg: string };
+type LoggerSet = { reps: string; weightKg: string; durationMin: string };
 type LoggerRow = { exerciseName: string; sets: LoggerSet[] };
+
+const emptySet = (): LoggerSet => ({ reps: "", weightKg: "", durationMin: "" });
 
 export function WorkoutLogger({
   exerciseOptions,
@@ -155,7 +157,7 @@ export function WorkoutLogger({
   units: UnitsPref;
 }) {
   const [rows, setRows] = useState<LoggerRow[]>(
-    prefill?.length ? prefill : [{ exerciseName: "", sets: [{ reps: "", weightKg: "" }] }],
+    prefill?.length ? prefill : [{ exerciseName: "", sets: [emptySet()] }],
   );
   const [state, action, pending] = useActionState(logWorkout, undefined);
   const byName = useMemo(() => new Map(exerciseOptions.map((e) => [e.name.toLowerCase(), e])), [exerciseOptions]);
@@ -165,6 +167,16 @@ export function WorkoutLogger({
     .map((r) => {
       const ex = byName.get(r.exerciseName.trim().toLowerCase());
       if (!ex) return null;
+      if (ex.isCardio) {
+        // cardio: a set is valid on duration alone — no reps/weight demanded
+        const sets = r.sets
+          .map((s) => {
+            const dur = s.durationMin.trim() === "" ? 0 : parseFloat(s.durationMin) || 0;
+            return dur > 0 ? { reps: 0, weightKg: null as number | null, durationMin: dur } : null;
+          })
+          .filter(Boolean);
+        return sets.length ? { exerciseId: ex.id, sets } : null;
+      }
       const sets = r.sets
         .map((s) => {
           const raw = s.weightKg === "" ? null : parseFloat(s.weightKg) || 0;
@@ -220,34 +232,57 @@ export function WorkoutLogger({
               </button>
             </div>
             <div className="space-y-1.5">
+              {ex?.isCardio && (
+                <p className="text-[10px] text-ink-faint">Cardio — log time (no reps or weight needed).</p>
+              )}
               {row.sets.map((s, si) => (
                 <div key={si} className="flex items-center gap-2 text-xs">
-                  <span className="w-10 text-ink-faint">Set {si + 1}</span>
-                  <input
-                    type="number"
-                    value={s.weightKg}
-                    onChange={(e) =>
-                      update(i, (r) => ({ ...r, sets: r.sets.map((x, k) => (k === si ? { ...x, weightKg: e.target.value } : x)) }))
-                    }
-                    placeholder={ex?.isBodyweight ? "BW" : weightUnit}
-                    step="0.5"
-                    min={0}
-                    className={`${inputCls} w-24 py-1.5 text-center`}
-                    aria-label={`Weight (${weightUnit})`}
-                  />
-                  <span className="text-ink-faint">×</span>
-                  <input
-                    type="number"
-                    value={s.reps}
-                    onChange={(e) =>
-                      update(i, (r) => ({ ...r, sets: r.sets.map((x, k) => (k === si ? { ...x, reps: e.target.value } : x)) }))
-                    }
-                    placeholder="reps"
-                    min={1}
-                    step={1}
-                    className={`${inputCls} w-20 py-1.5 text-center`}
-                    aria-label="Reps"
-                  />
+                  <span className="w-10 text-ink-faint">{ex?.isCardio ? `#${si + 1}` : `Set ${si + 1}`}</span>
+                  {ex?.isCardio ? (
+                    <>
+                      <input
+                        type="number"
+                        value={s.durationMin}
+                        onChange={(e) =>
+                          update(i, (r) => ({ ...r, sets: r.sets.map((x, k) => (k === si ? { ...x, durationMin: e.target.value } : x)) }))
+                        }
+                        placeholder="minutes"
+                        step="0.5"
+                        min={0}
+                        className={`${inputCls} w-28 py-1.5 text-center`}
+                        aria-label="Duration (minutes)"
+                      />
+                      <span className="text-ink-faint">min</span>
+                    </>
+                  ) : (
+                    <>
+                      <input
+                        type="number"
+                        value={s.weightKg}
+                        onChange={(e) =>
+                          update(i, (r) => ({ ...r, sets: r.sets.map((x, k) => (k === si ? { ...x, weightKg: e.target.value } : x)) }))
+                        }
+                        placeholder={ex?.isBodyweight ? "BW" : weightUnit}
+                        step="0.5"
+                        min={0}
+                        className={`${inputCls} w-24 py-1.5 text-center`}
+                        aria-label={`Weight (${weightUnit})`}
+                      />
+                      <span className="text-ink-faint">×</span>
+                      <input
+                        type="number"
+                        value={s.reps}
+                        onChange={(e) =>
+                          update(i, (r) => ({ ...r, sets: r.sets.map((x, k) => (k === si ? { ...x, reps: e.target.value } : x)) }))
+                        }
+                        placeholder="reps"
+                        min={1}
+                        step={1}
+                        className={`${inputCls} w-20 py-1.5 text-center`}
+                        aria-label="Reps"
+                      />
+                    </>
+                  )}
                   <button
                     type="button"
                     onClick={() => update(i, (r) => ({ ...r, sets: r.sets.filter((_, k) => k !== si) }))}
@@ -260,12 +295,10 @@ export function WorkoutLogger({
               ))}
               <button
                 type="button"
-                onClick={() =>
-                  update(i, (r) => ({ ...r, sets: [...r.sets, r.sets[r.sets.length - 1] ?? { reps: "", weightKg: "" }] }))
-                }
+                onClick={() => update(i, (r) => ({ ...r, sets: [...r.sets, emptySet()] }))}
                 className="text-[11px] font-medium text-accent hover:underline"
               >
-                + Add set
+                {ex?.isCardio ? "+ Add interval" : "+ Add set"}
               </button>
             </div>
           </div>
@@ -274,7 +307,7 @@ export function WorkoutLogger({
 
       <button
         type="button"
-        onClick={() => setRows([...rows, { exerciseName: "", sets: [{ reps: "", weightKg: "" }] }])}
+        onClick={() => setRows([...rows, { exerciseName: "", sets: [emptySet()] }])}
         className={btnGhost}
       >
         + Add exercise

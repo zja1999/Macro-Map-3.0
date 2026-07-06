@@ -309,7 +309,6 @@ export async function createChallenge(
 export async function joinChallenge(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-  if (user.isGuest) redirect("/settings#claim"); // guests must claim an account to join
   const challengeId = z.string().uuid().parse(formData.get("challengeId"));
   const [challenge] = await db.select().from(challenges).where(eq(challenges.id, challengeId)).limit(1);
   if (!challenge) throw new Error("Challenge not found");

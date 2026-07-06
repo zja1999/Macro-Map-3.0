@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useActionState } from "react";
-import { login, continueAsGuest } from "@/actions/auth";
+import { login } from "@/actions/auth";
 import { inputCls, btnPrimary, btnGhost } from "@/components/ui";
 
 export default function LoginPage() {
@@ -37,12 +37,12 @@ export default function LoginPage() {
           </p>
         )}
       </form>
-      {/* guest mode (docs/08 §1a): zero-signup start; claim the account later in Settings */}
-      <form action={continueAsGuest}>
-        <button className={`${btnGhost} w-full`}>👋 Try it without an account</button>
-      </form>
+      {/* no accounts needed to look around — recipes, workouts, and restaurants are public */}
+      <Link href="/recipes" className={`${btnGhost} w-full`}>
+        Browse without an account →
+      </Link>
       <p className="text-center text-[10px] text-ink-faint">
-        Guest sessions track everything on this device — add an email later to keep it.
+        Peek at recipes, workouts, and restaurants. Sign up to log meals, follow people, and join challenges.
       </p>
     </div>
   );

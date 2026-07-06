@@ -3,8 +3,8 @@ import { notFound } from "next/navigation";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db/client";
 import { mealPrepItems, mealPrepPlans, profiles, recipes, saves, votes } from "@/db/schema";
-import { requireUser } from "@/lib/auth";
-import { todayStr, MEAL_SLOTS, slotForNow } from "@/lib/utils";
+import { getCurrentUser } from "@/lib/auth";
+import { todayStr, slotForNow } from "@/lib/utils";
 import { votePlan, toggleSavePlan } from "@/actions/mealPreps";
 import { addPlanToGroceries } from "@/actions/groceries";
 import { logRecipe } from "@/actions/logging";
@@ -12,7 +12,7 @@ import { Card, UserChip, btnGhost } from "@/components/ui";
 import { MacroPills } from "@/components/macros";
 
 export default async function MealPrepDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const user = await requireUser();
+  const user = await getCurrentUser();
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
 
@@ -31,14 +31,18 @@ export default async function MealPrepDetailPage({ params }: { params: Promise<{
     : [];
   const recipeById = new Map(recipeRows.map((r) => [r.id, r]));
 
-  const [myVote] = await db
-    .select()
-    .from(votes)
-    .where(and(eq(votes.userId, user.id), eq(votes.subjectType, "meal_prep_plan"), eq(votes.subjectId, id)));
-  const [savedRow] = await db
-    .select()
-    .from(saves)
-    .where(and(eq(saves.userId, user.id), eq(saves.subjectType, "meal_prep_plan"), eq(saves.subjectId, id)));
+  const [myVote] = user
+    ? await db
+        .select()
+        .from(votes)
+        .where(and(eq(votes.userId, user.id), eq(votes.subjectType, "meal_prep_plan"), eq(votes.subjectId, id)))
+    : [];
+  const [savedRow] = user
+    ? await db
+        .select()
+        .from(saves)
+        .where(and(eq(saves.userId, user.id), eq(saves.subjectType, "meal_prep_plan"), eq(saves.subjectId, id)))
+    : [];
 
   const net = plan.upvotes - plan.downvotes;
   const date = todayStr();

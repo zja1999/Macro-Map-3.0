@@ -21,9 +21,16 @@ function isActivePath(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function TabBar({ canModerate = false }: { canModerate?: boolean }) {
+const publicTabs: NavItem[] = [
+  { href: "/recipes", label: "Recipes", icon: "🍳" },
+  { href: "/workouts", label: "Workouts", icon: "🏋️" },
+  { href: "/restaurants", label: "Food", icon: "🍔" },
+  { href: "/login", label: "Log in", icon: "👤" },
+];
+
+export function TabBar({ canModerate = false, authed = true }: { canModerate?: boolean; authed?: boolean }) {
   const pathname = usePathname();
-  const visibleTabs = canModerate ? [...tabs.slice(0, 4), adminLink, tabs[4]] : tabs;
+  const visibleTabs = !authed ? publicTabs : canModerate ? [...tabs.slice(0, 4), adminLink, tabs[4]] : tabs;
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-edge bg-surface/95 backdrop-blur md:hidden">
       <div className="mx-auto flex max-w-lg items-stretch justify-around">
@@ -122,14 +129,43 @@ const NAV: SideNavItem[] = [
   { href: "/me", label: "Profile", icon: "👤" },
 ];
 
+// what logged-out visitors can browse (mirrors middleware's PUBLIC_PREFIXES)
+const PUBLIC_NAV: SideNavLeaf[] = [
+  { href: "/recipes", label: "Recipes", icon: "🍳" },
+  { href: "/workouts", label: "Workouts", icon: "🏋️" },
+  { href: "/restaurants", label: "Restaurants", icon: "🍔" },
+  { href: "/meal-prep", label: "Meal prep", icon: "🥡" },
+  { href: "/discover", label: "Discover", icon: "🔍" },
+];
+
 const leafCls = (active: boolean) =>
   `flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition ${
     active ? "bg-card text-accent" : "text-ink-dim hover:bg-card hover:text-ink"
   }`;
 
-export function SideNav({ canModerate = false }: { canModerate?: boolean }) {
+export function SideNav({ canModerate = false, authed = true }: { canModerate?: boolean; authed?: boolean }) {
   const pathname = usePathname();
   const [overrides, setOverrides] = useState<Record<string, boolean>>({});
+
+  if (!authed) {
+    return (
+      <nav className="sticky top-16 hidden w-52 shrink-0 flex-col gap-0.5 md:flex">
+        {PUBLIC_NAV.map((l) => (
+          <Link key={l.href} href={l.href} className={leafCls(isActivePath(pathname, l.href))}>
+            <span className="text-base">{l.icon}</span>
+            {l.label}
+          </Link>
+        ))}
+        <Link
+          href="/login"
+          className="mt-2 rounded-lg bg-accent px-3 py-2 text-center text-sm font-semibold text-black"
+        >
+          Log in / Sign up
+        </Link>
+      </nav>
+    );
+  }
+
   const items: SideNavItem[] = canModerate ? [...NAV, { href: "/admin", label: "Admin", icon: "🛡" }] : NAV;
 
   return (

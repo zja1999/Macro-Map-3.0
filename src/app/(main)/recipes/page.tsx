@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireUser } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { listRecipes, getSavedRecipes, type RecipeSort } from "@/lib/queries";
 import { RECIPE_TAGS } from "@/lib/utils";
 import { RecipeCard } from "@/components/RecipeCard";
@@ -19,15 +19,15 @@ export default async function RecipesPage({
 }: {
   searchParams: Promise<{ q?: string; tag?: string; sort?: string; view?: string }>;
 }) {
-  const user = await requireUser();
+  const user = await getCurrentUser();
   const sp = await searchParams;
   const sort = (SORTS.find((s) => s.key === sp.sort)?.key ?? "hot") as RecipeSort;
   const tag = RECIPE_TAGS.includes((sp.tag ?? "") as (typeof RECIPE_TAGS)[number]) ? sp.tag : undefined;
   const q = (sp.q ?? "").slice(0, 60);
-  const view = sp.view === "saved" ? "saved" : "all";
+  const view = user && sp.view === "saved" ? "saved" : "all"; // "saved" needs an account
 
   const rows =
-    view === "saved"
+    view === "saved" && user
       ? await getSavedRecipes(user.id)
       : await listRecipes({ q: q || undefined, tag, sort });
 
@@ -42,9 +42,11 @@ export default async function RecipesPage({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-bold">Community recipes</h1>
-        <Link href="/recipes/new" className={btnPrimary}>
-          + Submit
-        </Link>
+        {user && (
+          <Link href="/recipes/new" className={btnPrimary}>
+            + Submit
+          </Link>
+        )}
       </div>
 
       <form className="flex gap-2">
@@ -68,14 +70,16 @@ export default async function RecipesPage({
             {s.label}
           </Link>
         ))}
-        <Link
-          href={qs({ view: view === "saved" ? undefined : "saved" })}
-          className={`rounded-full border px-3 py-1 text-xs font-medium ${
-            view === "saved" ? "border-accent bg-accent/15 text-accent" : "border-edge bg-card text-ink-dim hover:bg-card-hover"
-          }`}
-        >
-          🔖 Saved
-        </Link>
+        {user && (
+          <Link
+            href={qs({ view: view === "saved" ? undefined : "saved" })}
+            className={`rounded-full border px-3 py-1 text-xs font-medium ${
+              view === "saved" ? "border-accent bg-accent/15 text-accent" : "border-edge bg-card text-ink-dim hover:bg-card-hover"
+            }`}
+          >
+            🔖 Saved
+          </Link>
+        )}
       </div>
 
       <div className="flex flex-wrap gap-1">

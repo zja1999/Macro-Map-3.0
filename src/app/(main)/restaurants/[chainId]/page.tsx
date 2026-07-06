@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireUser } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { getRemainingMacros } from "@/lib/queries";
 import { getChainWithItems, getPopularOrders, getSavedRestaurantSubjectIds, fitLabel } from "@/lib/restaurants";
 import { todayStr, slotForNow } from "@/lib/utils";
@@ -10,15 +10,15 @@ import { MacroPills } from "@/components/macros";
 import { MealSlotSelect } from "@/components/MealSlotSelect";
 
 export default async function ChainPage({ params }: { params: Promise<{ chainId: string }> }) {
-  const user = await requireUser();
+  const user = await getCurrentUser();
   const { chainId } = await params;
   if (!/^[0-9a-f-]{36}$/.test(chainId)) notFound();
 
   const [data, orders, remaining, savedIds] = await Promise.all([
     getChainWithItems(chainId),
     getPopularOrders(chainId),
-    getRemainingMacros(user.id, user.targets, todayStr()),
-    getSavedRestaurantSubjectIds(user.id),
+    user ? getRemainingMacros(user.id, user.targets, todayStr()) : Promise.resolve(null),
+    user ? getSavedRestaurantSubjectIds(user.id) : Promise.resolve(new Set<string>()),
   ]);
   if (!data) notFound();
   const { chain, items } = data;

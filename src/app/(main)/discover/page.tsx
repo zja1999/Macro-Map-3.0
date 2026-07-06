@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireUser } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { listRecipes, getSuggestedUsers } from "@/lib/queries";
 import { RecipeCard } from "@/components/RecipeCard";
 import { Card, UserChip, btnGhost } from "@/components/ui";
@@ -24,12 +24,12 @@ function Shelf({ title, href, children }: { title: string; href?: string; childr
 }
 
 export default async function DiscoverPage() {
-  const user = await requireUser();
+  const user = await getCurrentUser();
   const [trending, highProtein, fresh, creators] = await Promise.all([
     listRecipes({ sort: "hot", limit: 6 }),
     listRecipes({ sort: "protein", limit: 6 }),
     listRecipes({ sort: "new", limit: 6 }),
-    getSuggestedUsers(user.id, 6),
+    user ? getSuggestedUsers(user.id, 6) : Promise.resolve([]),
   ]);
 
   // "Fits your remaining macros" would filter by today's remaining targets — Phase 2 of the tracker.

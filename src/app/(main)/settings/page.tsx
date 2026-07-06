@@ -1,26 +1,15 @@
 import { requireUser } from "@/lib/auth";
-import { SettingsForms, ClaimAccountForm } from "@/components/SettingsForms";
+import { SettingsForms } from "@/components/SettingsForms";
 import { AvatarUpload } from "@/components/AvatarUpload";
 import { Card } from "@/components/ui";
 
 export const metadata = { title: "Settings" };
 
-export default async function SettingsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ claimed?: string }>;
-}) {
+export default async function SettingsPage() {
   const user = await requireUser();
-  const { claimed } = await searchParams;
   return (
     <div className="mx-auto max-w-xl space-y-6">
       <h1 className="text-lg font-bold">Settings</h1>
-      {claimed && (
-        <p className="rounded-xl border border-accent/40 bg-accent/10 px-4 py-3 text-sm text-accent">
-          🎉 Account claimed — you can now sign in from any device.
-        </p>
-      )}
-      {user.isGuest && <ClaimAccountForm />}
       <Card className="space-y-3 p-4">
         <h2 className="text-sm font-semibold">Profile picture</h2>
         <AvatarUpload displayName={user.profile.displayName} currentAvatar={user.profile.avatarUrl} />

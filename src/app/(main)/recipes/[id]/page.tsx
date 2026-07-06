@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { and, eq, asc } from "drizzle-orm";
 import { db } from "@/db/client";
 import { recipes, recipeIngredients, profiles, foods, contentWarnings, users } from "@/db/schema";
-import { requireUser } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { isModerator } from "@/lib/permissions";
 import { getRecipeInteractions } from "@/lib/queries";
 import { todayStr, MEAL_SLOTS } from "@/lib/utils";
@@ -18,7 +18,7 @@ import { ReportButton } from "@/components/ReportButton";
 import { ModerationControls } from "@/components/ModerationControls";
 
 export default async function RecipePage({ params }: { params: Promise<{ id: string }> }) {
-  const user = await requireUser();
+  const user = await getCurrentUser();
   const { id } = await params;
 
   const [row] = await db
@@ -30,9 +30,9 @@ export default async function RecipePage({ params }: { params: Promise<{ id: str
     .limit(1);
   if (!row) notFound();
   const { recipe, username, displayName } = row;
-  const canModerate = isModerator(user);
+  const canModerate = !!user && isModerator(user);
   if (row.bannedAt && !canModerate) notFound();
-  if (recipe.status !== "published" && recipe.authorId !== user.id && !canModerate) notFound();
+  if (recipe.status !== "published" && recipe.authorId !== user?.id && !canModerate) notFound();
 
   const [ingredients, { myVote, saved }, warnings] = await Promise.all([
     db
@@ -41,7 +41,7 @@ export default async function RecipePage({ params }: { params: Promise<{ id: str
       .leftJoin(foods, eq(foods.id, recipeIngredients.foodId))
       .where(eq(recipeIngredients.recipeId, id))
       .orderBy(asc(recipeIngredients.position)),
-    getRecipeInteractions(user.id, id),
+    user ? getRecipeInteractions(user.id, id) : Promise.resolve({ myVote: 0, saved: false }),
     db
       .select()
       .from(contentWarnings)
@@ -214,7 +214,7 @@ export default async function RecipePage({ params }: { params: Promise<{ id: str
         </form>
       </Card>
 
-      {recipe.authorId !== user.id && <ReportButton subjectType="recipe" subjectId={recipe.id} />}
+      {user && recipe.authorId !== user.id && <ReportButton subjectType="recipe" subjectId={recipe.id} />}
       <CommentSection subjectType="recipe" subjectId={recipe.id} />
     </div>
   );

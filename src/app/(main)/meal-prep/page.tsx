@@ -2,6 +2,7 @@ import Link from "next/link";
 import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { mealPrepPlans, profiles } from "@/db/schema";
+import { getCurrentUser } from "@/lib/auth";
 import { Card, EmptyState, btnPrimary } from "@/components/ui";
 import { MacroPills } from "@/components/macros";
 
@@ -21,6 +22,7 @@ export default async function MealPrepPage({
   searchParams: Promise<{ board?: string }>;
 }) {
   const sp = await searchParams;
+  const user = await getCurrentUser();
   const board = BOARDS.some((b) => b.key === sp.board) ? sp.board! : "top";
 
   const conds = [eq(mealPrepPlans.status, "published")];
@@ -43,9 +45,11 @@ export default async function MealPrepPage({
     <div className="mx-auto max-w-2xl space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-base font-bold">🥡 Meal prep plans</h1>
-        <Link href="/meal-prep/new" className={btnPrimary}>
-          + Create plan
-        </Link>
+        {user && (
+          <Link href="/meal-prep/new" className={btnPrimary}>
+            + Create plan
+          </Link>
+        )}
       </div>
 
       <div className="flex flex-wrap gap-1.5 text-xs">

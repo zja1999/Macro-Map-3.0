@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireUser } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { listWorkouts, getSavedWorkouts, getRecentWorkoutLogs, getMyPrs, prLabel } from "@/lib/workouts";
 import { sharePr } from "@/actions/workouts";
 import { timeAgo } from "@/lib/utils";
@@ -12,30 +12,34 @@ export default async function WorkoutsPage({
 }: {
   searchParams: Promise<{ tab?: string; logged?: string; prs?: string }>;
 }) {
-  const user = await requireUser();
+  const user = await getCurrentUser();
   const sp = await searchParams;
-  const tab = sp.tab === "templates" ? "templates" : sp.tab === "saved" ? "saved" : sp.tab === "mine" ? "mine" : "community";
+  let tab = sp.tab === "templates" ? "templates" : sp.tab === "saved" ? "saved" : "community";
+  if (!user && tab === "saved") tab = "community"; // "saved" needs an account
 
-  const [rows, { logs, exerciseById }, prRows] = await Promise.all([
-    tab === "saved"
-      ? getSavedWorkouts(user.id)
-      : listWorkouts({ scope: tab === "templates" ? "templates" : "community" }),
-    getRecentWorkoutLogs(user.id, 5),
-    getMyPrs(user.id),
-  ]);
+  const rows =
+    tab === "saved" && user
+      ? await getSavedWorkouts(user.id)
+      : await listWorkouts({ scope: tab === "templates" ? "templates" : "community" });
+  const { logs, exerciseById } = user
+    ? await getRecentWorkoutLogs(user.id, 5)
+    : { logs: [] as Awaited<ReturnType<typeof getRecentWorkoutLogs>>["logs"], exerciseById: new Map() };
+  const prRows = user ? await getMyPrs(user.id) : [];
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-base font-bold">🏋️ Workouts</h1>
-        <div className="flex gap-2">
-          <Link href="/workouts/log" className={btnPrimary}>
-            Log session
-          </Link>
-          <Link href="/workouts/new" className={btnGhost}>
-            + Create
-          </Link>
-        </div>
+        {user && (
+          <div className="flex gap-2">
+            <Link href="/workouts/log" className={btnPrimary}>
+              Log session
+            </Link>
+            <Link href="/workouts/new" className={btnGhost}>
+              + Create
+            </Link>
+          </div>
+        )}
       </div>
 
       {/* post-session banner: PRs are detected, sharing is offered (docs/08 §5.4) */}
@@ -147,7 +151,7 @@ export default async function WorkoutsPage({
           <div className="flex flex-wrap gap-2">
             {prRows.slice(0, 12).map(({ pr, exerciseName }) => (
               <div key={pr.id} className="rounded-lg bg-surface px-3 py-2 text-center">
-                <div className="text-xs font-bold tabular-nums">{prLabel(pr, user.profile.units as "metric" | "imperial")}</div>
+                <div className="text-xs font-bold tabular-nums">{prLabel(pr, (user?.profile.units ?? "metric") as "metric" | "imperial")}</div>
                 <div className="text-[10px] text-ink-faint">{exerciseName}</div>
               </div>
             ))}

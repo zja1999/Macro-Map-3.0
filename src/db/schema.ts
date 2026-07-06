@@ -646,7 +646,11 @@ export const exercises = pgTable("exercises", {
 // structure/entries as JSONB: set rows are write-once, read-whole documents;
 // personal_records extracts the queryable bits (docs/03 key choices)
 export type WorkoutStructure = { exerciseId: string; sets: number; reps: string; notes?: string }[];
-export type WorkoutLogEntries = { exerciseId: string; sets: { reps: number; weightKg: number | null }[] }[];
+// cardio sets carry durationMin (and reps 0) instead of weight×reps
+export type WorkoutLogEntries = {
+  exerciseId: string;
+  sets: { reps: number; weightKg: number | null; durationMin?: number }[];
+}[];
 
 export const workouts = pgTable(
   "workouts",

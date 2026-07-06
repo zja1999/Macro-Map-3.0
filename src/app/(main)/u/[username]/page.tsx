@@ -55,10 +55,6 @@ export default async function ProfilePage({
                 <button className={btnGhost}>Sign out</button>
               </form>
             </div>
-          ) : viewer.isGuest ? (
-            <Link href="/settings#claim" className={btnGhost}>
-              Claim account to follow
-            </Link>
           ) : (
             <form action={toggleFollow}>
               <input type="hidden" name="userId" value={profile.userId} />

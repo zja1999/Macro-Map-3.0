@@ -2,38 +2,9 @@
 
 import { useActionState, useState } from "react";
 import { updateBiometrics, updateProfile, updateTargets } from "@/actions/onboarding";
-import { claimAccount } from "@/actions/auth";
 import { inputCls, btnPrimary } from "./ui";
 import { CALORIE_FLOOR } from "@/lib/targets";
 import { cmToFtIn, kgToLb } from "@/lib/units";
-
-/** Guest → real account: attaches email/password to the same users row (docs/08 §1a). */
-export function ClaimAccountForm() {
-  const [state, action, pending] = useActionState(claimAccount, undefined);
-  return (
-    <form id="claim" action={action} className="space-y-3 rounded-xl border border-accent/40 bg-accent/5 p-4">
-      <h2 className="text-sm font-semibold">💾 Save your progress</h2>
-      <p className="text-xs text-ink-dim">
-        You&apos;re in guest mode — everything you&apos;ve logged stays with this account once you add an email and
-        password. No data is lost or migrated.
-      </p>
-      <input name="email" type="email" required placeholder="Email" autoComplete="email" className={inputCls} />
-      <input
-        name="password"
-        type="password"
-        required
-        minLength={8}
-        placeholder="Password (8+ characters)"
-        autoComplete="new-password"
-        className={inputCls}
-      />
-      {state?.error && <p className="text-xs text-danger">{state.error}</p>}
-      <button disabled={pending} className={btnPrimary}>
-        {pending ? "Claiming…" : "Claim my account"}
-      </button>
-    </form>
-  );
-}
 
 export function SettingsForms({
   profile,

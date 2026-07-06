@@ -14,7 +14,13 @@ export default async function LogWorkoutPage({
   const { from } = await searchParams;
   const user = await requireUser();
   const units = user.profile.units as "metric" | "imperial";
-  const exerciseOptions = await db.select().from(exercises).orderBy(exercises.name);
+  const exerciseRows = await db.select().from(exercises).orderBy(exercises.name);
+  const exerciseOptions = exerciseRows.map((e) => ({
+    id: e.id,
+    name: e.name,
+    isBodyweight: e.isBodyweight,
+    isCardio: e.muscleGroups.includes("cardio"),
+  }));
 
   // starting from a community workout pre-fills the planned exercises/sets
   let workoutId: string | undefined;
@@ -27,7 +33,7 @@ export default async function LogWorkoutPage({
       title = data.workout.title;
       prefill = data.workout.structure.map((s) => ({
         exerciseName: data.exerciseById.get(s.exerciseId)?.name ?? "",
-        sets: Array.from({ length: s.sets }, () => ({ reps: "", weightKg: "" })),
+        sets: Array.from({ length: s.sets }, () => ({ reps: "", weightKg: "", durationMin: "" })),
       }));
     }
   }

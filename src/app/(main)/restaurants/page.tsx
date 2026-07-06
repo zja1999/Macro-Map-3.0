@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { requireUser } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { getRemainingMacros } from "@/lib/queries";
 import { geocode, getAroundMe, getSavedRestaurantSubjectIds, type AroundMeFilters } from "@/lib/restaurants";
 import { todayStr, slotForNow } from "@/lib/utils";
@@ -31,7 +31,7 @@ type SP = {
 };
 
 export default async function RestaurantsPage({ searchParams }: { searchParams: Promise<SP> }) {
-  const user = await requireUser();
+  const user = await getCurrentUser();
   const sp = await searchParams;
 
   // address search → Nominatim → canonical lat/lng URL
@@ -59,17 +59,17 @@ export default async function RestaurantsPage({ searchParams }: { searchParams: 
     chainId: sp.chain || undefined,
   };
 
-  const remaining = await getRemainingMacros(user.id, user.targets, todayStr());
+  const remaining = user ? await getRemainingMacros(user.id, user.targets, todayStr()) : null;
   const [{ rows, nearby }, savedIds] = await Promise.all([
     getAroundMe({
       lat,
       lng,
       radiusKm,
       remaining,
-      goal: user.profile.goal,
+      goal: user?.profile.goal ?? null,
       filters,
     }),
-    getSavedRestaurantSubjectIds(user.id),
+    user ? getSavedRestaurantSubjectIds(user.id) : Promise.resolve(new Set<string>()),
   ]);
 
   const baseParams = new URLSearchParams();
@@ -125,10 +125,15 @@ export default async function RestaurantsPage({ searchParams }: { searchParams: 
             diary →
           </Link>
         </Card>
-      ) : (
+      ) : user ? (
         <p className="text-[11px] text-ink-faint">
           Nothing logged today — ranking by your {user.profile.goal === "muscle_gain" ? "bulking" : "cutting"} goal fit
           instead. Log meals to get remaining-macro recommendations.
+        </p>
+      ) : (
+        <p className="text-[11px] text-ink-faint">
+          Browsing as a guest — <Link href="/register" className="text-accent hover:underline">sign up</Link> to rank
+          places by your goals and remaining macros, and to log meals.
         </p>
       )}
 

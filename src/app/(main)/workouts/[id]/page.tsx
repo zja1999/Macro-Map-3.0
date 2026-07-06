@@ -3,13 +3,13 @@ import { notFound } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { saves } from "@/db/schema";
-import { requireUser } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { getWorkoutWithExercises } from "@/lib/workouts";
 import { toggleSaveWorkout } from "@/actions/workouts";
 import { Card, Badge, btnGhost } from "@/components/ui";
 
 export default async function WorkoutDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const user = await requireUser();
+  const user = await getCurrentUser();
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
 
@@ -17,10 +17,12 @@ export default async function WorkoutDetailPage({ params }: { params: Promise<{ 
   if (!data) notFound();
   const { workout, username, displayName, exerciseById } = data;
 
-  const [saved] = await db
-    .select()
-    .from(saves)
-    .where(and(eq(saves.userId, user.id), eq(saves.subjectType, "workout"), eq(saves.subjectId, id)));
+  const [saved] = user
+    ? await db
+        .select()
+        .from(saves)
+        .where(and(eq(saves.userId, user.id), eq(saves.subjectType, "workout"), eq(saves.subjectId, id)))
+    : [];
 
   return (
     <div className="mx-auto max-w-xl space-y-4">

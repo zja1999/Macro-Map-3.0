@@ -89,13 +89,6 @@ export default async function ChallengeDetailPage({ params }: { params: Promise<
             <button className="text-xs font-medium text-ink-faint hover:text-danger">Leave challenge</button>
           </form>
         </Card>
-      ) : user.isGuest ? (
-        <Link
-          href="/settings#claim"
-          className="block rounded-lg border border-accent/40 bg-accent/10 px-4 py-2.5 text-center text-sm font-semibold text-accent"
-        >
-          Claim your account to join challenges →
-        </Link>
       ) : active ? (
         <form action={joinChallenge}>
           <input type="hidden" name="challengeId" value={challenge.id} />

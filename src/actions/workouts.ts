@@ -87,9 +87,18 @@ const entriesSchema = z
     z.object({
       exerciseId: z.string().uuid(),
       sets: z
-        .array(z.object({ reps: z.number().int().min(1).max(200), weightKg: z.number().min(0).max(600).nullable() }))
+        .array(
+          z
+            .object({
+              reps: z.number().int().min(0).max(200),
+              weightKg: z.number().min(0).max(600).nullable(),
+              durationMin: z.number().min(0.5).max(1440).optional(),
+            })
+            // a set counts as either a strength set (reps ≥ 1) or a cardio set (duration)
+            .refine((s) => s.reps >= 1 || s.durationMin != null, "Empty set"),
+        )
         .min(1)
-        .max(20),
+        .max(30),
     }),
   )
   .min(1)
