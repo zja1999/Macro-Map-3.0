@@ -45,7 +45,7 @@ export async function lookupBarcode(
   try {
     const res = await fetch(
       `https://world.openfoodfacts.org/api/v2/product/${d.barcode}.json?fields=product_name,brands,nutriments`,
-      { headers: { "User-Agent": "MacroMap/0.1 (macro tracking app)" }, signal: AbortSignal.timeout(8000) },
+      { headers: { "User-Agent": "Macroverse/0.1 (macro tracking app)" }, signal: AbortSignal.timeout(8000) },
     );
     if (res.status === 404) return { error: "Not in Open Food Facts — use Quick add or create the food manually." };
     if (!res.ok) return { error: "Open Food Facts is unreachable right now — try again in a minute." };

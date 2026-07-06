@@ -715,7 +715,7 @@ async function main() {
     { email: "prepking@macromap.app", username: "prep_king", displayName: "Marcus (Prep King)", bio: "I cook once and eat all week. Budget meal prep, big batches, zero sad desk lunches.", goal: "muscle_gain", reputation: 350 },
     { email: "dan@macromap.app", username: "coach_dan", displayName: "Coach Dan", bio: "Strength coach. Protein evangelist. Your squat is high.", goal: "performance", reputation: 290 },
     { email: "demo@macromap.app", username: "demo", displayName: "Demo User", bio: "Just here trying to hit my macros.", goal: "fat_loss", reputation: 10 },
-    { email: "admin@macromap.app", username: "macromap_admin", displayName: "MacroMap Admin", bio: "Keeping the nutrition data honest.", goal: "maintenance", reputation: 100, role: "admin" },
+    { email: "admin@macromap.app", username: "macroverse_admin", displayName: "Macroverse Admin", bio: "Keeping the nutrition data honest.", goal: "maintenance", reputation: 100, role: "admin" },
   ];
   const userByUsername = new Map<string, string>();
   for (const d of defs) {

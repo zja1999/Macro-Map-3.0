@@ -11,7 +11,7 @@ export default async function OnboardingPage() {
   return (
     <main className="flex min-h-dvh flex-col items-center px-4 py-10">
       <div className="mb-8 text-2xl font-black tracking-tight">
-        Macro<span className="text-accent">Map</span>
+        Macro<span className="text-accent">verse</span>
       </div>
       <OnboardingWizard />
     </main>

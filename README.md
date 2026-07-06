@@ -1,4 +1,4 @@
-# Macro Map 3.0
+# Macroverse
 
 A community-driven macro tracking, recipe, meal prep, restaurant, and workout platform — MyFitnessPal's data layer with Strava's social graph and Reddit's content ranking, minus the AI prompt box. The community is the content engine: users discover, share, vote on, save, log, and discuss recipes, meal preps, restaurant orders, and workouts created by other users.
 

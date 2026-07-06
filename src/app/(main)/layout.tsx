@@ -23,7 +23,7 @@ export default async function MainLayout({ children }: { children: React.ReactNo
       <header className="sticky top-0 z-40 border-b border-edge bg-bg/90 backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
           <Link href={user ? "/" : "/recipes"} className="text-lg font-black tracking-tight">
-            Macro<span className="text-accent">Map</span>
+            Macro<span className="text-accent">verse</span>
           </Link>
           {user ? (
             <div className="flex items-center gap-4">
