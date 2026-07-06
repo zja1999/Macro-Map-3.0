@@ -161,13 +161,20 @@ export async function getUserPosts(viewerId: string, authorId: string): Promise<
   }));
 }
 
-export async function getGroupFeed(viewerId: string, groupId: string): Promise<FeedPost[]> {
+export async function getGroupFeed(
+  viewerId: string,
+  groupId: string,
+  includeRemoved = false,
+): Promise<FeedPost[]> {
+  // managers see removed posts (so they can restore them); everyone else doesn't
+  const conds = [eq(posts.groupId, groupId), isNull(users.bannedAt)];
+  if (!includeRemoved) conds.push(eq(posts.isRemoved, false));
   const rows = await db
     .select({ post: posts, username: profiles.username, displayName: profiles.displayName, goal: profiles.goal })
     .from(posts)
     .innerJoin(profiles, eq(profiles.userId, posts.authorId))
     .innerJoin(users, eq(users.id, posts.authorId))
-    .where(and(eq(posts.groupId, groupId), eq(posts.isRemoved, false), isNull(users.bannedAt)))
+    .where(and(...conds))
     .orderBy(desc(posts.createdAt))
     .limit(40);
 

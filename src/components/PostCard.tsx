@@ -5,6 +5,7 @@ import type { FeedPost } from "@/lib/queries";
 import { Card, UserChip, Badge } from "./ui";
 import { RecipeCard } from "./RecipeCard";
 import { ModerationControls } from "./ModerationControls";
+import { GroupPostModeration } from "./GroupPostModeration";
 
 const TYPE_BADGES: Record<string, string> = {
   recipe: "🍳 recipe",
@@ -20,11 +21,15 @@ export function PostCard({
   authorForRecipe,
   canModerate = false,
   moderationPath,
+  groupModeration,
 }: {
   item: FeedPost;
   authorForRecipe?: { displayName: string; username: string };
   canModerate?: boolean;
   moderationPath?: string;
+  // set on group feeds when the viewer is the group's owner/moderator (but not a
+  // platform moderator, who gets the fuller ModerationControls instead)
+  groupModeration?: { groupId: string; slug: string };
 }) {
   const { post, author, recipe, myReaction } = item;
   const reactionSummary = item.reactionSummary
@@ -34,12 +39,19 @@ export function PostCard({
     }))
     .filter((summary) => summary.count > 0)
     .sort((a, b) => REACTION_KINDS.findIndex((r) => r.kind === a.kind) - REACTION_KINDS.findIndex((r) => r.kind === b.kind));
+  const showRemovedNote = post.isRemoved && (canModerate || !!groupModeration);
   return (
     <Card className="space-y-3 p-4">
       <div className="flex items-center justify-between">
         <UserChip username={author.username} displayName={author.displayName} sub={timeAgo(post.createdAt)} />
         {TYPE_BADGES[post.type] && <Badge>{TYPE_BADGES[post.type]}</Badge>}
       </div>
+
+      {showRemovedNote && (
+        <p className="rounded-md border border-carbs/40 bg-carbs/10 px-2.5 py-1 text-[11px] font-medium text-carbs">
+          Removed — only visible to moderators.
+        </p>
+      )}
 
       {post.body && <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink">{post.body}</p>}
 
@@ -52,9 +64,11 @@ export function PostCard({
         />
       )}
 
-      {canModerate && (
+      {canModerate ? (
         <ModerationControls subjectType="post" subjectId={post.id} hidden={post.isRemoved} path={moderationPath ?? `/posts/${post.id}`} />
-      )}
+      ) : groupModeration ? (
+        <GroupPostModeration postId={post.id} groupId={groupModeration.groupId} slug={groupModeration.slug} hidden={post.isRemoved} />
+      ) : null}
 
       <div className="flex items-center justify-between border-t border-edge pt-2">
         <div className="flex items-center gap-0.5">

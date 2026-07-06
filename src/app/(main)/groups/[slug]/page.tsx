@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { and, desc, eq, ne } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { challenges, groupMembers, groups, profiles } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
@@ -13,6 +13,7 @@ import { PostComposer } from "@/components/PostComposer";
 import { PostCard } from "@/components/PostCard";
 import { ContainerModeration } from "@/components/ContainerModeration";
 import { TransferOwnershipForm } from "@/components/TransferOwnershipForm";
+import { GroupMemberManager } from "@/components/GroupMemberManager";
 
 export default async function GroupPage({ params }: { params: Promise<{ slug: string }> }) {
   const user = await requireUser();
@@ -21,8 +22,20 @@ export default async function GroupPage({ params }: { params: Promise<{ slug: st
   const [group] = await db.select().from(groups).where(eq(groups.slug, slug)).limit(1);
   if (!group) notFound();
 
-  const [feed, members, groupChallenges, [myMembership]] = await Promise.all([
-    getGroupFeed(user.id, group.id),
+  // my standing in this group determines what tools I see
+  const [myMembership] = await db
+    .select()
+    .from(groupMembers)
+    .where(and(eq(groupMembers.groupId, group.id), eq(groupMembers.userId, user.id)));
+  const isMember = !!myMembership;
+  const isOwner = myMembership?.role === "owner";
+  const platformMod = isModerator(user); // moderates any group + platform delete/warn tools
+  const ownerLevel = platformMod || isOwner; // may change roles, remove moderators
+  const canManage = ownerLevel || myMembership?.role === "moderator"; // may moderate posts + members
+  const canTransfer = isOwner || platformMod;
+
+  const [feed, members, groupChallenges] = await Promise.all([
+    getGroupFeed(user.id, group.id, canManage), // managers also see removed posts
     db
       .select({ m: groupMembers, username: profiles.username, displayName: profiles.displayName })
       .from(groupMembers)
@@ -31,26 +44,19 @@ export default async function GroupPage({ params }: { params: Promise<{ slug: st
       .orderBy(groupMembers.joinedAt)
       .limit(12),
     db.select().from(challenges).where(eq(challenges.groupId, group.id)).orderBy(desc(challenges.endsOn)).limit(5),
-    db
-      .select()
-      .from(groupMembers)
-      .where(and(eq(groupMembers.groupId, group.id), eq(groupMembers.userId, user.id))),
   ]);
-  const isMember = !!myMembership;
-  const isOwner = myMembership?.role === "owner";
-  const canModerate = isModerator(user);
-  const canTransfer = isOwner || canModerate;
 
-  // members eligible to receive ownership — everyone except the sitting owner
-  const transferCandidates = canTransfer
+  // full roster (owner → mods → members) for the management surface + transfer picker
+  const roster = canManage
     ? await db
-        .select({ userId: groupMembers.userId, username: profiles.username, displayName: profiles.displayName })
+        .select({ userId: groupMembers.userId, username: profiles.username, displayName: profiles.displayName, role: groupMembers.role })
         .from(groupMembers)
         .innerJoin(profiles, eq(profiles.userId, groupMembers.userId))
-        .where(and(eq(groupMembers.groupId, group.id), ne(groupMembers.role, "owner")))
-        .orderBy(profiles.displayName)
+        .where(eq(groupMembers.groupId, group.id))
+        .orderBy(sql`CASE ${groupMembers.role} WHEN 'owner' THEN 0 WHEN 'moderator' THEN 1 ELSE 2 END`, groupMembers.joinedAt)
         .limit(100)
     : [];
+  const transferCandidates = canTransfer ? roster.filter((m) => m.role !== "owner") : [];
 
   return (
     <div className="mx-auto max-w-xl space-y-4">
@@ -81,10 +87,10 @@ export default async function GroupPage({ params }: { params: Promise<{ slug: st
       </div>
 
       {isOwner && <TransferOwnershipForm groupId={group.id} candidates={transferCandidates} />}
-      {canModerate && !isOwner && (
+      {platformMod && !isOwner && (
         <TransferOwnershipForm groupId={group.id} candidates={transferCandidates} byModerator />
       )}
-      {canModerate && <ContainerModeration kind="group" id={group.id} />}
+      {platformMod && <ContainerModeration kind="group" id={group.id} />}
 
       {/* members strip */}
       <Card className="flex items-center gap-2 overflow-x-auto p-3">
@@ -97,6 +103,16 @@ export default async function GroupPage({ params }: { params: Promise<{ slug: st
           <span className="shrink-0 text-xs text-ink-faint">+{group.memberCount - members.length} more</span>
         )}
       </Card>
+
+      {canManage && (
+        <GroupMemberManager
+          groupId={group.id}
+          slug={group.slug}
+          members={roster}
+          ownerLevel={ownerLevel}
+          viewerId={user.id}
+        />
+      )}
 
       {/* group challenges */}
       {groupChallenges.length > 0 && (
@@ -134,7 +150,13 @@ export default async function GroupPage({ params }: { params: Promise<{ slug: st
       ) : (
         <div className="space-y-3">
           {feed.map((fp) => (
-            <PostCard key={fp.post.id} item={fp} canModerate={canModerate} moderationPath={`/groups/${group.slug}`} />
+            <PostCard
+              key={fp.post.id}
+              item={fp}
+              canModerate={platformMod}
+              moderationPath={`/groups/${group.slug}`}
+              groupModeration={canManage && !platformMod ? { groupId: group.id, slug: group.slug } : undefined}
+            />
           ))}
         </div>
       )}

@@ -5,9 +5,10 @@ import { redirect } from "next/navigation";
 import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db/client";
-import { challengeParticipants, challenges, groupMembers, groups, moderationActions } from "@/db/schema";
+import { challengeParticipants, challenges, groupMembers, groups, moderationActions, posts } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
 import { isModerator } from "@/lib/permissions";
+import { getGroupAuthority } from "@/lib/groups";
 import { CHALLENGE_METRICS } from "@/lib/challenges";
 import { todayStr } from "@/lib/utils";
 
@@ -144,6 +145,114 @@ export async function transferGroupOwnership(formData: FormData) {
 
   revalidatePath(`/groups/${group.slug}`);
   if (byModerator) revalidatePath("/admin/audit");
+}
+
+// ─── in-group moderation — owner + group moderators (docs/05 §4) ──────────────
+// Group owners and the moderators they appoint police their own group: they can
+// remove/restore/delete posts and remove or promote members. Platform mods can do
+// all of this too. These powers are scoped to the group — they never touch content
+// outside it, and they don't write to the platform audit log.
+
+const groupPostModSchema = z.object({
+  postId: z.string().uuid(),
+  groupId: z.string().uuid(),
+  slug: z.string().max(60),
+  action: z.enum(["hide", "restore", "delete"]),
+});
+
+export async function moderateGroupPost(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  const d = groupPostModSchema.parse({
+    postId: formData.get("postId"),
+    groupId: formData.get("groupId"),
+    slug: formData.get("slug"),
+    action: formData.get("action"),
+  });
+
+  const { canManage } = await getGroupAuthority(user, d.groupId);
+  if (!canManage) throw new Error("You don't moderate this group");
+
+  // the post must actually belong to this group — no reaching outside it
+  const [post] = await db.select().from(posts).where(eq(posts.id, d.postId)).limit(1);
+  if (!post || post.groupId !== d.groupId) throw new Error("Post not found in this group");
+
+  if (d.action === "delete") {
+    await db.delete(posts).where(eq(posts.id, d.postId));
+  } else {
+    await db.update(posts).set({ isRemoved: d.action === "hide" }).where(eq(posts.id, d.postId));
+  }
+  revalidatePath(`/groups/${d.slug}`);
+}
+
+const memberActionSchema = z.object({
+  groupId: z.string().uuid(),
+  userId: z.string().uuid(),
+  slug: z.string().max(60),
+});
+
+/** Remove a member from a group. Owner-level actors can remove any non-owner;
+ * a group moderator can only remove plain members. The owner is never kickable
+ * (hand off or delete the group instead), and you can't remove yourself here. */
+export async function removeGroupMember(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  const d = memberActionSchema.parse({
+    groupId: formData.get("groupId"),
+    userId: formData.get("userId"),
+    slug: formData.get("slug"),
+  });
+  if (d.userId === user.id) throw new Error("Use “Leave” to remove yourself");
+
+  const { canManage, ownerLevel } = await getGroupAuthority(user, d.groupId);
+  if (!canManage) throw new Error("You don't moderate this group");
+
+  const [target] = await db
+    .select()
+    .from(groupMembers)
+    .where(and(eq(groupMembers.groupId, d.groupId), eq(groupMembers.userId, d.userId)));
+  if (!target) return;
+  if (target.role === "owner") throw new Error("The owner can't be removed — transfer ownership first");
+  if (target.role === "moderator" && !ownerLevel) throw new Error("Only the owner can remove a moderator");
+
+  await db.transaction(async (tx) => {
+    await tx.delete(groupMembers).where(and(eq(groupMembers.groupId, d.groupId), eq(groupMembers.userId, d.userId)));
+    await tx.update(groups).set({ memberCount: sql`GREATEST(0, ${groups.memberCount} - 1)` }).where(eq(groups.id, d.groupId));
+  });
+  revalidatePath(`/groups/${d.slug}`);
+}
+
+const setRoleSchema = memberActionSchema.extend({
+  role: z.enum(["member", "moderator"]),
+});
+
+/** Promote a member to group moderator, or demote back. Owner-level only.
+ * The owner role is managed through transfer, not here. */
+export async function setGroupMemberRole(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  const d = setRoleSchema.parse({
+    groupId: formData.get("groupId"),
+    userId: formData.get("userId"),
+    slug: formData.get("slug"),
+    role: formData.get("role"),
+  });
+
+  const { ownerLevel } = await getGroupAuthority(user, d.groupId);
+  if (!ownerLevel) throw new Error("Only the owner can change member roles");
+
+  const [target] = await db
+    .select()
+    .from(groupMembers)
+    .where(and(eq(groupMembers.groupId, d.groupId), eq(groupMembers.userId, d.userId)));
+  if (!target) return;
+  if (target.role === "owner") throw new Error("Transfer ownership instead of changing the owner's role");
+
+  await db
+    .update(groupMembers)
+    .set({ role: d.role })
+    .where(and(eq(groupMembers.groupId, d.groupId), eq(groupMembers.userId, d.userId)));
+  revalidatePath(`/groups/${d.slug}`);
 }
 
 // ─── challenges ──────────────────────────────────────────────────────────────
