@@ -21,6 +21,25 @@ const registerSchema = z.object({
   password: z.string().min(8, "At least 8 characters"),
 });
 
+async function clearUnverifiedReservation(email: string, username: string) {
+  const candidates = new Map<string, { emailVerifiedAt: Date | null }>();
+  const [emailUser] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+  if (emailUser) candidates.set(emailUser.id, { emailVerifiedAt: emailUser.emailVerifiedAt });
+
+  const [usernameUser] = await db
+    .select({ user: users })
+    .from(profiles)
+    .innerJoin(users, eq(profiles.userId, users.id))
+    .where(eq(profiles.username, username))
+    .limit(1);
+  if (usernameUser) candidates.set(usernameUser.user.id, { emailVerifiedAt: usernameUser.user.emailVerifiedAt });
+
+  for (const [userId, candidate] of candidates) {
+    if (candidate.emailVerifiedAt) continue;
+    await db.delete(users).where(eq(users.id, userId));
+  }
+}
+
 export async function register(
   _prev: { error?: string; success?: string } | undefined,
   formData: FormData,
@@ -38,6 +57,8 @@ export async function register(
   });
   if (limitError) return { error: limitError };
 
+  await clearUnverifiedReservation(email, username);
+
   const emailTaken = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
   if (emailTaken[0]) return { error: "An account with that email already exists" };
   const nameTaken = await db
@@ -50,7 +71,13 @@ export async function register(
   const passwordHash = await bcrypt.hash(password, 10);
   const [user] = await db.insert(users).values({ email, passwordHash }).returning();
   await db.insert(profiles).values({ userId: user.id, username, displayName });
-  await sendEmailVerification(user.id, email);
+  try {
+    await sendEmailVerification(user.id, email);
+  } catch (err) {
+    await db.delete(users).where(eq(users.id, user.id));
+    console.error("[auth] Failed to send verification email", err);
+    return { error: "We could not send the verification email. Please try again shortly." };
+  }
   return { success: "Check your email to verify your account. The link expires in 30 minutes." };
 }
 
