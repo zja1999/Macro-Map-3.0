@@ -776,7 +776,9 @@ export type StrengthLogEntry = {
   kind: "strength";
   activityType: "strength";
   exerciseId: string;
-  sets: { reps: number; weightKg: number | null; rpe?: number | null; restSec?: number | null }[];
+  // A set is either rep-based (reps + optional weight) or a timed isometric hold
+  // (holdSec, e.g. a 45s plank). Holds carry reps: 0 and never generate rep/e1RM PRs.
+  sets: { reps: number; weightKg: number | null; rpe?: number | null; restSec?: number | null; holdSec?: number | null }[];
 };
 export type CardioLogEntry = {
   kind: "cardio";

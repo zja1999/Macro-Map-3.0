@@ -41,7 +41,7 @@ const ACTIVITY_CARDS: { type: ActivityType; title: string; hint: string }[] = [
 ];
 
 const ACTIVITY_TITLES = new Map(ACTIVITY_CARDS.map((a) => [a.type, a.title]));
-const emptySet = () => ({ reps: "", weight: "", rpe: "", restSec: "" });
+const emptySet = () => ({ reps: "", weight: "", rpe: "", restSec: "", holdSec: "" });
 const toNum = (value: string) => (value.trim() === "" ? null : Number(value));
 const toMeters = (value: number | null, units: UnitsPref, activityType: ActivityType) => {
   if (value == null || !Number.isFinite(value) || value <= 0) return null;
@@ -208,8 +208,9 @@ function ExerciseDatalist({ exerciseOptions }: { exerciseOptions: ExerciseOption
 
 // ─── session logger launcher ────────────────────────────────────────────────
 
-type LoggerSet = { reps: string; weight: string; rpe: string; restSec: string };
-type LoggerRow = { exerciseName: string; sets: LoggerSet[] };
+type LoggerSet = { reps: string; weight: string; rpe: string; restSec: string; holdSec: string };
+// isHold rows log a timed isometric hold (e.g. a plank) — seconds per set, no weight/reps
+type LoggerRow = { exerciseName: string; sets: LoggerSet[]; isHold?: boolean };
 
 export function WorkoutLogger({
   exerciseOptions,
@@ -290,18 +291,20 @@ export function StrengthLogger({
           const weightKg = rawWeight == null ? null : units === "imperial" ? lbToKg(rawWeight) : rawWeight;
           const rpe = toNum(s.rpe);
           const restSec = toNum(s.restSec);
+          const holdSec = r.isHold ? toNum(s.holdSec) : null;
           return {
-            reps: Number.isInteger(repsValue) ? repsValue : 0,
-            weightKg,
+            reps: r.isHold ? 0 : Number.isInteger(repsValue) ? repsValue : 0,
+            weightKg: r.isHold ? null : weightKg,
             rpe: rpe == null ? null : rpe,
             restSec: restSec == null ? null : restSec,
+            holdSec: holdSec == null ? null : Math.round(holdSec),
           };
         })
-        .filter((s) => s.reps > 0);
+        .filter((s) => (s.holdSec ?? 0) > 0 || s.reps > 0);
       return sets.length ? { kind: "strength", activityType: "strength", exerciseId: ex.id, sets } : null;
     })
     .filter(Boolean);
-  const repsError = rows.some((r) => r.sets.some((s) => s.reps.trim() !== "" && !Number.isInteger(Number(s.reps)))) ? "Reps must be whole numbers. Add partial reps in notes." : null;
+  const repsError = rows.some((r) => !r.isHold && r.sets.some((s) => s.reps.trim() !== "" && !Number.isInteger(Number(s.reps)))) ? "Reps must be whole numbers. Add partial reps in notes." : null;
   const update = (i: number, fn: (r: LoggerRow) => LoggerRow) => setRows(rows.map((x, j) => (j === i ? fn(x) : x)));
 
   return (
@@ -325,8 +328,14 @@ export function StrengthLogger({
               {row.sets.map((s, si) => (
                 <div key={si} className="grid grid-cols-[42px_1fr_1fr_0.8fr_0.8fr_24px] items-center gap-2 text-xs">
                   <span className="text-ink-faint">Set {si + 1}</span>
-                  <input type="number" value={s.weight} onChange={(e) => update(i, (r) => ({ ...r, sets: r.sets.map((x, k) => (k === si ? { ...x, weight: e.target.value } : x)) }))} placeholder={ex?.isBodyweight ? "BW" : weightUnit} step="0.5" min={0} className={`${inputCls} py-1.5 text-center`} aria-label={`Weight (${weightUnit})`} />
-                  <input type="number" value={s.reps} onChange={(e) => update(i, (r) => ({ ...r, sets: r.sets.map((x, k) => (k === si ? { ...x, reps: e.target.value } : x)) }))} placeholder="reps" min={1} step={1} className={`${inputCls} py-1.5 text-center`} aria-label="Reps" />
+                  {row.isHold ? (
+                    <input type="number" value={s.holdSec} onChange={(e) => update(i, (r) => ({ ...r, sets: r.sets.map((x, k) => (k === si ? { ...x, holdSec: e.target.value } : x)) }))} placeholder="hold s" min={1} step={1} className={`${inputCls} col-span-2 py-1.5 text-center`} aria-label="Hold seconds" />
+                  ) : (
+                    <>
+                      <input type="number" value={s.weight} onChange={(e) => update(i, (r) => ({ ...r, sets: r.sets.map((x, k) => (k === si ? { ...x, weight: e.target.value } : x)) }))} placeholder={ex?.isBodyweight ? "BW" : weightUnit} step="0.5" min={0} className={`${inputCls} py-1.5 text-center`} aria-label={`Weight (${weightUnit})`} />
+                      <input type="number" value={s.reps} onChange={(e) => update(i, (r) => ({ ...r, sets: r.sets.map((x, k) => (k === si ? { ...x, reps: e.target.value } : x)) }))} placeholder="reps" min={1} step={1} className={`${inputCls} py-1.5 text-center`} aria-label="Reps" />
+                    </>
+                  )}
                   <input type="number" value={s.rpe} onChange={(e) => update(i, (r) => ({ ...r, sets: r.sets.map((x, k) => (k === si ? { ...x, rpe: e.target.value } : x)) }))} placeholder="RPE" min={1} max={10} step="0.5" className={`${inputCls} py-1.5 text-center`} aria-label="RPE" />
                   <input type="number" value={s.restSec} onChange={(e) => update(i, (r) => ({ ...r, sets: r.sets.map((x, k) => (k === si ? { ...x, restSec: e.target.value } : x)) }))} placeholder="rest s" min={0} step={1} className={`${inputCls} py-1.5 text-center`} aria-label="Rest seconds" />
                   <button type="button" onClick={() => update(i, (r) => ({ ...r, sets: r.sets.filter((_, k) => k !== si) }))} className="text-ink-faint hover:text-danger" aria-label="Remove set">

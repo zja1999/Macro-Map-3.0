@@ -95,12 +95,16 @@ const strengthEntrySchema = z.object({
   exerciseId: z.string().uuid(),
   sets: z
     .array(
-      z.object({
-        reps: z.number().int().min(1).max(200),
-        weightKg: z.number().min(0).max(600).nullable(),
-        rpe: z.number().min(1).max(10).nullable().optional(),
-        restSec: z.number().int().min(0).max(1800).nullable().optional(),
-      }),
+      z
+        .object({
+          reps: z.number().int().min(0).max(200),
+          weightKg: z.number().min(0).max(600).nullable(),
+          rpe: z.number().min(1).max(10).nullable().optional(),
+          restSec: z.number().int().min(0).max(1800).nullable().optional(),
+          holdSec: z.number().int().min(1).max(3600).nullable().optional(), // isometric hold, e.g. a 45s plank
+        })
+        // every set is either rep-based or a timed hold — reject fully empty rows
+        .refine((s) => s.reps > 0 || (s.holdSec ?? 0) > 0, { message: "empty set" }),
     )
     .min(1)
     .max(60),

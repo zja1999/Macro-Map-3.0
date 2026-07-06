@@ -127,6 +127,11 @@ export function workoutLogSummary(
         const top = entry.sets
           .filter((s) => s.reps > 0)
           .sort((a, b) => (b.weightKg ?? 0) * b.reps - (a.weightKg ?? 0) * a.reps)[0];
+        if (!top) {
+          // timed hold (e.g. plank): summarize the best hold rather than a rep top set
+          const bestHold = Math.max(0, ...entry.sets.map((s) => s.holdSec ?? 0));
+          if (bestHold > 0) return `${ex?.name ?? "Hold"} · ${entry.sets.length} sets · ${formatDuration(bestHold / 60)} best hold`;
+        }
         const topSet = top ? ` · ${formatWeight(top.weightKg, units, 0)} x ${top.reps} top set` : "";
         return `${ex?.name ?? "Strength"} · ${entry.sets.length} sets${topSet}`;
       }

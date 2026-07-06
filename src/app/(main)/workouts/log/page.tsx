@@ -33,10 +33,18 @@ export default async function LogWorkoutPage({
       title = data.workout.title;
       prefill = data.workout.structure
         .filter((s) => (s.activityType ?? data.exerciseById.get(s.exerciseId)?.activityType ?? "strength") === "strength")
-        .map((s) => ({
-          exerciseName: data.exerciseById.get(s.exerciseId)?.name ?? "",
-          sets: Array.from({ length: s.sets ?? 1 }, () => ({ reps: "", weight: "", rpe: "", restSec: "" })),
-        }));
+        .map((s) => {
+          // Templates express timed isometric holds as a seconds string in `reps`
+          // (e.g. a plank planned as "45s"). Those log a hold time, not reps/weight.
+          const holdMatch = /^\s*(\d+)\s*s(ec(onds?)?)?\s*$/i.exec(s.reps ?? "");
+          const isHold = !!holdMatch;
+          const holdSec = holdMatch ? holdMatch[1] : "";
+          return {
+            exerciseName: data.exerciseById.get(s.exerciseId)?.name ?? "",
+            isHold,
+            sets: Array.from({ length: s.sets ?? 1 }, () => ({ reps: "", weight: "", rpe: "", restSec: "", holdSec })),
+          };
+        });
     }
   }
 
