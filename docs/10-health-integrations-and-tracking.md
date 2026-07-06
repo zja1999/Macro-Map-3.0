@@ -15,6 +15,33 @@ This extends, rather than replaces, the "Health integrations & data import" sket
 [08 §2](08-mvp-roadmap-phases.md) — that sketch is right about Apple Health needing the native app;
 it's wrong to lump every wearable into that wait, corrected in §5 below.
 
+## Current implementation reference
+
+Commit `78c1485` ("Add health integration foundation") merged the shared integration groundwork.
+Use this as the handoff point for real provider work:
+
+- **Schema:** `integration_accounts`, `integration_sync_runs`, `external_sample_links`,
+  `daily_health_metrics`, `workout_routes`, and `sleep_stage_samples`, plus source/provenance
+  columns on `progress_entries`, `sleep_logs`, and `workout_logs` in
+  [schema.ts](../src/db/schema.ts).
+- **Domain layer:** provider types, token encryption, Strava/Fitbit adapter registry, and
+  idempotent sample application live in `src/lib/integrations/*`.
+- **UI/actions:** [actions/integrations.ts](../src/actions/integrations.ts) powers
+  `/settings/integrations`, which is linked from Settings. `/progress` includes a private
+  "Synced activity" card backed by `daily_health_metrics`.
+- **API routes:** `/api/integrations/[provider]/callback`,
+  `/api/integrations/[provider]/webhook`, and `/api/integrations/mobile/upload`.
+
+What works now: the app can store connected integration accounts, encrypt provider tokens, show
+connection/sync status, import normalized samples idempotently, preserve manual-entry priority, and
+accept future native Apple Health / Health Connect uploads.
+
+Before live sync: configure provider apps and callback URLs, set `STRAVA_CLIENT_ID`,
+`STRAVA_CLIENT_SECRET`, `STRAVA_WEBHOOK_VERIFY_TOKEN`, `FITBIT_CLIENT_ID`,
+`FITBIT_CLIENT_SECRET`, optional `HEALTH_TOKEN_ENCRYPTION_KEY`, and `NEXT_PUBLIC_APP_URL`; add
+webhook subscription management, refresh-token rotation, broader Fitbit normalizers, CSV importers,
+and Expo native collectors for Apple Health / Health Connect.
+
 ## 1. Micronutrients
 
 Today `foods`/`recipes`/`menu_items` carry `fiberG` and `sodiumMg` only — no sugar, no
