@@ -2,10 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db/client";
-import { saves } from "@/db/schema";
+import { saves, votes } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
 import { formatDistance, formatDuration, getWorkoutWithExercises, structureSummary } from "@/lib/workouts";
-import { toggleSaveWorkout } from "@/actions/workouts";
+import { toggleSaveWorkout, voteWorkout } from "@/actions/workouts";
 import { Card, Badge, btnGhost } from "@/components/ui";
 
 export default async function WorkoutDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -24,22 +24,64 @@ export default async function WorkoutDetailPage({ params }: { params: Promise<{ 
         .from(saves)
         .where(and(eq(saves.userId, user.id), eq(saves.subjectType, "workout"), eq(saves.subjectId, id)))
     : [];
+  const [myVoteRow] = user
+    ? await db
+        .select()
+        .from(votes)
+        .where(and(eq(votes.userId, user.id), eq(votes.subjectType, "workout"), eq(votes.subjectId, id)))
+    : [];
+  const myVote = myVoteRow?.value ?? 0;
+  const net = workout.upvotes - workout.downvotes;
+  const votable = !workout.isTemplate; // official templates aren't community-voted
 
   return (
     <div className="mx-auto max-w-xl space-y-4">
       <div className="space-y-2">
         <div className="flex items-start justify-between gap-3">
           <h1 className="text-xl font-bold leading-tight">{workout.title}</h1>
-          <form action={toggleSaveWorkout} className="shrink-0">
-            <input type="hidden" name="workoutId" value={workout.id} />
-            <button
-              className={`rounded-lg border px-2.5 py-1.5 text-sm ${
-                saved ? "border-accent bg-accent/15 text-accent" : "border-edge bg-card text-ink-dim hover:text-accent"
-              }`}
-            >
-              {saved ? "Saved" : "Save"}
-            </button>
-          </form>
+          <div className="flex shrink-0 items-center gap-1">
+            {votable && (
+              <>
+                <form action={voteWorkout}>
+                  <input type="hidden" name="workoutId" value={workout.id} />
+                  <input type="hidden" name="value" value="1" />
+                  <button
+                    className={`rounded-lg border px-2.5 py-1.5 text-sm font-bold ${
+                      myVote === 1 ? "border-accent bg-accent/15 text-accent" : "border-edge bg-card text-ink-dim hover:text-accent"
+                    }`}
+                    aria-label="Upvote"
+                  >
+                    ▲
+                  </button>
+                </form>
+                <span className={`min-w-6 text-center text-sm font-bold tabular-nums ${net > 0 ? "text-accent" : "text-ink-dim"}`}>
+                  {net}
+                </span>
+                <form action={voteWorkout}>
+                  <input type="hidden" name="workoutId" value={workout.id} />
+                  <input type="hidden" name="value" value="-1" />
+                  <button
+                    className={`rounded-lg border px-2.5 py-1.5 text-sm font-bold ${
+                      myVote === -1 ? "border-fat bg-fat/15 text-fat" : "border-edge bg-card text-ink-dim hover:text-fat"
+                    }`}
+                    aria-label="Downvote"
+                  >
+                    ▼
+                  </button>
+                </form>
+              </>
+            )}
+            <form action={toggleSaveWorkout}>
+              <input type="hidden" name="workoutId" value={workout.id} />
+              <button
+                className={`rounded-lg border px-2.5 py-1.5 text-sm ${
+                  saved ? "border-accent bg-accent/15 text-accent" : "border-edge bg-card text-ink-dim hover:text-accent"
+                }`}
+              >
+                {saved ? "Saved" : "Save"}
+              </button>
+            </form>
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs text-ink-faint">
           {workout.isTemplate ? (

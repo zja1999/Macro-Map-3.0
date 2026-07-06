@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { removeGroupMember, setGroupMemberRole } from "@/actions/groups";
 import { Card, Avatar, Badge } from "./ui";
+import { GroupInviteForm } from "./GroupInviteForm";
 
 type Member = { userId: string; username: string; displayName: string; role: string };
 
@@ -30,6 +31,7 @@ export function GroupMemberManager({
   return (
     <Card className="space-y-2 p-3">
       <div className="text-xs font-semibold uppercase tracking-wide text-ink-faint">Manage members</div>
+      <GroupInviteForm groupId={groupId} slug={slug} />
       <ul className="divide-y divide-edge">
         {members.map((m) => {
           const isOwner = m.role === "owner";

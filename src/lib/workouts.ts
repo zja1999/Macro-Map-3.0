@@ -305,6 +305,17 @@ export async function listWorkouts(opts: {
   return rows;
 }
 
+/** Community workouts authored by a user, for their profile (docs/06 §8). */
+export async function getUserWorkouts(authorId: string, limit = 30): Promise<WorkoutListRow[]> {
+  return db
+    .select({ workout: workouts, username: profiles.username, displayName: profiles.displayName })
+    .from(workouts)
+    .leftJoin(profiles, eq(profiles.userId, workouts.authorId))
+    .where(and(eq(workouts.authorId, authorId), eq(workouts.status, "published"), eq(workouts.isTemplate, false)))
+    .orderBy(desc(workouts.createdAt))
+    .limit(limit);
+}
+
 export async function getSavedWorkouts(userId: string): Promise<WorkoutListRow[]> {
   return db
     .select({ workout: workouts, username: profiles.username, displayName: profiles.displayName })

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { asc, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db/client";
-import { comments, moderationActions, posts, profiles, recipes, reports } from "@/db/schema";
+import { comments, moderationActions, posts, profiles, recipes, reports, users } from "@/db/schema";
 import { requireModerator, isAdmin } from "@/lib/permissions";
 import { timeAgo } from "@/lib/utils";
 import { resolveReport } from "@/actions/moderation";
@@ -29,15 +29,23 @@ export default async function AdminReportsPage() {
 
   // subject previews, batched per type
   const idsOf = (t: string) => sorted.filter((r) => r.report.subjectType === t).map((r) => r.report.subjectId);
-  const [postRows, recipeRows, commentRows] = await Promise.all([
+  const [postRows, recipeRows, commentRows, userRows] = await Promise.all([
     idsOf("post").length ? db.select().from(posts).where(inArray(posts.id, idsOf("post"))) : [],
     idsOf("recipe").length ? db.select().from(recipes).where(inArray(recipes.id, idsOf("recipe"))) : [],
     idsOf("comment").length ? db.select().from(comments).where(inArray(comments.id, idsOf("comment"))) : [],
+    idsOf("user").length
+      ? db
+          .select({ userId: profiles.userId, username: profiles.username, displayName: profiles.displayName, bannedAt: users.bannedAt })
+          .from(profiles)
+          .innerJoin(users, eq(users.id, profiles.userId))
+          .where(inArray(profiles.userId, idsOf("user")))
+      : [],
   ]);
   const preview = new Map<string, { text: string; href: string | null; hidden: boolean }>();
   for (const p of postRows) preview.set(p.id, { text: p.body ?? "(no text)", href: `/posts/${p.id}`, hidden: p.isRemoved });
   for (const r of recipeRows) preview.set(r.id, { text: r.name, href: `/recipes/${r.id}`, hidden: r.status === "removed" });
   for (const c of commentRows) preview.set(c.id, { text: c.body, href: null, hidden: false });
+  for (const u of userRows) preview.set(u.userId, { text: `${u.displayName} (@${u.username})`, href: `/u/${u.username}`, hidden: !!u.bannedAt });
 
   const recentActions = await db
     .select({ action: moderationActions, actor: profiles.username })

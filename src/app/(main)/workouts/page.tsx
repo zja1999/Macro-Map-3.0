@@ -109,6 +109,9 @@ export default async function WorkoutsPage({
                     {workout.structure.length} movement{workout.structure.length === 1 ? "" : "s"}
                   </div>
                   <div className="mt-1 text-[11px] text-ink-dim">
+                    {!workout.isTemplate && workout.upvotes - workout.downvotes !== 0 && (
+                      <span className="mr-2 font-semibold text-accent">▲ {workout.upvotes - workout.downvotes}</span>
+                    )}
                     {workout.completedCount > 0 && <span className="mr-2">completed {workout.completedCount}x</span>}
                     {workout.saveCount > 0 && <span>saved {workout.saveCount}</span>}
                   </div>

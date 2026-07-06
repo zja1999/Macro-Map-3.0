@@ -328,13 +328,13 @@ export function StrengthLogger({
                   <input type="number" value={s.weight} onChange={(e) => update(i, (r) => ({ ...r, sets: r.sets.map((x, k) => (k === si ? { ...x, weight: e.target.value } : x)) }))} placeholder={ex?.isBodyweight ? "BW" : weightUnit} step="0.5" min={0} className={`${inputCls} py-1.5 text-center`} aria-label={`Weight (${weightUnit})`} />
                   <input type="number" value={s.reps} onChange={(e) => update(i, (r) => ({ ...r, sets: r.sets.map((x, k) => (k === si ? { ...x, reps: e.target.value } : x)) }))} placeholder="reps" min={1} step={1} className={`${inputCls} py-1.5 text-center`} aria-label="Reps" />
                   <input type="number" value={s.rpe} onChange={(e) => update(i, (r) => ({ ...r, sets: r.sets.map((x, k) => (k === si ? { ...x, rpe: e.target.value } : x)) }))} placeholder="RPE" min={1} max={10} step="0.5" className={`${inputCls} py-1.5 text-center`} aria-label="RPE" />
-                  <input type="number" value={s.restSec} onChange={(e) => update(i, (r) => ({ ...r, sets: r.sets.map((x, k) => (k === si ? { ...x, restSec: e.target.value } : x)) }))} placeholder="rest s" min={0} step={15} className={`${inputCls} py-1.5 text-center`} aria-label="Rest seconds" />
+                  <input type="number" value={s.restSec} onChange={(e) => update(i, (r) => ({ ...r, sets: r.sets.map((x, k) => (k === si ? { ...x, restSec: e.target.value } : x)) }))} placeholder="rest s" min={0} step={1} className={`${inputCls} py-1.5 text-center`} aria-label="Rest seconds" />
                   <button type="button" onClick={() => update(i, (r) => ({ ...r, sets: r.sets.filter((_, k) => k !== si) }))} className="text-ink-faint hover:text-danger" aria-label="Remove set">
                     ×
                   </button>
                 </div>
               ))}
-              <button type="button" onClick={() => update(i, (r) => ({ ...r, sets: [...r.sets, emptySet()] }))} className="text-[11px] font-medium text-accent hover:underline">
+              <button type="button" onClick={() => update(i, (r) => ({ ...r, sets: [...r.sets, { ...(r.sets[r.sets.length - 1] ?? emptySet()) }] }))} className="text-[11px] font-medium text-accent hover:underline">
                 + Add set
               </button>
             </div>

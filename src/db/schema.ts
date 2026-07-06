@@ -826,6 +826,8 @@ export const workouts = pgTable(
     structure: jsonb().notNull().$type<WorkoutStructure>(),
     saveCount: integer().notNull().default(0),
     completedCount: integer().notNull().default(0),
+    upvotes: integer().notNull().default(0),
+    downvotes: integer().notNull().default(0),
     status: text().notNull().default("published"),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },

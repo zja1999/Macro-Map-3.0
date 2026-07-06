@@ -10,6 +10,7 @@ import {
   posts,
   saves,
   users,
+  votes,
   workoutLogs,
   workouts,
   type WorkoutLogEntries,
@@ -259,6 +260,65 @@ export async function sharePr(formData: FormData) {
   const body = z.string().min(3).max(300).parse(formData.get("body"));
   await db.insert(posts).values({ authorId: user.id, type: "personal_record", body });
   redirect("/");
+}
+
+/** Upvote/downvote a community workout — mirrors recipe voting (docs/06 §5, §8):
+ * the score ranks it and the author earns reputation for upvotes. */
+export async function voteWorkout(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  const workoutId = z.string().uuid().parse(formData.get("workoutId"));
+  const value = z.coerce.number().refine((v) => v === 1 || v === -1).parse(formData.get("value")) as 1 | -1;
+
+  const [workout] = await db.select().from(workouts).where(eq(workouts.id, workoutId)).limit(1);
+  if (!workout) throw new Error("Workout not found");
+  if (workout.authorId === user.id) return; // no self-votes
+
+  await db.transaction(async (tx) => {
+    const [existing] = await tx
+      .select()
+      .from(votes)
+      .where(and(eq(votes.userId, user.id), eq(votes.subjectType, "workout"), eq(votes.subjectId, workoutId)));
+
+    let up = 0;
+    let down = 0;
+    if (existing && existing.value === value) {
+      await tx
+        .delete(votes)
+        .where(and(eq(votes.userId, user.id), eq(votes.subjectType, "workout"), eq(votes.subjectId, workoutId)));
+      value === 1 ? (up = -1) : (down = -1);
+    } else if (existing) {
+      await tx
+        .update(votes)
+        .set({ value })
+        .where(and(eq(votes.userId, user.id), eq(votes.subjectType, "workout"), eq(votes.subjectId, workoutId)));
+      if (value === 1) {
+        up = 1;
+        down = -1;
+      } else {
+        up = -1;
+        down = 1;
+      }
+    } else {
+      await tx.insert(votes).values({ userId: user.id, subjectType: "workout", subjectId: workoutId, value });
+      value === 1 ? (up = 1) : (down = 1);
+    }
+    await tx
+      .update(workouts)
+      .set({
+        upvotes: sql`${workouts.upvotes} + ${up}`,
+        downvotes: sql`${workouts.downvotes} + ${down}`,
+      })
+      .where(eq(workouts.id, workoutId));
+  });
+  if (workout.authorId && workout.authorId !== user.id) {
+    await db
+      .update(users)
+      .set({ reputation: sql`GREATEST(0, ${users.reputation} + ${value === 1 ? 2 : -1})` })
+      .where(eq(users.id, workout.authorId));
+  }
+  revalidatePath(`/workouts/${workoutId}`);
+  revalidatePath("/workouts");
 }
 
 export async function toggleSaveWorkout(formData: FormData) {

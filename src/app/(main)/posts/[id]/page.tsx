@@ -66,6 +66,7 @@ export default async function PostPage({ params }: { params: Promise<{ id: strin
         }}
         canModerate={canModerate}
         moderationPath={`/posts/${row.post.id}`}
+        openable={false}
       />
       <div className="flex items-center justify-between">
         {row.post.authorId !== user.id ? (

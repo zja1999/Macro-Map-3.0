@@ -18,7 +18,15 @@ const REASONS: [string, string][] = [
 ];
 
 /** Everything is reportable with a structured reason (docs/07 §2). */
-export function ReportButton({ subjectType, subjectId }: { subjectType: "post" | "recipe" | "comment"; subjectId: string }) {
+export function ReportButton({
+  subjectType,
+  subjectId,
+  label,
+}: {
+  subjectType: "post" | "recipe" | "comment" | "user";
+  subjectId: string;
+  label?: string;
+}) {
   const [state, action, pending] = useActionState(submitReport, undefined);
 
   if (state?.ok) {
@@ -27,7 +35,7 @@ export function ReportButton({ subjectType, subjectId }: { subjectType: "post" |
 
   return (
     <details className="text-[11px] text-ink-faint">
-      <summary className="cursor-pointer hover:text-ink-dim">🚩 Report</summary>
+      <summary className="cursor-pointer hover:text-ink-dim">🚩 {label ?? "Report"}</summary>
       <form action={action} className="mt-2 flex max-w-sm flex-wrap items-center gap-2">
         <input type="hidden" name="subjectType" value={subjectType} />
         <input type="hidden" name="subjectId" value={subjectId} />

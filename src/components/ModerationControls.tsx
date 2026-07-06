@@ -16,9 +16,12 @@ export function ModerationControls({
   const canHide = subjectType !== "comment" && !hidden;
 
   return (
-    <Card className="space-y-2 p-3">
-      <div className="text-xs font-semibold uppercase tracking-wide text-ink-faint">Moderator tools</div>
-      <div className="flex flex-wrap items-center gap-2">
+    <Card className="p-3">
+      <details className="space-y-2 [&[open]>summary]:mb-2">
+        <summary className="cursor-pointer list-none text-xs font-semibold uppercase tracking-wide text-ink-faint hover:text-ink-dim">
+          🛡 Moderator tools
+        </summary>
+        <div className="flex flex-wrap items-center gap-2">
         {canHide && (
           <form action={moderateContent}>
             <BaseInputs subjectType={subjectType} subjectId={subjectId} action="hide" path={path} />
@@ -55,7 +58,8 @@ export function ModerationControls({
             Add warning
           </button>
         </form>
-      )}
+        )}
+      </details>
     </Card>
   );
 }

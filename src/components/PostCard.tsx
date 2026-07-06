@@ -22,6 +22,7 @@ export function PostCard({
   canModerate = false,
   moderationPath,
   groupModeration,
+  openable = true,
 }: {
   item: FeedPost;
   authorForRecipe?: { displayName: string; username: string };
@@ -30,6 +31,9 @@ export function PostCard({
   // set on group feeds when the viewer is the group's owner/moderator (but not a
   // platform moderator, who gets the fuller ModerationControls instead)
   groupModeration?: { groupId: string; slug: string };
+  // links the post open to its detail page (where reporting + comments live);
+  // false on the detail page itself, which already *is* the post
+  openable?: boolean;
 }) {
   const { post, author, recipe, myReaction } = item;
   const reactionSummary = item.reactionSummary
@@ -53,7 +57,14 @@ export function PostCard({
         </p>
       )}
 
-      {post.body && <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink">{post.body}</p>}
+      {post.body &&
+        (openable ? (
+          <Link href={`/posts/${post.id}`} className="block whitespace-pre-wrap text-sm leading-relaxed text-ink hover:text-accent">
+            {post.body}
+          </Link>
+        ) : (
+          <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink">{post.body}</p>
+        ))}
 
       {recipe && (
         <RecipeCard
@@ -96,9 +107,16 @@ export function PostCard({
             </div>
           )}
         </div>
-        <Link href={`/posts/${post.id}`} className="text-xs font-medium text-ink-faint hover:text-accent">
-          💬 {post.commentCount > 0 ? post.commentCount : "Comment"}
-        </Link>
+        <div className="flex items-center gap-3">
+          {openable && (
+            <Link href={`/posts/${post.id}`} className="text-xs font-medium text-ink-faint hover:text-accent">
+              Open post →
+            </Link>
+          )}
+          <Link href={`/posts/${post.id}`} className="text-xs font-medium text-ink-faint hover:text-accent">
+            💬 {post.commentCount > 0 ? post.commentCount : "Comment"}
+          </Link>
+        </div>
       </div>
     </Card>
   );

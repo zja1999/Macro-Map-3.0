@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { and, eq, gte, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db/client";
-import { challenges, comments, contentWarnings, groups, moderationActions, posts, recipes, reports } from "@/db/schema";
+import { challenges, comments, contentWarnings, groups, moderationActions, posts, recipes, reports, users } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
 import { assertModerator } from "@/lib/permissions";
 import { checkRateLimit } from "@/lib/rateLimit";
@@ -27,7 +27,7 @@ const REASONS = [
 const SAFETY_REASONS = ["ed_content", "unsafe_advice", "harassment", "body_shaming"];
 
 const reportSchema = z.object({
-  subjectType: z.enum(["post", "recipe", "comment"]),
+  subjectType: z.enum(["post", "recipe", "comment", "user"]),
   subjectId: z.string().uuid(),
   reason: z.enum(REASONS),
   detail: z.string().max(500).optional(),
@@ -142,6 +142,13 @@ export async function resolveReport(formData: FormData) {
               .where(eq(posts.id, comment.subjectId));
           }
         }
+      } else if (report.subjectType === "user") {
+        // "remove" a reported account = suspend it (docs/07 §2); their content
+        // drops out of every feed while banned (queries filter on users.bannedAt)
+        await tx
+          .update(users)
+          .set({ bannedAt: new Date(), bannedReason: `suspended from report: ${report.reason}` })
+          .where(eq(users.id, report.subjectId));
       }
     }
     if (d.action === "warn_label") {

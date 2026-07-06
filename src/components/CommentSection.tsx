@@ -1,11 +1,12 @@
-import { addComment } from "@/actions/social";
 import { getComments } from "@/lib/queries";
 import { getCurrentUser } from "@/lib/auth";
 import { isModerator } from "@/lib/permissions";
 import { timeAgo } from "@/lib/utils";
-import { Avatar, inputCls, btnPrimary } from "./ui";
+import { Avatar } from "./ui";
 import Link from "next/link";
 import { ModerationControls } from "./ModerationControls";
+import { ReportButton } from "./ReportButton";
+import { CommentForm } from "./CommentForm";
 
 export async function CommentSection({
   subjectType,
@@ -35,6 +36,11 @@ export async function CommentSection({
                 <span className="text-[10px] text-ink-faint">{timeAgo(comment.createdAt)}</span>
               </div>
               <p className="mt-0.5 whitespace-pre-wrap text-sm text-ink-dim">{comment.body}</p>
+              {user && user.id !== comment.authorId && (
+                <div className="mt-1.5">
+                  <ReportButton subjectType="comment" subjectId={comment.id} />
+                </div>
+              )}
               {canModerate && (
                 <div className="mt-2">
                   <ModerationControls subjectType="comment" subjectId={comment.id} path={`/${subjectType === "post" ? "posts" : "recipes"}/${subjectId}`} />
@@ -44,12 +50,7 @@ export async function CommentSection({
           </div>
         ))}
       </div>
-      <form action={addComment} className="flex gap-2">
-        <input type="hidden" name="subjectType" value={subjectType} />
-        <input type="hidden" name="subjectId" value={subjectId} />
-        <input name="body" required maxLength={1000} placeholder="Add a comment…" className={inputCls} />
-        <button className={btnPrimary}>Post</button>
-      </form>
+      <CommentForm subjectType={subjectType} subjectId={subjectId} />
     </div>
   );
 }

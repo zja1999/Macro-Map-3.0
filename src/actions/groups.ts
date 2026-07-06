@@ -5,9 +5,10 @@ import { redirect } from "next/navigation";
 import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db/client";
-import { challengeParticipants, challenges, groupMembers, groups, moderationActions, posts } from "@/db/schema";
+import { challengeParticipants, challenges, groupMembers, groups, moderationActions, notifications, posts, profiles } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
 import { isModerator } from "@/lib/permissions";
+import { isMissingTableError } from "@/lib/dbErrors";
 import { getGroupAuthority } from "@/lib/groups";
 import { CHALLENGE_METRICS } from "@/lib/challenges";
 import { todayStr } from "@/lib/utils";
@@ -183,6 +184,70 @@ export async function moderateGroupPost(formData: FormData) {
     await db.update(posts).set({ isRemoved: d.action === "hide" }).where(eq(posts.id, d.postId));
   }
   revalidatePath(`/groups/${d.slug}`);
+}
+
+const inviteSchema = z.object({
+  groupId: z.string().uuid(),
+  slug: z.string().max(60),
+  username: z.string().min(1).max(40),
+});
+
+/** Owner/managers add a member to their group by username (docs/05 §4). We add
+ * them directly and drop a notification, rather than run a separate accept flow. */
+export async function inviteGroupMember(
+  _prev: { error?: string; ok?: boolean } | undefined,
+  formData: FormData,
+): Promise<{ error?: string; ok?: boolean }> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  const parsed = inviteSchema.safeParse({
+    groupId: formData.get("groupId"),
+    slug: formData.get("slug"),
+    username: String(formData.get("username") ?? "").trim().replace(/^@/, ""),
+  });
+  if (!parsed.success) return { error: "Enter a username to invite." };
+  const d = parsed.data;
+
+  const { canManage } = await getGroupAuthority(user, d.groupId);
+  if (!canManage) return { error: "You don't manage this group." };
+
+  const [group] = await db.select().from(groups).where(eq(groups.id, d.groupId)).limit(1);
+  if (!group) return { error: "Group not found." };
+
+  const [target] = await db
+    .select({ userId: profiles.userId, displayName: profiles.displayName })
+    .from(profiles)
+    .where(eq(profiles.username, d.username))
+    .limit(1);
+  if (!target) return { error: `No user @${d.username} found.` };
+
+  const [existing] = await db
+    .select()
+    .from(groupMembers)
+    .where(and(eq(groupMembers.groupId, d.groupId), eq(groupMembers.userId, target.userId)));
+  if (existing) return { error: `@${d.username} is already a member.` };
+
+  await db.transaction(async (tx) => {
+    await tx.insert(groupMembers).values({ groupId: d.groupId, userId: target.userId });
+    await tx.update(groups).set({ memberCount: sql`${groups.memberCount} + 1` }).where(eq(groups.id, d.groupId));
+  });
+
+  try {
+    await db.insert(notifications).values({
+      userId: target.userId,
+      actorId: user.id,
+      kind: "group_invite",
+      subjectType: "group",
+      subjectId: d.groupId,
+      message: `${user.profile.displayName} added you to ${group.name}`,
+      href: `/groups/${group.slug}`,
+    });
+  } catch (error) {
+    if (!isMissingTableError(error, "notifications")) throw error;
+  }
+
+  revalidatePath(`/groups/${d.slug}`);
+  return { ok: true };
 }
 
 const memberActionSchema = z.object({
