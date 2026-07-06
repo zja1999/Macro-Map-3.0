@@ -27,5 +27,5 @@ export function middleware(req: NextRequest) {
 
 export const config = {
   // run on app pages; skip api, Next internals, static files, and the auth pages themselves
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|login|register|.*\\.).*)"],
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|login|register|verify-email|.*\\.).*)"],
 };

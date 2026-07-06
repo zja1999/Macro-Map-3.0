@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useActionState } from "react";
 import { login } from "@/actions/auth";
+import { ResendVerificationForm } from "@/components/ResendVerificationForm";
 import { inputCls, btnPrimary, btnGhost } from "@/components/ui";
 
 export default function LoginPage() {
@@ -22,8 +23,16 @@ export default function LoginPage() {
         />
         {state?.error && <p className="text-sm text-danger">{state.error}</p>}
         <button disabled={pending} className={`${btnPrimary} w-full`}>
-          {pending ? "Signing in…" : "Sign in"}
+          {pending ? "Signing in..." : "Sign in"}
         </button>
+        <div className="flex items-center gap-3 text-[11px] uppercase tracking-wide text-ink-faint">
+          <span className="h-px flex-1 bg-edge" />
+          or
+          <span className="h-px flex-1 bg-edge" />
+        </div>
+        <a href="/api/auth/google/start" className={`${btnGhost} w-full`}>
+          Continue with Google
+        </a>
         <p className="text-center text-xs text-ink-faint">
           New here?{" "}
           <Link href="/register" className="text-accent hover:underline">
@@ -33,17 +42,19 @@ export default function LoginPage() {
         {/* dev-only: the demo account exists only in locally-seeded databases */}
         {process.env.NODE_ENV !== "production" && (
           <p className="rounded-lg bg-surface px-3 py-2 text-center text-[11px] text-ink-faint">
-            Demo account: <span className="text-ink-dim">demo@macromap.app</span> / <span className="text-ink-dim">password123</span>
+            Demo account: <span className="text-ink-dim">demo@macromap.app</span> /{" "}
+            <span className="text-ink-dim">password123</span>
           </p>
         )}
       </form>
-      {/* no accounts needed to look around — recipes, workouts, and restaurants are public */}
+      {/* no accounts needed to look around: recipes, workouts, and restaurants are public */}
       <Link href="/recipes" className={`${btnGhost} w-full`}>
-        Browse without an account →
+        Browse without an account
       </Link>
       <p className="text-center text-[10px] text-ink-faint">
         Peek at recipes, workouts, and restaurants. Sign up to log meals, follow people, and join challenges.
       </p>
+      <ResendVerificationForm />
     </div>
   );
 }

@@ -1,13 +1,15 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createHash, randomBytes } from "crypto";
-import { eq, gt, and, desc } from "drizzle-orm";
+import { eq, gt, and, desc, isNull } from "drizzle-orm";
 import { cache } from "react";
 import { db } from "@/db/client";
-import { sessions, users, profiles, nutritionTargets } from "@/db/schema";
+import { sessions, users, profiles, nutritionTargets, emailVerificationTokens } from "@/db/schema";
+import { getAppUrl, sendVerificationEmail } from "@/lib/email";
 
 const COOKIE = "mm_session";
 const SESSION_DAYS = 30;
+const EMAIL_VERIFICATION_MINUTES = 30;
 
 const sha256 = (s: string) => createHash("sha256").update(s).digest("hex");
 
@@ -30,6 +32,44 @@ export async function destroySession() {
   const token = jar.get(COOKIE)?.value;
   if (token) await db.delete(sessions).where(eq(sessions.tokenHash, sha256(token)));
   jar.delete(COOKIE);
+}
+
+export async function sendEmailVerification(userId: string, email: string) {
+  const token = randomBytes(32).toString("hex");
+  await db.insert(emailVerificationTokens).values({
+    tokenHash: sha256(token),
+    userId,
+    email,
+    expiresAt: new Date(Date.now() + EMAIL_VERIFICATION_MINUTES * 60_000),
+  });
+  await sendVerificationEmail({
+    to: email,
+    verifyUrl: `${getAppUrl()}/verify-email?token=${token}`,
+  });
+}
+
+export async function verifyEmailToken(token: string): Promise<"ok" | "invalid"> {
+  const [row] = await db
+    .select()
+    .from(emailVerificationTokens)
+    .where(
+      and(
+        eq(emailVerificationTokens.tokenHash, sha256(token)),
+        gt(emailVerificationTokens.expiresAt, new Date()),
+        isNull(emailVerificationTokens.usedAt),
+      ),
+    )
+    .limit(1);
+
+  if (!row) return "invalid";
+
+  await db.transaction(async (tx) => {
+    const now = new Date();
+    await tx.update(users).set({ emailVerifiedAt: now }).where(eq(users.id, row.userId));
+    await tx.update(emailVerificationTokens).set({ usedAt: now }).where(eq(emailVerificationTokens.tokenHash, row.tokenHash));
+  });
+  await createSession(row.userId);
+  return "ok";
 }
 
 export type CurrentUser = {

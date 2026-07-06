@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useActionState } from "react";
 import { register } from "@/actions/auth";
-import { inputCls, btnPrimary } from "@/components/ui";
+import { inputCls, btnPrimary, btnGhost } from "@/components/ui";
 
 export default function RegisterPage() {
   const [state, action, pending] = useActionState(register, undefined);
@@ -32,9 +32,18 @@ export default function RegisterPage() {
         className={inputCls}
       />
       {state?.error && <p className="text-sm text-danger">{state.error}</p>}
+      {state?.success && <p className="rounded-lg bg-accent/10 px-3 py-2 text-sm text-accent">{state.success}</p>}
       <button disabled={pending} className={`${btnPrimary} w-full`}>
-        {pending ? "Creating…" : "Sign up"}
+        {pending ? "Creating..." : "Sign up"}
       </button>
+      <div className="flex items-center gap-3 text-[11px] uppercase tracking-wide text-ink-faint">
+        <span className="h-px flex-1 bg-edge" />
+        or
+        <span className="h-px flex-1 bg-edge" />
+      </div>
+      <a href="/api/auth/google/start" className={`${btnGhost} w-full`}>
+        Continue with Google
+      </a>
       <p className="text-center text-xs text-ink-faint">
         Already have an account?{" "}
         <Link href="/login" className="text-accent hover:underline">
