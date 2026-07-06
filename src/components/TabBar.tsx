@@ -15,6 +15,11 @@ const tabs: NavItem[] = [
 
 const adminLink: NavItem = { href: "/admin", label: "Admin", icon: "Admin" };
 
+function isActivePath(pathname: string, href: string) {
+  if (href === "/") return pathname === "/";
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
 export function TabBar({ canModerate = false }: { canModerate?: boolean }) {
   const pathname = usePathname();
   const visibleTabs = canModerate ? [...tabs.slice(0, 4), adminLink, tabs[4]] : tabs;
@@ -22,7 +27,7 @@ export function TabBar({ canModerate = false }: { canModerate?: boolean }) {
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-edge bg-surface/95 backdrop-blur md:hidden">
       <div className="mx-auto flex max-w-lg items-stretch justify-around">
         {visibleTabs.map((t) => {
-          const active = t.href === "/" ? pathname === "/" : pathname.startsWith(t.href);
+          const active = isActivePath(pathname, t.href);
           if (t.primary) {
             return (
               <Link key={t.href} href={t.href} className="flex items-center px-3">
@@ -95,7 +100,7 @@ export function SideNav({ canModerate = false }: { canModerate?: boolean }) {
   return (
     <nav className="sticky top-16 hidden w-48 shrink-0 flex-col gap-0.5 md:flex">
       {visibleLinks.map((l) => {
-        const active = l.href === "/" ? pathname === "/" : pathname.startsWith(l.href);
+        const active = isActivePath(pathname, l.href);
         return (
           <Link
             key={l.href}

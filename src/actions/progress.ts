@@ -11,6 +11,8 @@ import { calculateTargetsFromProfile } from "@/lib/targets";
 import { weightToKg, lengthToCm } from "@/lib/units";
 
 const dateRe = /^\d{4}-\d{2}-\d{2}$/;
+const habitEmojiSchema = z.string().trim().min(1).max(12).catch("✅");
+const habitNameSchema = z.string().trim().min(2).max(50);
 
 // raw values are in whichever unit the `units` field says — converted to
 // canonical kg/cm below, before anything reaches the DB (docs: lib/units.ts)
@@ -177,8 +179,8 @@ export async function toggleHabit(formData: FormData) {
 export async function addHabit(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-  const name = z.string().min(2).max(50).parse(formData.get("name"));
-  const emoji = z.string().max(4).catch("✅").parse(formData.get("emoji") || "✅");
+  const name = habitNameSchema.parse(formData.get("name"));
+  const emoji = habitEmojiSchema.parse(formData.get("emoji") || "✅");
 
   const existing = await db
     .select({ id: habits.id })
@@ -186,6 +188,20 @@ export async function addHabit(formData: FormData) {
     .where(and(eq(habits.userId, user.id), eq(habits.archived, false)));
   if (existing.length >= 12) return; // sanity cap
   await db.insert(habits).values({ userId: user.id, name, emoji });
+  revalidatePath("/progress");
+}
+
+export async function updateHabit(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  const habitId = z.string().uuid().parse(formData.get("habitId"));
+  const name = habitNameSchema.parse(formData.get("name"));
+  const emoji = habitEmojiSchema.parse(formData.get("emoji") || "✅");
+
+  await db
+    .update(habits)
+    .set({ name, emoji })
+    .where(and(eq(habits.id, habitId), eq(habits.userId, user.id)));
   revalidatePath("/progress");
 }
 

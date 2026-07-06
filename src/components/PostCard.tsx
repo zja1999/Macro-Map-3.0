@@ -27,6 +27,13 @@ export function PostCard({
   moderationPath?: string;
 }) {
   const { post, author, recipe, myReaction } = item;
+  const reactionSummary = item.reactionSummary
+    .map((summary) => ({
+      ...summary,
+      meta: REACTION_KINDS.find((r) => r.kind === summary.kind),
+    }))
+    .filter((summary) => summary.count > 0)
+    .sort((a, b) => REACTION_KINDS.findIndex((r) => r.kind === a.kind) - REACTION_KINDS.findIndex((r) => r.kind === b.kind));
   return (
     <Card className="space-y-3 p-4">
       <div className="flex items-center justify-between">
@@ -65,8 +72,14 @@ export function PostCard({
               </button>
             </form>
           ))}
-          {post.reactionCount > 0 && (
-            <span className="ml-1 text-xs tabular-nums text-ink-faint">{post.reactionCount}</span>
+          {reactionSummary.length > 0 && (
+            <div className="ml-2 flex items-center gap-1">
+              {reactionSummary.map((r) => (
+                <span key={r.kind} title={r.meta?.label ?? r.kind} className="rounded-full bg-surface px-1.5 py-0.5 text-[11px] tabular-nums text-ink-dim">
+                  {r.meta?.emoji ?? "•"} {r.count}
+                </span>
+              ))}
+            </div>
           )}
         </div>
         <Link href={`/posts/${post.id}`} className="text-xs font-medium text-ink-faint hover:text-accent">

@@ -2,10 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { isModerator } from "@/lib/permissions";
-import { getProfileByUsername, getFollowStats, getUserPosts, listRecipes } from "@/lib/queries";
+import { getProfileByUsername, getFollowStats, getUserPosts, listRecipes, getFollowList } from "@/lib/queries";
 import { toggleFollow } from "@/actions/social";
 import { logout } from "@/actions/auth";
-import { Avatar, Badge, Card, btnPrimary, btnGhost, EmptyState } from "@/components/ui";
+import { Avatar, Badge, Card, UserChip, btnPrimary, btnGhost, EmptyState } from "@/components/ui";
 import { PostCard } from "@/components/PostCard";
 import { RecipeCard } from "@/components/RecipeCard";
 
@@ -26,10 +26,14 @@ export default async function ProfilePage({
   const isMe = profile.userId === viewer.id;
   const canModerate = isModerator(viewer);
   const stats = await getFollowStats(profile.userId, viewer.id);
-  const activeTab = tab === "recipes" ? "recipes" : "posts";
+  const activeTab = tab === "recipes" || tab === "followers" || tab === "following" ? tab : "posts";
 
   const posts = activeTab === "posts" ? await getUserPosts(viewer.id, profile.userId) : [];
   const recipes = activeTab === "recipes" ? await listRecipes({ authorId: profile.userId, sort: "new" }) : [];
+  const followList =
+    activeTab === "followers" || activeTab === "following"
+      ? await getFollowList(profile.userId, activeTab)
+      : [];
 
   return (
     <div className="mx-auto max-w-xl space-y-5">
@@ -72,14 +76,14 @@ export default async function ProfilePage({
         </div>
 
         <div className="flex gap-5 text-sm">
-          <span>
+          <Link href={`/u/${profile.username}?tab=followers`} className="hover:text-accent">
             <span className="font-bold">{stats.followers}</span>{" "}
             <span className="text-ink-faint">followers</span>
-          </span>
-          <span>
+          </Link>
+          <Link href={`/u/${profile.username}?tab=following`} className="hover:text-accent">
             <span className="font-bold">{stats.following}</span>{" "}
             <span className="text-ink-faint">following</span>
-          </span>
+          </Link>
         </div>
       </Card>
 
@@ -87,10 +91,12 @@ export default async function ProfilePage({
         {[
           { key: "posts", label: "Posts" },
           { key: "recipes", label: "Recipes" },
+          { key: "followers", label: "Followers" },
+          { key: "following", label: "Following" },
         ].map((t) => (
           <Link
             key={t.key}
-            href={`/u/${profile.username}${t.key === "recipes" ? "?tab=recipes" : ""}`}
+            href={`/u/${profile.username}${t.key === "posts" ? "" : `?tab=${t.key}`}`}
             className={`flex-1 rounded-md px-3 py-1.5 text-center text-sm font-medium ${
               activeTab === t.key ? "bg-accent text-black" : "text-ink-dim"
             }`}
@@ -114,6 +120,22 @@ export default async function ProfilePage({
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {recipes.map(({ recipe, username: u, displayName }) => (
               <RecipeCard key={recipe.id} recipe={recipe} authorName={displayName} authorUsername={u} />
+            ))}
+          </div>
+        ))}
+
+      {(activeTab === "followers" || activeTab === "following") &&
+        (followList.length === 0 ? (
+          <EmptyState title={activeTab === "followers" ? "No followers yet" : "Not following anyone yet"} />
+        ) : (
+          <div className="space-y-2">
+            {followList.map(({ profile: p, reputation }) => (
+              <Card key={p.userId} className="flex items-center justify-between p-3">
+                <UserChip username={p.username} displayName={p.displayName} sub={`${reputation} rep`} />
+                <Link href={`/u/${p.username}`} className={btnGhost}>
+                  View
+                </Link>
+              </Card>
             ))}
           </div>
         ))}

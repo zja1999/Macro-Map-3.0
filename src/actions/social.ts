@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db/client";
-import { follows, groupMembers, posts, comments, reactions, recipes } from "@/db/schema";
+import { follows, groupMembers, posts, comments, reactions, recipes, notifications } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { REACTION_KINDS } from "@/lib/utils";
@@ -20,9 +20,23 @@ export async function toggleFollow(formData: FormData) {
   const where = and(eq(follows.followerId, user.id), eq(follows.followeeId, followeeId));
   const [existing] = await db.select().from(follows).where(where);
   if (existing) await db.delete(follows).where(where);
-  else await db.insert(follows).values({ followerId: user.id, followeeId });
+  else {
+    await db.transaction(async (tx) => {
+      await tx.insert(follows).values({ followerId: user.id, followeeId });
+      await tx.insert(notifications).values({
+        userId: followeeId,
+        actorId: user.id,
+        kind: "follow",
+        subjectType: "user",
+        subjectId: user.id,
+        message: `${user.profile.displayName} followed you`,
+        href: `/u/${user.profile.username}`,
+      });
+    });
+  }
   revalidatePath(`/u/${username}`);
   revalidatePath("/");
+  revalidatePath("/notifications");
 }
 
 const postSchema = z.object({
@@ -57,13 +71,39 @@ export async function createPost(
     if (!member) return { error: "Join the group to post in it." };
   }
 
-  await db.insert(posts).values({
-    authorId: user.id,
-    type: parsed.data.type,
-    body: parsed.data.body,
-    groupId: parsed.data.groupId ?? null,
+  await db.transaction(async (tx) => {
+    const [post] = await tx
+      .insert(posts)
+      .values({
+        authorId: user.id,
+        type: parsed.data.type,
+        body: parsed.data.body,
+        groupId: parsed.data.groupId ?? null,
+      })
+      .returning({ id: posts.id });
+
+    if (parsed.data.groupId) {
+      const recipients = await tx
+        .select({ userId: groupMembers.userId })
+        .from(groupMembers)
+        .where(and(eq(groupMembers.groupId, parsed.data.groupId), sql`${groupMembers.userId} <> ${user.id}`));
+      if (recipients.length) {
+        await tx.insert(notifications).values(
+          recipients.map((r) => ({
+            userId: r.userId,
+            actorId: user.id,
+            kind: "group_post",
+            subjectType: "post",
+            subjectId: post.id,
+            message: `${user.profile.displayName} posted in your group`,
+            href: parsed.data.groupSlug ? `/groups/${parsed.data.groupSlug}` : `/posts/${post.id}`,
+          })),
+        );
+      }
+    }
   });
   revalidatePath(parsed.data.groupSlug ? `/groups/${parsed.data.groupSlug}` : "/");
+  revalidatePath("/notifications");
   return {};
 }
 
@@ -109,6 +149,9 @@ export async function toggleReaction(formData: FormData) {
     eq(reactions.subjectId, postId),
   );
   const [existing] = await db.select().from(reactions).where(where);
+  const [targetPost] = await db.select({ authorId: posts.authorId }).from(posts).where(eq(posts.id, postId)).limit(1);
+  if (!targetPost) return;
+  const reactionLabel = REACTION_KINDS.find((r) => r.kind === kind)?.label.toLowerCase() ?? "reaction";
 
   await db.transaction(async (tx) => {
     if (existing && existing.kind === kind) {
@@ -119,10 +162,22 @@ export async function toggleReaction(formData: FormData) {
     } else {
       await tx.insert(reactions).values({ userId: user.id, subjectType: "post", subjectId: postId, kind });
       await tx.update(posts).set({ reactionCount: sql`${posts.reactionCount} + 1` }).where(eq(posts.id, postId));
+      if (targetPost.authorId !== user.id) {
+        await tx.insert(notifications).values({
+          userId: targetPost.authorId,
+          actorId: user.id,
+          kind: "reaction",
+          subjectType: "post",
+          subjectId: postId,
+          message: `${user.profile.displayName} reacted with ${reactionLabel}`,
+          href: `/posts/${postId}`,
+        });
+      }
     }
   });
   revalidatePath("/");
   revalidatePath(`/posts/${postId}`);
+  revalidatePath("/notifications");
 }
 
 const commentSchema = z.object({
@@ -139,11 +194,29 @@ export async function addComment(formData: FormData) {
   const rateError = await checkRateLimit(user.id, "comment", user.reputation);
   if (rateError) throw new Error(rateError);
 
+  const [target] =
+    d.subjectType === "post"
+      ? await db.select({ authorId: posts.authorId }).from(posts).where(eq(posts.id, d.subjectId)).limit(1)
+      : await db.select({ authorId: recipes.authorId }).from(recipes).where(eq(recipes.id, d.subjectId)).limit(1);
+  if (!target) throw new Error("Subject not found");
+
   await db.transaction(async (tx) => {
     await tx.insert(comments).values({ authorId: user.id, ...d });
     if (d.subjectType === "post") {
       await tx.update(posts).set({ commentCount: sql`${posts.commentCount} + 1` }).where(eq(posts.id, d.subjectId));
     }
+    if (target.authorId !== user.id) {
+      await tx.insert(notifications).values({
+        userId: target.authorId,
+        actorId: user.id,
+        kind: "comment",
+        subjectType: d.subjectType,
+        subjectId: d.subjectId,
+        message: `${user.profile.displayName} commented on your ${d.subjectType}`,
+        href: d.subjectType === "post" ? `/posts/${d.subjectId}` : `/recipes/${d.subjectId}`,
+      });
+    }
   });
   revalidatePath(d.subjectType === "post" ? `/posts/${d.subjectId}` : `/recipes/${d.subjectId}`);
+  revalidatePath("/notifications");
 }

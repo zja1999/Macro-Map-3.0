@@ -2,16 +2,20 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { isModerator } from "@/lib/permissions";
-import { getStreak } from "@/lib/queries";
+import { getStreak, getUnreadNotificationCount } from "@/lib/queries";
 import { todayStr } from "@/lib/utils";
 import { MobileQuickActions, TabBar, SideNav } from "@/components/TabBar";
+import { FeedbackButton } from "@/components/FeedbackButton";
 import { Avatar } from "@/components/ui";
 
 export default async function MainLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   if (!user.profile.onboardedAt) redirect("/onboarding");
-  const streak = await getStreak(user.id, todayStr());
+  const [streak, unreadNotifications] = await Promise.all([
+    getStreak(user.id, todayStr()),
+    getUnreadNotificationCount(user.id),
+  ]);
   const canModerate = isModerator(user);
 
   return (
@@ -22,6 +26,15 @@ export default async function MainLayout({ children }: { children: React.ReactNo
             Macro<span className="text-accent">Map</span>
           </Link>
           <div className="flex items-center gap-4">
+            <FeedbackButton />
+            <Link href="/notifications" className="relative text-sm font-semibold text-ink-dim hover:text-accent" aria-label="Notifications">
+              🔔
+              {unreadNotifications > 0 && (
+                <span className="absolute -right-2 -top-2 rounded-full bg-accent px-1.5 text-[10px] leading-4 text-black">
+                  {unreadNotifications > 9 ? "9+" : unreadNotifications}
+                </span>
+              )}
+            </Link>
             {streak > 0 && (
               <span className="text-sm font-semibold text-carbs" title={`${streak}-day logging streak`}>
                 🔥 {streak}

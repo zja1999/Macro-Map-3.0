@@ -1,5 +1,5 @@
 import { requireUser } from "@/lib/auth";
-import { SettingsForms, ClaimAccountForm, FeedbackForm } from "@/components/SettingsForms";
+import { SettingsForms, ClaimAccountForm } from "@/components/SettingsForms";
 
 export const metadata = { title: "Settings" };
 
@@ -42,7 +42,6 @@ export default async function SettingsPage({
           isManual: user.targets?.isManual ?? false,
         }}
       />
-      <FeedbackForm />
     </div>
   );
 }

@@ -1,10 +1,8 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { usePathname } from "next/navigation";
 import { updateBiometrics, updateProfile, updateTargets } from "@/actions/onboarding";
 import { claimAccount } from "@/actions/auth";
-import { submitFeedback } from "@/actions/feedback";
 import { inputCls, btnPrimary } from "./ui";
 import { CALORIE_FLOOR } from "@/lib/targets";
 import { cmToFtIn, kgToLb } from "@/lib/units";
@@ -33,33 +31,6 @@ export function ClaimAccountForm() {
       <button disabled={pending} className={btnPrimary}>
         {pending ? "Claiming…" : "Claim my account"}
       </button>
-    </form>
-  );
-}
-
-export function FeedbackForm() {
-  const [state, action, pending] = useActionState(submitFeedback, undefined);
-  const pathname = usePathname();
-  return (
-    <form action={action} className="space-y-3 rounded-xl border border-edge bg-card p-4">
-      <h2 className="text-sm font-semibold">📮 Send feedback</h2>
-      <input type="hidden" name="pageContext" value={pathname} />
-      <textarea
-        name="body"
-        required
-        minLength={5}
-        maxLength={2000}
-        rows={3}
-        placeholder="Bug, idea, confusing screen — anything helps."
-        className={`${inputCls} resize-none`}
-      />
-      <div className="flex items-center gap-3">
-        <button disabled={pending} className={btnPrimary}>
-          {pending ? "Sending…" : "Send"}
-        </button>
-        {state?.ok && <span className="text-xs text-accent">Thanks — the team reads every one ✓</span>}
-        {state?.error && <span className="text-xs text-danger">{state.error}</span>}
-      </div>
     </form>
   );
 }

@@ -4,6 +4,7 @@ import { db } from "@/db/client";
 import { contentWarnings, posts, profiles, recipes, reactions, users } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
 import { isModerator } from "@/lib/permissions";
+import { getReactionSummaries } from "@/lib/queries";
 import { PostCard } from "@/components/PostCard";
 import { CommentSection } from "@/components/CommentSection";
 import { ReportButton } from "@/components/ReportButton";
@@ -35,6 +36,7 @@ export default async function PostPage({ params }: { params: Promise<{ id: strin
     .select()
     .from(contentWarnings)
     .where(and(eq(contentWarnings.subjectType, "post"), eq(contentWarnings.subjectId, id)));
+  const reactionSummaryByPost = await getReactionSummaries([id]);
 
   // moderated content: author sees a notice, everyone else gets a 404 (docs/07 §2)
   const canModerate = isModerator(user);
@@ -60,6 +62,7 @@ export default async function PostPage({ params }: { params: Promise<{ id: strin
           author: { username: row.username, displayName: row.displayName, goal: row.goal },
           recipe,
           myReaction: myReaction?.kind ?? null,
+          reactionSummary: reactionSummaryByPost.get(id) ?? [],
         }}
         canModerate={canModerate}
         moderationPath={`/posts/${row.post.id}`}

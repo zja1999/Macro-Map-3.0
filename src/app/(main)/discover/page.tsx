@@ -82,15 +82,15 @@ export default async function DiscoverPage() {
         </Shelf>
       )}
 
-      <Shelf title="Coming next">
+      <Shelf title="Explore more">
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {[
-            { href: "/meal-prep", label: "🥡 Meal prep", note: "Phase 2" },
-            { href: "/restaurants", label: "🍔 Restaurants", note: "Phase 4" },
-            { href: "/workouts", label: "🏋️ Workouts", note: "Phase 4" },
-            { href: "/challenges", label: "🏆 Challenges", note: "Phase 5" },
+            { href: "/meal-prep", label: "🥡 Meal prep", note: "Plans and boards" },
+            { href: "/restaurants", label: "🍔 Restaurants", note: "Nearby macro fits" },
+            { href: "/workouts", label: "🏋️ Workouts", note: "Templates and logs" },
+            { href: "/challenges", label: "🏆 Challenges", note: "Join a goal" },
           ].map((x) => (
-            <Link key={x.href} href={x.href} className="rounded-xl border border-dashed border-edge p-3 text-center hover:bg-card">
+            <Link key={x.href} href={x.href} className="rounded-xl border border-edge bg-card p-3 text-center hover:bg-card-hover">
               <div className="text-sm font-medium text-ink-dim">{x.label}</div>
               <div className="text-[10px] text-ink-faint">{x.note}</div>
             </Link>

@@ -551,6 +551,28 @@ export const habitLogs = pgTable(
   (t) => [primaryKey({ columns: [t.habitId, t.logDate] })],
 );
 
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    actorId: uuid().references(() => users.id, { onDelete: "set null" }),
+    kind: text().notNull(), // follow | reaction | comment | group_post
+    subjectType: text(),
+    subjectId: uuid(),
+    message: text().notNull(),
+    href: text().notNull(),
+    readAt: timestamp({ withTimezone: true }),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("notifications_user_idx").on(t.userId, t.createdAt),
+    index("notifications_unread_idx").on(t.userId, t.readAt),
+  ],
+);
+
 // One row per fast; endedAt null while active (docs/10 §3)
 export const fastingWindows = pgTable(
   "fasting_windows",

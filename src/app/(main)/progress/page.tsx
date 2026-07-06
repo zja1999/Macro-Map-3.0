@@ -1,6 +1,6 @@
 import { requireUser } from "@/lib/auth";
 import { getProgressEntries, getProgressPhotos, getHabitsWithStreaks, getWeekSummary, getSleepLogs } from "@/lib/queries";
-import { ensureDefaultHabits, toggleHabit, addHabit, archiveHabit } from "@/actions/progress";
+import { ensureDefaultHabits, toggleHabit, addHabit, updateHabit, archiveHabit } from "@/actions/progress";
 import { logSleep, deleteSleepLog } from "@/actions/sleep";
 import { todayStr, formatDateLabel } from "@/lib/utils";
 import { formatWeight, formatLength, kgToLb, type UnitsPref } from "@/lib/units";
@@ -157,15 +157,15 @@ export default async function ProgressPage() {
           <h2 className="text-sm font-semibold">Daily habits</h2>
           <span className="text-[10px] text-ink-faint">tracked days this week: {loggedDays}/7 logged</span>
         </div>
-        <ul className="space-y-2">
+        <ul className="space-y-3">
           {habitList.map((h) => (
-            <li key={h.id} className="flex items-center justify-between gap-2">
+            <li key={h.id} className="rounded-lg border border-edge bg-surface p-2">
               <form action={toggleHabit} className="min-w-0 flex-1">
                 <input type="hidden" name="habitId" value={h.id} />
                 <input type="hidden" name="logDate" value={today} />
                 <button
-                  className={`flex w-full items-center gap-2.5 rounded-lg border px-3 py-2 text-left text-sm transition ${
-                    h.doneToday ? "border-accent/40 bg-accent/10" : "border-edge bg-surface hover:border-ink-faint"
+                  className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition ${
+                    h.doneToday ? "bg-accent/10" : "hover:bg-card"
                   }`}
                 >
                   <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[10px] ${h.doneToday ? "border-accent bg-accent text-black" : "border-edge"}`}>
@@ -181,18 +181,40 @@ export default async function ProgressPage() {
                   )}
                 </button>
               </form>
-              {!h.isDefault && (
-                <form action={archiveHabit}>
+              <div className="mt-2 flex gap-2">
+                <form action={updateHabit} className="flex min-w-0 flex-1 gap-2">
                   <input type="hidden" name="habitId" value={h.id} />
-                  <button className="px-1 text-ink-faint hover:text-danger" aria-label={`Archive ${h.name}`}>
+                  <input
+                    name="emoji"
+                    defaultValue={h.emoji}
+                    aria-label={`${h.name} emoji`}
+                    className={`${inputCls} w-14 shrink-0 px-2 text-center`}
+                  />
+                  <input
+                    name="name"
+                    defaultValue={h.name}
+                    required
+                    minLength={2}
+                    maxLength={50}
+                    aria-label={`${h.name} name`}
+                    className={inputCls}
+                  />
+                  <button className="rounded-lg bg-accent/10 px-3 py-1.5 text-xs font-semibold text-accent hover:bg-accent/20">
+                    Save
+                  </button>
+                </form>
+                <form action={archiveHabit} className="shrink-0">
+                  <input type="hidden" name="habitId" value={h.id} />
+                  <button className="h-full rounded-lg px-2 text-ink-faint hover:bg-card hover:text-danger" aria-label={`Archive ${h.name}`}>
                     ✕
                   </button>
                 </form>
-              )}
+              </div>
             </li>
           ))}
         </ul>
         <form action={addHabit} className="mt-3 flex gap-2">
+          <input name="emoji" defaultValue="✅" aria-label="New habit emoji" className={`${inputCls} w-14 shrink-0 px-2 text-center`} />
           <input name="name" required minLength={2} maxLength={50} placeholder="Add a habit… (e.g. 10k steps)" className={inputCls} />
           <button className="rounded-lg bg-accent/10 px-3 py-1.5 text-xs font-semibold text-accent hover:bg-accent/20">
             Add

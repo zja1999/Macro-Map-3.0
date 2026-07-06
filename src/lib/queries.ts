@@ -19,6 +19,7 @@ import {
   mediaAttachments,
   fastingWindows,
   sleepLogs,
+  notifications,
 } from "@/db/schema";
 import { shiftDate, todayStr } from "./utils";
 import type { Remaining } from "./restaurants";
@@ -30,7 +31,29 @@ export type FeedPost = {
   author: { username: string; displayName: string; goal: string | null };
   recipe: typeof recipes.$inferSelect | null;
   myReaction: string | null;
+  reactionSummary: { kind: string; count: number }[];
 };
+
+export async function getReactionSummaries(postIds: string[]) {
+  if (!postIds.length) return new Map<string, { kind: string; count: number }[]>();
+  const rows = await db
+    .select({
+      subjectId: reactions.subjectId,
+      kind: reactions.kind,
+      count: sql<number>`COUNT(*)`,
+    })
+    .from(reactions)
+    .where(and(eq(reactions.subjectType, "post"), inArray(reactions.subjectId, postIds)))
+    .groupBy(reactions.subjectId, reactions.kind);
+
+  const byPost = new Map<string, { kind: string; count: number }[]>();
+  for (const row of rows) {
+    const list = byPost.get(row.subjectId) ?? [];
+    list.push({ kind: row.kind, count: Number(row.count) });
+    byPost.set(row.subjectId, list);
+  }
+  return byPost;
+}
 
 export async function getFeed(viewerId: string, scope: "following" | "trending"): Promise<FeedPost[]> {
   const base = db
@@ -85,12 +108,14 @@ export async function getFeed(viewerId: string, scope: "following" | "trending")
         .where(and(eq(reactions.userId, viewerId), eq(reactions.subjectType, "post"), inArray(reactions.subjectId, postIds)))
     : [];
   const myReactionByPost = new Map(myReactions.map((r) => [r.subjectId, r.kind]));
+  const reactionSummaryByPost = await getReactionSummaries(postIds);
 
   return rows.map((r) => ({
     post: r.post,
     author: { username: r.username, displayName: r.displayName, goal: r.goal },
     recipe: r.post.refId ? (recipeById.get(r.post.refId) ?? null) : null,
     myReaction: myReactionByPost.get(r.post.id) ?? null,
+    reactionSummary: reactionSummaryByPost.get(r.post.id) ?? [],
   }));
 }
 
@@ -124,12 +149,14 @@ export async function getUserPosts(viewerId: string, authorId: string): Promise<
         .where(and(eq(reactions.userId, viewerId), eq(reactions.subjectType, "post"), inArray(reactions.subjectId, postIds)))
     : [];
   const myReactionByPost = new Map(myReactions.map((r) => [r.subjectId, r.kind]));
+  const reactionSummaryByPost = await getReactionSummaries(postIds);
 
   return rows.map((r) => ({
     post: r.post,
     author: { username: r.username, displayName: r.displayName, goal: r.goal },
     recipe: r.post.refId ? (recipeById.get(r.post.refId) ?? null) : null,
     myReaction: myReactionByPost.get(r.post.id) ?? null,
+    reactionSummary: reactionSummaryByPost.get(r.post.id) ?? [],
   }));
 }
 
@@ -151,12 +178,14 @@ export async function getGroupFeed(viewerId: string, groupId: string): Promise<F
         .where(and(eq(reactions.userId, viewerId), eq(reactions.subjectType, "post"), inArray(reactions.subjectId, postIds)))
     : [];
   const myReactionByPost = new Map(myReactions.map((r) => [r.subjectId, r.kind]));
+  const reactionSummaryByPost = await getReactionSummaries(postIds);
 
   return rows.map((r) => ({
     post: r.post,
     author: { username: r.username, displayName: r.displayName, goal: r.goal },
     recipe: null, // group posts are text posts in MVP (docs/05 §4: tag-filtered tabs come later)
     myReaction: myReactionByPost.get(r.post.id) ?? null,
+    reactionSummary: reactionSummaryByPost.get(r.post.id) ?? [],
   }));
 }
 
@@ -409,6 +438,50 @@ export async function getFollowStats(userId: string, viewerId: string) {
     .from(follows)
     .where(and(eq(follows.followerId, viewerId), eq(follows.followeeId, userId)));
   return { followers: Number(followers.n), following: Number(following.n), isFollowing: !!me };
+}
+
+export async function getFollowList(userId: string, kind: "followers" | "following", limit = 50) {
+  if (kind === "followers") {
+    return db
+      .select({ profile: profiles, reputation: users.reputation, followedAt: follows.createdAt })
+      .from(follows)
+      .innerJoin(profiles, eq(profiles.userId, follows.followerId))
+      .innerJoin(users, eq(users.id, follows.followerId))
+      .where(and(eq(follows.followeeId, userId), isNull(users.bannedAt)))
+      .orderBy(desc(follows.createdAt))
+      .limit(limit);
+  }
+
+  return db
+    .select({ profile: profiles, reputation: users.reputation, followedAt: follows.createdAt })
+    .from(follows)
+    .innerJoin(profiles, eq(profiles.userId, follows.followeeId))
+    .innerJoin(users, eq(users.id, follows.followeeId))
+    .where(and(eq(follows.followerId, userId), isNull(users.bannedAt)))
+    .orderBy(desc(follows.createdAt))
+    .limit(limit);
+}
+
+export async function getUnreadNotificationCount(userId: string): Promise<number> {
+  const [row] = await db
+    .select({ n: sql<number>`COUNT(*)` })
+    .from(notifications)
+    .where(and(eq(notifications.userId, userId), isNull(notifications.readAt)));
+  return Number(row.n);
+}
+
+export async function getNotifications(userId: string, limit = 50) {
+  return db
+    .select({
+      notification: notifications,
+      actorUsername: profiles.username,
+      actorDisplayName: profiles.displayName,
+    })
+    .from(notifications)
+    .innerJoin(profiles, eq(profiles.userId, notifications.actorId))
+    .where(eq(notifications.userId, userId))
+    .orderBy(desc(notifications.createdAt))
+    .limit(limit);
 }
 
 export async function getComments(subjectType: "post" | "recipe", subjectId: string) {
