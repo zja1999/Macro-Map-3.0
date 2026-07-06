@@ -29,7 +29,7 @@ import type { Remaining } from "./restaurants";
 
 export type FeedPost = {
   post: typeof posts.$inferSelect;
-  author: { username: string; displayName: string; goal: string | null };
+  author: { username: string; displayName: string; goal: string | null; avatarUrl: string | null };
   recipe: typeof recipes.$inferSelect | null;
   myReaction: string | null;
   reactionSummary: { kind: string; count: number }[];
@@ -58,7 +58,7 @@ export async function getReactionSummaries(postIds: string[]) {
 
 export async function getFeed(viewerId: string, scope: "following" | "trending"): Promise<FeedPost[]> {
   const base = db
-    .select({ post: posts, username: profiles.username, displayName: profiles.displayName, goal: profiles.goal })
+    .select({ post: posts, username: profiles.username, displayName: profiles.displayName, goal: profiles.goal, avatarUrl: profiles.avatarUrl })
     .from(posts)
     .innerJoin(profiles, eq(profiles.userId, posts.authorId))
     .innerJoin(users, eq(users.id, posts.authorId));
@@ -113,7 +113,7 @@ export async function getFeed(viewerId: string, scope: "following" | "trending")
 
   return rows.map((r) => ({
     post: r.post,
-    author: { username: r.username, displayName: r.displayName, goal: r.goal },
+    author: { username: r.username, displayName: r.displayName, goal: r.goal, avatarUrl: r.avatarUrl },
     recipe: r.post.refId ? (recipeById.get(r.post.refId) ?? null) : null,
     myReaction: myReactionByPost.get(r.post.id) ?? null,
     reactionSummary: reactionSummaryByPost.get(r.post.id) ?? [],
@@ -122,7 +122,7 @@ export async function getFeed(viewerId: string, scope: "following" | "trending")
 
 export async function getUserPosts(viewerId: string, authorId: string): Promise<FeedPost[]> {
   const rows = await db
-    .select({ post: posts, username: profiles.username, displayName: profiles.displayName, goal: profiles.goal })
+    .select({ post: posts, username: profiles.username, displayName: profiles.displayName, goal: profiles.goal, avatarUrl: profiles.avatarUrl })
     .from(posts)
     .innerJoin(profiles, eq(profiles.userId, posts.authorId))
     .innerJoin(users, eq(users.id, posts.authorId))
@@ -154,7 +154,7 @@ export async function getUserPosts(viewerId: string, authorId: string): Promise<
 
   return rows.map((r) => ({
     post: r.post,
-    author: { username: r.username, displayName: r.displayName, goal: r.goal },
+    author: { username: r.username, displayName: r.displayName, goal: r.goal, avatarUrl: r.avatarUrl },
     recipe: r.post.refId ? (recipeById.get(r.post.refId) ?? null) : null,
     myReaction: myReactionByPost.get(r.post.id) ?? null,
     reactionSummary: reactionSummaryByPost.get(r.post.id) ?? [],
@@ -170,7 +170,7 @@ export async function getGroupFeed(
   const conds = [eq(posts.groupId, groupId), isNull(users.bannedAt)];
   if (!includeRemoved) conds.push(eq(posts.isRemoved, false));
   const rows = await db
-    .select({ post: posts, username: profiles.username, displayName: profiles.displayName, goal: profiles.goal })
+    .select({ post: posts, username: profiles.username, displayName: profiles.displayName, goal: profiles.goal, avatarUrl: profiles.avatarUrl })
     .from(posts)
     .innerJoin(profiles, eq(profiles.userId, posts.authorId))
     .innerJoin(users, eq(users.id, posts.authorId))
@@ -190,7 +190,7 @@ export async function getGroupFeed(
 
   return rows.map((r) => ({
     post: r.post,
-    author: { username: r.username, displayName: r.displayName, goal: r.goal },
+    author: { username: r.username, displayName: r.displayName, goal: r.goal, avatarUrl: r.avatarUrl },
     recipe: null, // group posts are text posts in MVP (docs/05 §4: tag-filtered tabs come later)
     myReaction: myReactionByPost.get(r.post.id) ?? null,
     reactionSummary: reactionSummaryByPost.get(r.post.id) ?? [],
@@ -504,7 +504,7 @@ export async function getNotifications(userId: string, limit = 50) {
 
 export async function getComments(subjectType: "post" | "recipe", subjectId: string) {
   return db
-    .select({ comment: comments, username: profiles.username, displayName: profiles.displayName })
+    .select({ comment: comments, username: profiles.username, displayName: profiles.displayName, avatarUrl: profiles.avatarUrl })
     .from(comments)
     .innerJoin(profiles, eq(profiles.userId, comments.authorId))
     .innerJoin(users, eq(users.id, comments.authorId))

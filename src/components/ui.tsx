@@ -34,7 +34,20 @@ export function Badge({
   );
 }
 
-export function Avatar({ name, size = 36 }: { name: string; size?: number }) {
+export function Avatar({ name, size = 36, src }: { name: string; size?: number; src?: string | null }) {
+  if (src) {
+    // eslint-disable-next-line @next/next/no-img-element -- data-URL avatar, next/image can't optimize it
+    return (
+      <img
+        src={src}
+        alt={name}
+        width={size}
+        height={size}
+        className="shrink-0 rounded-full object-cover"
+        style={{ width: size, height: size }}
+      />
+    );
+  }
   return (
     <div
       className="flex shrink-0 items-center justify-center rounded-full bg-accent-dim font-bold text-accent"
@@ -49,14 +62,16 @@ export function UserChip({
   username,
   displayName,
   sub,
+  avatarUrl,
 }: {
   username: string;
   displayName: string;
   sub?: string;
+  avatarUrl?: string | null;
 }) {
   return (
     <Link href={`/u/${username}`} className="flex items-center gap-2.5 group">
-      <Avatar name={displayName} />
+      <Avatar name={displayName} src={avatarUrl} />
       <div className="min-w-0">
         <div className="truncate text-sm font-semibold group-hover:text-accent">{displayName}</div>
         <div className="truncate text-xs text-ink-faint">@{username}{sub ? ` · ${sub}` : ""}</div>

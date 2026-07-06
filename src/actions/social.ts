@@ -27,6 +27,7 @@ async function tryInsertNotifications(values: NotificationInsert | NotificationI
 export async function toggleFollow(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+  if (user.isGuest) redirect("/settings#claim"); // guests must claim an account to follow
   const followeeId = z.string().uuid().parse(formData.get("userId"));
   const username = String(formData.get("username") ?? "");
   if (followeeId === user.id) return;

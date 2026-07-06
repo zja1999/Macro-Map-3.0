@@ -15,7 +15,7 @@ export default async function PostPage({ params }: { params: Promise<{ id: strin
   const { id } = await params;
 
   const [row] = await db
-    .select({ post: posts, username: profiles.username, displayName: profiles.displayName, goal: profiles.goal, bannedAt: users.bannedAt })
+    .select({ post: posts, username: profiles.username, displayName: profiles.displayName, goal: profiles.goal, avatarUrl: profiles.avatarUrl, bannedAt: users.bannedAt })
     .from(posts)
     .innerJoin(profiles, eq(profiles.userId, posts.authorId))
     .innerJoin(users, eq(users.id, posts.authorId))
@@ -59,7 +59,7 @@ export default async function PostPage({ params }: { params: Promise<{ id: strin
       <PostCard
         item={{
           post: row.post,
-          author: { username: row.username, displayName: row.displayName, goal: row.goal },
+          author: { username: row.username, displayName: row.displayName, goal: row.goal, avatarUrl: row.avatarUrl },
           recipe,
           myReaction: myReaction?.kind ?? null,
           reactionSummary: reactionSummaryByPost.get(id) ?? [],

@@ -309,10 +309,22 @@ export async function createChallenge(
 export async function joinChallenge(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+  if (user.isGuest) redirect("/settings#claim"); // guests must claim an account to join
   const challengeId = z.string().uuid().parse(formData.get("challengeId"));
   const [challenge] = await db.select().from(challenges).where(eq(challenges.id, challengeId)).limit(1);
   if (!challenge) throw new Error("Challenge not found");
   await db.insert(challengeParticipants).values({ challengeId, userId: user.id }).onConflictDoNothing();
+  revalidatePath(`/challenges/${challengeId}`);
+  revalidatePath("/challenges");
+}
+
+export async function leaveChallenge(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  const challengeId = z.string().uuid().parse(formData.get("challengeId"));
+  await db
+    .delete(challengeParticipants)
+    .where(and(eq(challengeParticipants.challengeId, challengeId), eq(challengeParticipants.userId, user.id)));
   revalidatePath(`/challenges/${challengeId}`);
   revalidatePath("/challenges");
 }

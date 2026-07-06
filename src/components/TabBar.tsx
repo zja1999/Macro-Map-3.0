@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -80,38 +81,95 @@ export function MobileQuickActions() {
   );
 }
 
+type SideNavLeaf = { href: string; label: string; icon: string };
+type SideNavGroup = { label: string; icon: string; children: SideNavLeaf[] };
+type SideNavItem = SideNavLeaf | SideNavGroup;
+
+const isGroup = (i: SideNavItem): i is SideNavGroup => "children" in i;
+
+// Grouped so the rail reads by intent instead of a flat 12-item wall: eating
+// (Food), logging + trends (Track), and social (Community) each collapse.
+const NAV: SideNavItem[] = [
+  { href: "/", label: "Home", icon: "🏠" },
+  { href: "/discover", label: "Discover", icon: "🔍" },
+  {
+    label: "Track",
+    icon: "📊",
+    children: [
+      { href: "/track", label: "Food diary", icon: "🍽️" },
+      { href: "/progress", label: "Progress", icon: "📈" },
+    ],
+  },
+  {
+    label: "Food",
+    icon: "🥗",
+    children: [
+      { href: "/recipes", label: "Recipes", icon: "🍳" },
+      { href: "/meal-prep", label: "Meal prep", icon: "🥡" },
+      { href: "/restaurants", label: "Restaurants", icon: "🍔" },
+      { href: "/groceries", label: "Groceries", icon: "🛒" },
+    ],
+  },
+  { href: "/workouts", label: "Workouts", icon: "🏋️" },
+  {
+    label: "Community",
+    icon: "👥",
+    children: [
+      { href: "/groups", label: "Groups", icon: "🤝" },
+      { href: "/challenges", label: "Challenges", icon: "🏆" },
+    ],
+  },
+  { href: "/me", label: "Profile", icon: "👤" },
+];
+
+const leafCls = (active: boolean) =>
+  `flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition ${
+    active ? "bg-card text-accent" : "text-ink-dim hover:bg-card hover:text-ink"
+  }`;
+
 export function SideNav({ canModerate = false }: { canModerate?: boolean }) {
   const pathname = usePathname();
-  const links = [
-    { href: "/", label: "Feed", icon: "🏠" },
-    { href: "/discover", label: "Discover", icon: "🔍" },
-    { href: "/recipes", label: "Recipes", icon: "🍳" },
-    { href: "/track", label: "Track", icon: "📊" },
-    { href: "/meal-prep", label: "Meal Prep", icon: "🥡" },
-    { href: "/restaurants", label: "Restaurants", icon: "🍔" },
-    { href: "/workouts", label: "Workouts", icon: "🏋️" },
-    { href: "/groups", label: "Groups", icon: "👥" },
-    { href: "/challenges", label: "Challenges", icon: "🏆" },
-    { href: "/progress", label: "Progress", icon: "📈" },
-    { href: "/groceries", label: "Groceries", icon: "🛒" },
-    { href: "/me", label: "Profile", icon: "👤" },
-  ];
-  const visibleLinks = canModerate ? [...links.slice(0, -1), adminLink, links[links.length - 1]] : links;
+  const [overrides, setOverrides] = useState<Record<string, boolean>>({});
+  const items: SideNavItem[] = canModerate ? [...NAV, { href: "/admin", label: "Admin", icon: "🛡" }] : NAV;
+
   return (
-    <nav className="sticky top-16 hidden w-48 shrink-0 flex-col gap-0.5 md:flex">
-      {visibleLinks.map((l) => {
-        const active = isActivePath(pathname, l.href);
+    <nav className="sticky top-16 hidden w-52 shrink-0 flex-col gap-0.5 md:flex">
+      {items.map((item) => {
+        if (!isGroup(item)) {
+          return (
+            <Link key={item.href} href={item.href} className={leafCls(isActivePath(pathname, item.href))}>
+              <span className="text-base">{item.icon}</span>
+              {item.label}
+            </Link>
+          );
+        }
+        const hasActive = item.children.some((c) => isActivePath(pathname, c.href));
+        const open = overrides[item.label] ?? hasActive;
         return (
-          <Link
-            key={l.href}
-            href={l.href}
-            className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition ${
-              active ? "bg-card text-accent" : "text-ink-dim hover:bg-card hover:text-ink"
-            }`}
-          >
-            <span className="text-base">{l.icon}</span>
-            {l.label}
-          </Link>
+          <div key={item.label}>
+            <button
+              type="button"
+              onClick={() => setOverrides((o) => ({ ...o, [item.label]: !open }))}
+              aria-expanded={open}
+              className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                hasActive && !open ? "text-accent" : "text-ink-dim hover:bg-card hover:text-ink"
+              }`}
+            >
+              <span className="text-base">{item.icon}</span>
+              {item.label}
+              <span className={`ml-auto text-[10px] transition-transform ${open ? "rotate-90" : ""}`}>›</span>
+            </button>
+            {open && (
+              <div className="ml-3 flex flex-col gap-0.5 border-l border-edge pl-2">
+                {item.children.map((c) => (
+                  <Link key={c.href} href={c.href} className={leafCls(isActivePath(pathname, c.href))}>
+                    <span className="text-sm">{c.icon}</span>
+                    {c.label}
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
         );
       })}
     </nav>

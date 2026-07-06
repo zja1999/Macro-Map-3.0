@@ -1,5 +1,7 @@
 import { requireUser } from "@/lib/auth";
 import { SettingsForms, ClaimAccountForm } from "@/components/SettingsForms";
+import { AvatarUpload } from "@/components/AvatarUpload";
+import { Card } from "@/components/ui";
 
 export const metadata = { title: "Settings" };
 
@@ -19,6 +21,10 @@ export default async function SettingsPage({
         </p>
       )}
       {user.isGuest && <ClaimAccountForm />}
+      <Card className="space-y-3 p-4">
+        <h2 className="text-sm font-semibold">Profile picture</h2>
+        <AvatarUpload displayName={user.profile.displayName} currentAvatar={user.profile.avatarUrl} />
+      </Card>
       <SettingsForms
         profile={{
           displayName: user.profile.displayName,

@@ -44,6 +44,7 @@ export const profiles = pgTable("profiles", {
     .references(() => users.id, { onDelete: "cascade" }),
   username: text().notNull().unique(),
   displayName: text().notNull(),
+  avatarUrl: text(), // small resized data URL — no external media pipeline yet
   bio: text(),
   goal: text(), // fat_loss | muscle_gain | maintenance | recomp | performance | general_health | custom
   trackingStyle: text(), // strict_macro | calorie_only | protein_focused | habit | maintenance | performance | no_scale

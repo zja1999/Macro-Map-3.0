@@ -1,10 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db/client";
-import { challenges, groups, moderationActions, reports, sessions, users } from "@/db/schema";
+import { challenges, comments, groups, moderationActions, posts, reactions, reports, sessions, users } from "@/db/schema";
 import { assertAdmin, canManageUser } from "@/lib/permissions";
 
 /* Admin-only user management (docs/07). Every action is audit-logged to
@@ -87,6 +87,32 @@ export async function deleteUser(formData: FormData) {
         .update(moderationActions)
         .set({ reportId: null })
         .where(inArray(moderationActions.reportId, userReports.map((r) => r.id)));
+    }
+
+    // The cascade will remove this user's comments/reactions, but the posts they
+    // sat on carry denormalized counters — decrement those first so a deleted
+    // commenter doesn't leave a post reading "1 comment" with nothing to show.
+    const commentCounts = await tx
+      .select({ postId: comments.subjectId, n: sql<number>`count(*)` })
+      .from(comments)
+      .where(and(eq(comments.authorId, target.id), eq(comments.subjectType, "post")))
+      .groupBy(comments.subjectId);
+    for (const c of commentCounts) {
+      await tx
+        .update(posts)
+        .set({ commentCount: sql`GREATEST(0, ${posts.commentCount} - ${Number(c.n)})` })
+        .where(eq(posts.id, c.postId));
+    }
+    const reactionCounts = await tx
+      .select({ postId: reactions.subjectId, n: sql<number>`count(*)` })
+      .from(reactions)
+      .where(and(eq(reactions.userId, target.id), eq(reactions.subjectType, "post")))
+      .groupBy(reactions.subjectId);
+    for (const rc of reactionCounts) {
+      await tx
+        .update(posts)
+        .set({ reactionCount: sql`GREATEST(0, ${posts.reactionCount} - ${Number(rc.n)})` })
+        .where(eq(posts.id, rc.postId));
     }
 
     // groups.createdBy and challenges.createdBy have no ON DELETE rule (they

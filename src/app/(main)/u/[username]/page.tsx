@@ -40,7 +40,7 @@ export default async function ProfilePage({
       <Card className="space-y-4 p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
-            <Avatar name={profile.displayName} size={56} />
+            <Avatar name={profile.displayName} size={56} src={profile.avatarUrl} />
             <div>
               <h1 className="text-lg font-bold leading-tight">{profile.displayName}</h1>
               <div className="text-xs text-ink-faint">@{profile.username}</div>
@@ -55,6 +55,10 @@ export default async function ProfilePage({
                 <button className={btnGhost}>Sign out</button>
               </form>
             </div>
+          ) : viewer.isGuest ? (
+            <Link href="/settings#claim" className={btnGhost}>
+              Claim account to follow
+            </Link>
           ) : (
             <form action={toggleFollow}>
               <input type="hidden" name="userId" value={profile.userId} />
@@ -131,7 +135,7 @@ export default async function ProfilePage({
           <div className="space-y-2">
             {followList.map(({ profile: p, reputation }) => (
               <Card key={p.userId} className="flex items-center justify-between p-3">
-                <UserChip username={p.username} displayName={p.displayName} sub={`${reputation} rep`} />
+                <UserChip username={p.username} displayName={p.displayName} avatarUrl={p.avatarUrl} sub={`${reputation} rep`} />
                 <Link href={`/u/${p.username}`} className={btnGhost}>
                   View
                 </Link>

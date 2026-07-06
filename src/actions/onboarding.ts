@@ -197,3 +197,31 @@ export async function updateProfile(
   revalidatePath("/");
   return { ok: true };
 }
+
+// Profile picture. No external media pipeline yet, so we store a small resized
+// data URL directly (the client canvas-resizes to ~256px before submitting).
+// Cap the payload so it can't bloat rows or feed HTML; empty string clears it.
+const MAX_AVATAR_CHARS = 260_000; // ~190KB of base64
+const avatarSchema = z
+  .string()
+  .max(MAX_AVATAR_CHARS)
+  .refine((s) => s === "" || /^data:image\/(png|jpeg|webp);base64,/.test(s), "Invalid image");
+
+export async function updateAvatar(
+  _prev: { error?: string; ok?: boolean } | undefined,
+  formData: FormData,
+): Promise<{ error?: string; ok?: boolean }> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  const parsed = avatarSchema.safeParse(formData.get("avatar") ?? "");
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid image" };
+
+  await db
+    .update(profiles)
+    .set({ avatarUrl: parsed.data === "" ? null : parsed.data })
+    .where(eq(profiles.userId, user.id));
+  revalidatePath("/settings");
+  revalidatePath("/");
+  revalidatePath(`/u/${user.profile.username}`);
+  return { ok: true };
+}

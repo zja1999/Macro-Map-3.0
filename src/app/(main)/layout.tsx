@@ -41,7 +41,7 @@ export default async function MainLayout({ children }: { children: React.ReactNo
               </span>
             )}
             <Link href={`/u/${user.profile.username}`} aria-label="Your profile">
-              <Avatar name={user.profile.displayName} size={30} />
+              <Avatar name={user.profile.displayName} size={30} src={user.profile.avatarUrl} />
             </Link>
           </div>
         </div>

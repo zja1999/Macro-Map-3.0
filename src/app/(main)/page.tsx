@@ -65,7 +65,7 @@ export default async function FeedPage({
 
       <PostComposer />
 
-      {suggested.length > 0 && scope === "following" && (
+      {suggested.length > 0 && scope === "following" && !user.isGuest && (
         <Card className="space-y-3 p-4">
           <h3 className="text-xs font-semibold uppercase tracking-wide text-ink-faint">Suggested to follow</h3>
           {suggested.map(({ profile, reputation }) => (
@@ -73,6 +73,7 @@ export default async function FeedPage({
               <UserChip
                 username={profile.username}
                 displayName={profile.displayName}
+                avatarUrl={profile.avatarUrl}
                 sub={`${reputation} rep${profile.goal ? ` · ${profile.goal.replace("_", " ")}` : ""}`}
               />
               <form action={toggleFollow}>

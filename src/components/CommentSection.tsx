@@ -22,10 +22,10 @@ export async function CommentSection({
         {rows.length} comment{rows.length === 1 ? "" : "s"}
       </h3>
       <div className="space-y-3">
-        {rows.map(({ comment, username, displayName }) => (
+        {rows.map(({ comment, username, displayName, avatarUrl }) => (
           <div key={comment.id} className="flex gap-2.5">
             <Link href={`/u/${username}`}>
-              <Avatar name={displayName} size={30} />
+              <Avatar name={displayName} size={30} src={avatarUrl} />
             </Link>
             <div className="min-w-0 flex-1 rounded-lg bg-surface px-3 py-2">
               <div className="flex items-baseline gap-2">

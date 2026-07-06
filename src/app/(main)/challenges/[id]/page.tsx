@@ -6,7 +6,7 @@ import { challenges, groups } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
 import { isModerator } from "@/lib/permissions";
 import { getLeaderboard, CHALLENGE_METRICS } from "@/lib/challenges";
-import { joinChallenge, checkinChallenge } from "@/actions/groups";
+import { joinChallenge, leaveChallenge, checkinChallenge } from "@/actions/groups";
 import { todayStr } from "@/lib/utils";
 import { Card, Badge, Avatar, btnGhost } from "@/components/ui";
 import { ContainerModeration } from "@/components/ContainerModeration";
@@ -84,7 +84,18 @@ export default async function ChallengeDetailPage({ params }: { params: Promise<
               style={{ width: `${Math.min(100, (me.progress / challenge.target) * 100)}%` }}
             />
           </div>
+          <form action={leaveChallenge} className="mt-3 text-right">
+            <input type="hidden" name="challengeId" value={challenge.id} />
+            <button className="text-xs font-medium text-ink-faint hover:text-danger">Leave challenge</button>
+          </form>
         </Card>
+      ) : user.isGuest ? (
+        <Link
+          href="/settings#claim"
+          className="block rounded-lg border border-accent/40 bg-accent/10 px-4 py-2.5 text-center text-sm font-semibold text-accent"
+        >
+          Claim your account to join challenges →
+        </Link>
       ) : active ? (
         <form action={joinChallenge}>
           <input type="hidden" name="challengeId" value={challenge.id} />
