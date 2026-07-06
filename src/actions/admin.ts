@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db/client";
-import { moderationActions, reports, sessions, users } from "@/db/schema";
+import { challenges, groups, moderationActions, reports, sessions, users } from "@/db/schema";
 import { assertAdmin, canManageUser } from "@/lib/permissions";
 
 /* Admin-only user management (docs/07). Every action is audit-logged to
@@ -88,6 +88,13 @@ export async function deleteUser(formData: FormData) {
         .set({ reportId: null })
         .where(inArray(moderationActions.reportId, userReports.map((r) => r.id)));
     }
+
+    // groups.createdBy and challenges.createdBy have no ON DELETE rule (they
+    // RESTRICT), so remove content this user authored before the cascade runs.
+    // Deleting a group cascades its members, group-scoped challenges, and their
+    // participants; deleting standalone challenges cascades their participants.
+    await tx.delete(challenges).where(eq(challenges.createdBy, target.id));
+    await tx.delete(groups).where(eq(groups.createdBy, target.id));
 
     await tx.insert(moderationActions).values({
       actorId: admin.id,

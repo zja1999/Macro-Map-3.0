@@ -9,6 +9,11 @@ import { ProgressPhotoForm, WeighInForm } from "@/components/ProgressForms";
 
 export const metadata = { title: "Progress" };
 
+// Fixed narrow emoji field — must NOT reuse inputCls, whose `w-full` conflicts
+// with a fixed width and (unreliably) wins, blowing out the habit edit row.
+const emojiInputCls =
+  "w-12 shrink-0 rounded-lg border border-edge bg-surface px-2 py-2 text-center text-base leading-none text-ink focus:border-accent focus:outline-none";
+
 function WeightChart({ points, units }: { points: { date: string; kg: number }[]; units: UnitsPref }) {
   const W = 560;
   const H = 150;
@@ -187,8 +192,9 @@ export default async function ProgressPage() {
                   <input
                     name="emoji"
                     defaultValue={h.emoji}
+                    maxLength={12}
                     aria-label={`${h.name} emoji`}
-                    className={`${inputCls} w-14 shrink-0 px-2 text-center`}
+                    className={emojiInputCls}
                   />
                   <input
                     name="name"
@@ -214,7 +220,7 @@ export default async function ProgressPage() {
           ))}
         </ul>
         <form action={addHabit} className="mt-3 flex gap-2">
-          <input name="emoji" defaultValue="✅" aria-label="New habit emoji" className={`${inputCls} w-14 shrink-0 px-2 text-center`} />
+          <input name="emoji" defaultValue="✅" maxLength={12} aria-label="New habit emoji" className={emojiInputCls} />
           <input name="name" required minLength={2} maxLength={50} placeholder="Add a habit… (e.g. 10k steps)" className={inputCls} />
           <button className="rounded-lg bg-accent/10 px-3 py-1.5 text-xs font-semibold text-accent hover:bg-accent/20">
             Add

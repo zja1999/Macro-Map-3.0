@@ -5,8 +5,9 @@ import { redirect } from "next/navigation";
 import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db/client";
-import { challengeParticipants, challenges, groupMembers, groups } from "@/db/schema";
+import { challengeParticipants, challenges, groupMembers, groups, moderationActions } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
+import { isModerator } from "@/lib/permissions";
 import { CHALLENGE_METRICS } from "@/lib/challenges";
 import { todayStr } from "@/lib/utils";
 
@@ -72,6 +73,77 @@ export async function toggleGroupMembership(formData: FormData) {
   });
   revalidatePath(`/groups/${slug}`);
   revalidatePath("/groups");
+}
+
+/** Hand a group off to another member. Allowed for the current owner (self-service)
+ * or any platform moderator/admin. Keeps groups.createdBy in sync with the owner so
+ * the group's lifecycle follows the current owner, not the original creator (this is
+ * also what stops a later account deletion from taking a group that's been handed off).
+ * Moderator-initiated transfers are audit-logged. */
+const transferSchema = z.object({
+  groupId: z.string().uuid(),
+  newOwnerId: z.string().uuid(),
+});
+
+export async function transferGroupOwnership(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  const d = transferSchema.parse({
+    groupId: formData.get("groupId"),
+    newOwnerId: formData.get("newOwnerId"),
+  });
+
+  const [group] = await db.select().from(groups).where(eq(groups.id, d.groupId)).limit(1);
+  if (!group) throw new Error("Group not found");
+
+  const [myMembership] = await db
+    .select()
+    .from(groupMembers)
+    .where(and(eq(groupMembers.groupId, d.groupId), eq(groupMembers.userId, user.id)));
+  const isOwner = myMembership?.role === "owner";
+  const byModerator = isModerator(user) && !isOwner;
+  if (!isOwner && !byModerator) throw new Error("Only the group owner or a moderator can transfer ownership");
+
+  // the new owner must already be a member
+  const [target] = await db
+    .select()
+    .from(groupMembers)
+    .where(and(eq(groupMembers.groupId, d.groupId), eq(groupMembers.userId, d.newOwnerId)));
+  if (!target) throw new Error("The new owner must be a member of the group");
+  if (target.role === "owner") return; // already the owner — nothing to do
+
+  // the sitting owner (may differ from the actor when a moderator acts)
+  const [currentOwner] = await db
+    .select()
+    .from(groupMembers)
+    .where(and(eq(groupMembers.groupId, d.groupId), eq(groupMembers.role, "owner")));
+
+  await db.transaction(async (tx) => {
+    if (currentOwner) {
+      await tx
+        .update(groupMembers)
+        .set({ role: "member" })
+        .where(and(eq(groupMembers.groupId, d.groupId), eq(groupMembers.userId, currentOwner.userId)));
+    }
+    await tx
+      .update(groupMembers)
+      .set({ role: "owner" })
+      .where(and(eq(groupMembers.groupId, d.groupId), eq(groupMembers.userId, d.newOwnerId)));
+    await tx.update(groups).set({ createdBy: d.newOwnerId }).where(eq(groups.id, d.groupId));
+
+    if (byModerator) {
+      await tx.insert(moderationActions).values({
+        actorId: user.id,
+        kind: "transfer_group_owner",
+        subjectType: "group",
+        subjectId: d.groupId,
+        reason: `transferred ownership of “${group.name}”`,
+      });
+    }
+  });
+
+  revalidatePath(`/groups/${group.slug}`);
+  if (byModerator) revalidatePath("/admin/audit");
 }
 
 // ─── challenges ──────────────────────────────────────────────────────────────

@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { and, eq, gte, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db/client";
-import { comments, contentWarnings, moderationActions, posts, recipes, reports } from "@/db/schema";
+import { challenges, comments, contentWarnings, groups, moderationActions, posts, recipes, reports } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
 import { assertModerator } from "@/lib/permissions";
 import { checkRateLimit } from "@/lib/rateLimit";
@@ -269,4 +269,74 @@ export async function moderateContent(formData: FormData) {
   if (d.path) revalidatePath(d.path);
   if (d.subjectType === "post") revalidatePath(`/posts/${d.subjectId}`);
   if (d.subjectType === "recipe") revalidatePath(`/recipes/${d.subjectId}`);
+}
+
+// ─── group & challenge moderation — hard delete, mods+ only (docs/07) ─────────
+// Both are creator-owned containers with no soft-hide state, so moderation is a
+// permanent delete. Cascades clean up children: a group takes its members,
+// group-scoped challenges, and their participants; a challenge takes its
+// participants. Group feed posts (posts.groupId, no FK) are left orphaned —
+// same polymorphic-child convention as moderateContent's deletes.
+
+const deleteGroupSchema = z.object({
+  groupId: z.string().uuid(),
+  note: z.string().max(300).optional(),
+});
+
+export async function deleteGroup(formData: FormData) {
+  const actor = await assertModerator();
+  const d = deleteGroupSchema.parse({
+    groupId: formData.get("groupId"),
+    note: formData.get("note") || undefined,
+  });
+
+  const [group] = await db.select().from(groups).where(eq(groups.id, d.groupId)).limit(1);
+  if (!group) return;
+
+  await db.transaction(async (tx) => {
+    await tx.delete(groups).where(eq(groups.id, d.groupId));
+    await tx.insert(moderationActions).values({
+      actorId: actor.id,
+      kind: "delete_group",
+      subjectType: "group",
+      subjectId: d.groupId,
+      reason: d.note ?? `deleted group “${group.name}”`,
+    });
+  });
+
+  revalidatePath("/groups");
+  revalidatePath("/admin/audit");
+  redirect("/groups");
+}
+
+const deleteChallengeSchema = z.object({
+  challengeId: z.string().uuid(),
+  note: z.string().max(300).optional(),
+});
+
+export async function deleteChallenge(formData: FormData) {
+  const actor = await assertModerator();
+  const d = deleteChallengeSchema.parse({
+    challengeId: formData.get("challengeId"),
+    note: formData.get("note") || undefined,
+  });
+
+  const [challenge] = await db.select().from(challenges).where(eq(challenges.id, d.challengeId)).limit(1);
+  if (!challenge) return;
+
+  await db.transaction(async (tx) => {
+    await tx.delete(challenges).where(eq(challenges.id, d.challengeId));
+    await tx.insert(moderationActions).values({
+      actorId: actor.id,
+      kind: "delete_challenge",
+      subjectType: "challenge",
+      subjectId: d.challengeId,
+      reason: d.note ?? `deleted challenge “${challenge.title}”`,
+    });
+  });
+
+  revalidatePath("/challenges");
+  revalidatePath("/admin/audit");
+  if (challenge.groupId) redirect("/groups");
+  redirect("/challenges");
 }

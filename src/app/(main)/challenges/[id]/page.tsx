@@ -4,10 +4,12 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { challenges, groups } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
+import { isModerator } from "@/lib/permissions";
 import { getLeaderboard, CHALLENGE_METRICS } from "@/lib/challenges";
 import { joinChallenge, checkinChallenge } from "@/actions/groups";
 import { todayStr } from "@/lib/utils";
 import { Card, Badge, Avatar, btnGhost } from "@/components/ui";
+import { ContainerModeration } from "@/components/ContainerModeration";
 
 export default async function ChallengeDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
@@ -121,6 +123,8 @@ export default async function ChallengeDetailPage({ params }: { params: Promise<
           ))}
         </ul>
       </Card>
+
+      {isModerator(user) && <ContainerModeration kind="challenge" id={challenge.id} />}
 
       <Link href="/challenges" className={btnGhost}>
         ← All challenges

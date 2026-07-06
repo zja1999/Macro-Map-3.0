@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, ne } from "drizzle-orm";
 import { db } from "@/db/client";
 import { challenges, groupMembers, groups, profiles } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
@@ -11,6 +11,8 @@ import { toggleGroupMembership } from "@/actions/groups";
 import { Card, Badge, Avatar, EmptyState } from "@/components/ui";
 import { PostComposer } from "@/components/PostComposer";
 import { PostCard } from "@/components/PostCard";
+import { ContainerModeration } from "@/components/ContainerModeration";
+import { TransferOwnershipForm } from "@/components/TransferOwnershipForm";
 
 export default async function GroupPage({ params }: { params: Promise<{ slug: string }> }) {
   const user = await requireUser();
@@ -35,7 +37,20 @@ export default async function GroupPage({ params }: { params: Promise<{ slug: st
       .where(and(eq(groupMembers.groupId, group.id), eq(groupMembers.userId, user.id))),
   ]);
   const isMember = !!myMembership;
+  const isOwner = myMembership?.role === "owner";
   const canModerate = isModerator(user);
+  const canTransfer = isOwner || canModerate;
+
+  // members eligible to receive ownership — everyone except the sitting owner
+  const transferCandidates = canTransfer
+    ? await db
+        .select({ userId: groupMembers.userId, username: profiles.username, displayName: profiles.displayName })
+        .from(groupMembers)
+        .innerJoin(profiles, eq(profiles.userId, groupMembers.userId))
+        .where(and(eq(groupMembers.groupId, group.id), ne(groupMembers.role, "owner")))
+        .orderBy(profiles.displayName)
+        .limit(100)
+    : [];
 
   return (
     <div className="mx-auto max-w-xl space-y-4">
@@ -64,6 +79,12 @@ export default async function GroupPage({ params }: { params: Promise<{ slug: st
         </div>
         {group.description && <p className="text-sm text-ink-dim">{group.description}</p>}
       </div>
+
+      {isOwner && <TransferOwnershipForm groupId={group.id} candidates={transferCandidates} />}
+      {canModerate && !isOwner && (
+        <TransferOwnershipForm groupId={group.id} candidates={transferCandidates} byModerator />
+      )}
+      {canModerate && <ContainerModeration kind="group" id={group.id} />}
 
       {/* members strip */}
       <Card className="flex items-center gap-2 overflow-x-auto p-3">
