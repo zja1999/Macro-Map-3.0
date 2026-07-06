@@ -7,6 +7,7 @@ import { z } from "zod";
 import { db } from "@/db/client";
 import { users, profiles } from "@/db/schema";
 import { createSession, destroySession } from "@/lib/auth";
+import { checkRequestRateLimit, requestFingerprint } from "@/lib/rateLimit";
 
 const registerSchema = z.object({
   email: z.string().email().transform((s) => s.toLowerCase().trim()),
@@ -27,6 +28,15 @@ export async function register(
   const parsed = registerSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const { email, username, displayName, password } = parsed.data;
+  const fingerprint = await requestFingerprint(email);
+  const limitError = await checkRequestRateLimit({
+    kind: "register",
+    identifier: fingerprint,
+    limit: 5,
+    windowMs: 60 * 60_000,
+    label: "account creation attempts",
+  });
+  if (limitError) return { error: limitError };
 
   const emailTaken = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
   if (emailTaken[0]) return { error: "An account with that email already exists" };
@@ -55,6 +65,23 @@ export async function login(
 ): Promise<{ error?: string }> {
   const parsed = loginSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: "Enter your email and password" };
+  const fingerprint = await requestFingerprint(parsed.data.email);
+  const ipLimitError = await checkRequestRateLimit({
+    kind: "login_ip",
+    identifier: fingerprint,
+    limit: 20,
+    windowMs: 15 * 60_000,
+    label: "login attempts",
+  });
+  if (ipLimitError) return { error: ipLimitError };
+  const emailLimitError = await checkRequestRateLimit({
+    kind: "login_email",
+    identifier: parsed.data.email,
+    limit: 10,
+    windowMs: 15 * 60_000,
+    label: "login attempts for this account",
+  });
+  if (emailLimitError) return { error: emailLimitError };
 
   const [user] = await db.select().from(users).where(eq(users.email, parsed.data.email)).limit(1);
   if (!user || !(await bcrypt.compare(parsed.data.password, user.passwordHash))) {

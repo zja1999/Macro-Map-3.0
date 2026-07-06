@@ -5,6 +5,7 @@ import { z } from "zod";
 import { db } from "@/db/client";
 import { feedback } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
+import { checkRequestRateLimit, requestFingerprint } from "@/lib/rateLimit";
 
 const schema = z.object({
   body: z.string().min(5).max(2000),
@@ -33,6 +34,17 @@ export async function submitFeedback(
     if (last && Date.now() - last.createdAt.getTime() < 120_000) {
       return { error: "You just sent feedback — give it a couple of minutes." };
     }
+  }
+
+  if (!user) {
+    const limitError = await checkRequestRateLimit({
+      kind: "anonymous_feedback",
+      identifier: await requestFingerprint("feedback"),
+      limit: 3,
+      windowMs: 10 * 60_000,
+      label: "feedback submissions",
+    });
+    if (limitError) return { error: limitError };
   }
 
   await db.insert(feedback).values({

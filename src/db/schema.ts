@@ -38,6 +38,20 @@ export const sessions = pgTable("sessions", {
   expiresAt: timestamp({ withTimezone: true }).notNull(),
 });
 
+export const rateLimitEvents = pgTable(
+  "rate_limit_events",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    kind: text().notNull(),
+    identifierHash: text().notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("rate_limit_events_lookup_idx").on(t.kind, t.identifierHash, t.createdAt),
+    index("rate_limit_events_cleanup_idx").on(t.createdAt),
+  ],
+);
+
 export const profiles = pgTable("profiles", {
   userId: uuid()
     .primaryKey()
