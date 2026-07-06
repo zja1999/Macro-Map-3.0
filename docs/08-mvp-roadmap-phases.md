@@ -47,19 +47,20 @@ Free and keyless throughout, per the "free where possible" principle: **Leaflet*
 
 *Numbering note: the phases below are post-launch roadmap phases, independent from the §3 development phases (0–7) that got MVP built. "Roadmap Phase 2" ≠ "Dev Phase 2."*
 
-**Phase 2 — deepen the loops (post-launch quarter):** DMs + friend accountability nudges · correction voting + community-mod role · restaurant request voting + community item submission at scale · grocery list sharing · progress photo timeline compare/export · push + email notifications (same `notifications` rows) · repost/share-with-comment.
+**Phase 2 — deepen the loops (post-launch quarter):** DMs + friend accountability nudges · correction voting + community-mod role · restaurant request voting + community item submission at scale · grocery list sharing · progress photo timeline compare/export · push + email notifications (same `notifications` rows) · repost/share-with-comment · micronutrients · fasting timer · barcode scanning · manual sleep logging ([10 §1-4](10-health-integrations-and-tracking.md)).
 
-**Phase 3 — ecosystem:** coach mode (client roster, shared logs with consent, check-in reviews) · creator pages + verified creators · advanced groups (private content collections) · advanced challenge types + sponsored challenges · pantry tracking ("what can I prep with what I have") · premium analytics.
+**Phase 3 — ecosystem:** coach mode (client roster, shared logs with consent, check-in reviews) · creator pages + verified creators · advanced groups (private content collections) · advanced challenge types + sponsored challenges · pantry tracking ("what can I prep with what I have") · premium analytics · Fitbit/Whoop/Strava sync — web-OAuth, no native app needed ([10 §5](10-health-integrations-and-tracking.md)).
 
-**Phase 4 — platform:** mobile apps (React Native/Expo against `/api/v1`) · health-platform sync and app-data import (below) · local events + gym communities · dedicated search · monetization rollout.
+**Phase 4 — platform:** mobile apps (React Native/Expo against `/api/v1`) · Apple Health/Google Health Connect/Garmin sync and app-data import (below; the two truly native-gated integrations, see [10 §5](10-health-integrations-and-tracking.md)) · local events + gym communities · dedicated search · monetization rollout.
 
 ### Health integrations & data import (planned design)
 
-**Apple Health / Google Fit** (requires the native app — HealthKit has no web API; this is a headline reason the mobile app exists):
-- *Read into MacroMap:* weight & body-fat (→ `progress_entries`, auto-filling weigh-ins), steps (→ challenges + progress), workouts & active energy (→ `workout_logs`), sleep (→ progress).
-- *Write out:* logged nutrition (calories/macros) and workouts, so MacroMap plays nicely as the source of truth in the user's health graph.
-- Sync model: an `integration_accounts` table (provider, scopes, tokens/anchors) + idempotent upserts keyed by provider sample id; conflicts resolve "most-specific-source wins" (manual entry beats synced).
-- Same table/pattern extends to **Strava/Garmin** (OAuth, workout import) and **smart scales** later.
+Full design, including which providers actually need the native app (not all of them do — Fitbit/
+Whoop/Strava have public web-OAuth APIs today) and which are genuinely blocked on it (Apple
+HealthKit, Google Health Connect, Garmin's approval process): [10-health-integrations-and-tracking.md](10-health-integrations-and-tracking.md).
+One `integration_accounts` table (provider, scopes, tokens/anchors) + one per-provider sync adapter
+either way; idempotent upserts keyed by provider sample id; "most-specific-source wins" (manual
+entry beats synced) on conflicts.
 
 **Import from other tracking apps** (earlier — Phase 2–3, no native app needed, big switching-cost killer):
 - File importers for **MyFitnessPal, MacroFactor, Cronometer, Lose It** CSV exports, plus a generic CSV mapper: upload → staging table → column mapping preview (reusing the admin nutrition-import wizard UI) → dry-run diff → commit into `food_logs` (as macro snapshots — no food matching required for history) and `progress_entries` (weight).
