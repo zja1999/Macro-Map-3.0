@@ -1,4 +1,4 @@
-# Macro Map — Community Recipe System, Restaurants, Voting & Reputation
+# MacroVerse — Community Recipe System, Restaurants, Voting & Reputation
 
 ## 1. Recipe lifecycle
 

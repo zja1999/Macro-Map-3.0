@@ -1,4 +1,4 @@
-# Macro Map — Deployment (app, backend, OAuth)
+# MacroVerse — Deployment (app, backend, OAuth)
 
 The app is a single Next.js deployment: server components + server actions ARE the backend
 ([02-architecture](02-architecture.md)). There is no separate API server to deploy — one build serves

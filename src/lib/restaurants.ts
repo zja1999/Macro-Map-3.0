@@ -36,7 +36,7 @@ export async function geocode(q: string): Promise<{ lat: number; lng: number; la
   try {
     const res = await fetch(
       `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(q)}`,
-      { headers: { "User-Agent": "Macroverse/0.1 (dev)" }, next: { revalidate: 86400 } },
+      { headers: { "User-Agent": "MacroVerse/1.0 (production)" }, next: { revalidate: 86400 } },
     );
     if (!res.ok) return null;
     const hits: { lat: string; lon: string; display_name: string }[] = await res.json();

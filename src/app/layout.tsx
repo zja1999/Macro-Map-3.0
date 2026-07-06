@@ -6,11 +6,12 @@ import { PwaRegister } from "@/components/PwaRegister";
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
-  title: { default: "Macroverse", template: "%s · Macroverse" },
+  metadataBase: new URL("https://macroverse.vercel.app"),
+  title: { default: "MacroVerse", template: "%s · MacroVerse" },
   description: "Community-driven macro tracking, recipes, meal prep, and fitness.",
   manifest: "/manifest.webmanifest",
   icons: { icon: "/icon-192.png", apple: "/icon-192.png" },
-  appleWebApp: { capable: true, title: "Macroverse", statusBarStyle: "black-translucent" },
+  appleWebApp: { capable: true, title: "MacroVerse", statusBarStyle: "black-translucent" },
 };
 
 export const viewport: Viewport = {

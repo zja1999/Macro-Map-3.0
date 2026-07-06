@@ -1,4 +1,4 @@
-# Macro Map — Screen-by-Screen UI Plan
+# MacroVerse — Screen-by-Screen UI Plan
 
 Mobile-first responsive web. Global shell: **bottom tab bar (mobile) / left rail (desktop)** with five tabs — **Feed · Discover · Log (+) · Track · Profile**. The center **Log (+)** is a raised action button opening a sheet: *Log food · Log workout · New post · Submit recipe · Weigh in*. Everything a user does daily is ≤2 taps from anywhere. A small persistent **feedback affordance** (icon in the header, always visible, works in guest mode) opens a one-field "send feedback" sheet — separate from the content-report flow, reviewed by admins, rate-limited per session.
 

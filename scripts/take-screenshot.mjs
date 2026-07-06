@@ -5,12 +5,12 @@ import { spawn } from "node:child_process";
 
 const chromePath = "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe";
 const token = process.env.MM_SESSION;
-const out = process.env.SCREENSHOT_OUT ?? "macro-map-screenshot.png";
+const out = process.env.SCREENSHOT_OUT ?? "macroverse-screenshot.png";
 const url = process.env.SCREENSHOT_URL ?? "http://localhost:3020/restaurants";
 
 if (!token) throw new Error("MM_SESSION is required");
 
-const userDataDir = mkdtempSync(join(tmpdir(), "macro-map-chrome-"));
+const userDataDir = mkdtempSync(join(tmpdir(), "macroverse-chrome-"));
 const port = 9333 + Math.floor(Math.random() * 500);
 const chrome = spawn(chromePath, [
   "--headless=new",

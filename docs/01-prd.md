@@ -1,4 +1,4 @@
-# Macro Map — Product Requirements Document
+# MacroVerse — Product Requirements Document
 
 **Version:** 3.0 draft 1 · **Date:** 2026-07-03 · **Owner:** Zach
 

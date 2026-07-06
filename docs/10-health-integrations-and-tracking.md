@@ -1,4 +1,4 @@
-# Macro Map — Health Integrations & Extended Tracking
+# MacroVerse — Health Integrations & Extended Tracking
 
 **Status:** §1–4 are built (micronutrients, barcode scanning, fasting timer, manual sleep
 logging). §5 wearable sync remains planned. Implementation notes inline per section.

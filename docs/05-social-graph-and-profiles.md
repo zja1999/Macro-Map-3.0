@@ -1,4 +1,4 @@
-# Macro Map — Social Graph, Profiles, Feed, Groups & Challenges
+# MacroVerse — Social Graph, Profiles, Feed, Groups & Challenges
 
 ## 1. Social graph design
 

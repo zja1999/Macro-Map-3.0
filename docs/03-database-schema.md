@@ -1,4 +1,4 @@
-# Macro Map — Relational Database Schema (PostgreSQL)
+# MacroVerse — Relational Database Schema (PostgreSQL)
 
 Conventions: `id uuid PK default gen_random_uuid()`; `created_at timestamptz default now()` on every table (omitted below for brevity); `updated_at` on mutable tables; soft-delete via `deleted_at` only on UGC tables; enums as Postgres enums. Denormalized counters are maintained transactionally with their interaction rows.
 

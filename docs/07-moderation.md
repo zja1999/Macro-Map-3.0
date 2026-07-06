@@ -1,4 +1,4 @@
-# Macro Map — Moderation, Trust & Safety
+# MacroVerse — Moderation, Trust & Safety
 
 ## 1. Roles
 

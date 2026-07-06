@@ -1,8 +1,10 @@
 {
-  "name": "Macroverse",
-  "short_name": "Macroverse",
+  "name": "MacroVerse",
+  "short_name": "MacroVerse",
   "description": "Community-driven macro tracking, recipes, meal prep, and fitness.",
-  "start_url": "/",
+  "id": "https://macroverse.vercel.app/",
+  "start_url": "https://macroverse.vercel.app/",
+  "scope": "https://macroverse.vercel.app/",
   "display": "standalone",
   "background_color": "#0a0a0b",
   "theme_color": "#0a0a0b",

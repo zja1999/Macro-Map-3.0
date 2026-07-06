@@ -1,4 +1,4 @@
-# Macro Map — Technical Architecture
+# MacroVerse — Technical Architecture
 
 ## 1. Recommended tech stack
 
