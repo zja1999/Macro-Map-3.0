@@ -1,16 +1,16 @@
 @import "tailwindcss";
 
 @theme {
-  --color-bg: #0a0e0d;
-  --color-surface: #101614;
-  --color-card: #141c19;
-  --color-card-hover: #182220;
-  --color-edge: #223029;
-  --color-ink: #f2f5f3;
-  --color-ink-dim: #9fb0a8;
-  --color-ink-faint: #64756d;
-  --color-accent: #a3e635;
-  --color-accent-dim: #4d7c0f;
+  --color-bg: #0a0a0b;
+  --color-surface: #131315;
+  --color-card: #191919;
+  --color-card-hover: #21211f;
+  --color-edge: #2c2a28;
+  --color-ink: #f6f4f1;
+  --color-ink-dim: #b0aaa2;
+  --color-ink-faint: #77716a;
+  --color-accent: #f97316;
+  --color-accent-dim: #7c2d12;
   --color-protein: #38bdf8;
   --color-carbs: #fbbf24;
   --color-fat: #fb7185;
@@ -26,7 +26,7 @@ body {
 
 ::selection {
   background: var(--color-accent);
-  color: #0a0e0d;
+  color: #0a0a0b;
 }
 
 input,

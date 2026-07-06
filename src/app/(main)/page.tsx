@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { isModerator } from "@/lib/permissions";
-import { getFeed, getSuggestedUsers } from "@/lib/queries";
+import { getFeed, getSuggestedUsers, getDayLogs, getStreak } from "@/lib/queries";
+import { todayStr } from "@/lib/utils";
 import { PostCard } from "@/components/PostCard";
 import { PostComposer } from "@/components/PostComposer";
+import { DashboardHero } from "@/components/DashboardHero";
 import { EmptyState, UserChip, Card, btnGhost } from "@/components/ui";
 import { toggleFollow } from "@/actions/social";
 
@@ -15,11 +17,35 @@ export default async function FeedPage({
   const user = await requireUser();
   const { tab } = await searchParams;
   const scope = tab === "trending" ? "trending" : "following";
-  const [feed, suggested] = await Promise.all([getFeed(user.id, scope), getSuggestedUsers(user.id, 4)]);
+  const today = todayStr();
+  const [feed, suggested, day, streak] = await Promise.all([
+    getFeed(user.id, scope),
+    getSuggestedUsers(user.id, 4),
+    getDayLogs(user.id, today),
+    getStreak(user.id, today),
+  ]);
   const canModerate = isModerator(user);
+
+  const consumed = day.logs.reduce(
+    (a, l) => ({
+      calories: a.calories + l.calories,
+      protein: a.protein + l.proteinG,
+      carbs: a.carbs + l.carbsG,
+      fat: a.fat + l.fatG,
+    }),
+    { calories: 0, protein: 0, carbs: 0, fat: 0 },
+  );
 
   return (
     <div className="mx-auto max-w-xl space-y-4">
+      <DashboardHero
+        name={user.profile.displayName}
+        consumed={consumed}
+        targets={user.targets}
+        streak={streak}
+        mealsLogged={day.logs.length}
+      />
+
       <div className="flex gap-1 rounded-lg border border-edge bg-card p-1">
         {[
           { key: "following", label: "Following" },
