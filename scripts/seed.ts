@@ -11,7 +11,7 @@ import { drizzle as drizzlePg } from "drizzle-orm/node-postgres";
 import { PGlite } from "@electric-sql/pglite";
 import { Pool } from "pg";
 import bcrypt from "bcryptjs";
-import { inArray, sql } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import * as schema from "../src/db/schema";
 
 const DATABASE_URL = process.env.DATABASE_URL;
@@ -564,7 +564,7 @@ async function seedChainsAndMenus() {
 }
 
 async function seedExercises() {
-  const EXERCISES: [name: string, muscles: string[], equipment: string, bodyweight?: 1][] = [
+  const EXERCISES: [name: string, muscles: string[], equipment: string, bodyweight?: 1, activityType?: string][] = [
     ["Barbell Back Squat", ["quads", "glutes"], "barbell"],
     ["Front Squat", ["quads", "core"], "barbell"],
     ["Barbell Bench Press", ["chest", "triceps"], "barbell"],
@@ -591,16 +591,66 @@ async function seedExercises() {
     ["Seated Cable Row", ["back"], "cable"],
     ["Goblet Squat", ["quads", "glutes"], "dumbbell"],
     ["Farmer's Carry", ["grip", "core"], "dumbbell"],
-    ["Rowing Machine", ["full body"], "machine"],
-    ["Treadmill Run", ["cardio"], "machine"],
+    ["Outdoor Run", ["cardio"], "outdoor", undefined, "outdoor_run"],
+    ["Treadmill Run", ["cardio"], "machine", undefined, "treadmill_run"],
+    ["Outdoor Walk", ["cardio"], "outdoor", undefined, "walk"],
+    ["Hike", ["cardio", "glutes"], "outdoor", undefined, "hike"],
+    ["Rowing Machine", ["cardio", "full body"], "machine", undefined, "rowing"],
+    ["Stationary Bike", ["cardio", "quads"], "machine", undefined, "stationary_bike"],
+    ["Outdoor Bike", ["cardio", "quads"], "outdoor", undefined, "outdoor_bike"],
+    ["Elliptical", ["cardio"], "machine", undefined, "elliptical"],
+    ["Mobility Session", ["mobility"], "bodyweight", 1, "mobility"],
+    ["Generic Cardio", ["cardio"], "other", undefined, "generic_cardio"],
   ];
   const exerciseRows = await db
     .insert(exercises)
-    .values(EXERCISES.map(([name, muscleGroups, equipment, bw]) => ({ name, muscleGroups, equipment, isBodyweight: bw === 1 })))
+    .values(EXERCISES.map(([name, muscleGroups, equipment, bw, activityType]) => ({ name, muscleGroups, equipment, isBodyweight: bw === 1, activityType: activityType ?? "strength" })))
     .returning();
   const exByName = new Map(exerciseRows.map((e) => [e.name, e]));
   console.log(`  ${exByName.size} exercises`);
   return exByName;
+}
+
+async function ensureWorkoutActivities() {
+  const activityRows = [
+    { name: "Outdoor Run", muscleGroups: ["cardio"], equipment: "outdoor", activityType: "outdoor_run" },
+    { name: "Treadmill Run", muscleGroups: ["cardio"], equipment: "machine", activityType: "treadmill_run" },
+    { name: "Outdoor Walk", muscleGroups: ["cardio"], equipment: "outdoor", activityType: "walk" },
+    { name: "Hike", muscleGroups: ["cardio", "glutes"], equipment: "outdoor", activityType: "hike" },
+    { name: "Rowing Machine", muscleGroups: ["cardio", "full body"], equipment: "machine", activityType: "rowing" },
+    { name: "Stationary Bike", muscleGroups: ["cardio", "quads"], equipment: "machine", activityType: "stationary_bike" },
+    { name: "Outdoor Bike", muscleGroups: ["cardio", "quads"], equipment: "outdoor", activityType: "outdoor_bike" },
+    { name: "Elliptical", muscleGroups: ["cardio"], equipment: "machine", activityType: "elliptical" },
+    { name: "Mobility Session", muscleGroups: ["mobility"], equipment: "bodyweight", isBodyweight: true, activityType: "mobility" },
+    { name: "Generic Cardio", muscleGroups: ["cardio"], equipment: "other", activityType: "generic_cardio" },
+  ];
+  const existing = new Map((await db.select().from(exercises)).map((e) => [e.name, e]));
+  let inserted = 0;
+  for (const row of activityRows) {
+    if (existing.has(row.name)) {
+      await db
+        .update(exercises)
+        .set({
+          muscleGroups: row.muscleGroups,
+          equipment: row.equipment,
+          isBodyweight: row.isBodyweight ?? false,
+          activityType: row.activityType,
+        })
+        .where(eq(exercises.name, row.name));
+    } else {
+      await db.insert(exercises).values({
+        name: row.name,
+        muscleGroups: row.muscleGroups,
+        equipment: row.equipment,
+        isBodyweight: row.isBodyweight ?? false,
+        activityType: row.activityType,
+      });
+      inserted++;
+    }
+  }
+  const rows = await db.select().from(exercises);
+  console.log(`  exercises: activity rows ready (${inserted} inserted)`);
+  return new Map(rows.map((e) => [e.name, e]));
 }
 
 async function seedWorkouts(
@@ -615,7 +665,10 @@ async function seedWorkouts(
   type WDef = {
     author: string | null; // null = official template
     title: string; description: string; kind: string; difficulty: number; est: number;
-    structure: [exercise: string, sets: number, reps: string][];
+    structure: (
+      | [exercise: string, sets: number, reps: string]
+      | { exercise: string; sets?: number; reps?: string; duration?: number; distanceM?: number; notes?: string }
+    )[];
     completed?: number; saves?: number;
   };
   const WORKOUTS: WDef[] = [
@@ -633,6 +686,31 @@ async function seedWorkouts(
       author: null, title: "Push Day (PPL)", kind: "strength", difficulty: 3, est: 60,
       description: "Chest / shoulders / triceps volume day from the classic PPL split.",
       structure: [["Barbell Bench Press", 4, "6-8"], ["Overhead Press", 3, "8-10"], ["Incline Dumbbell Press", 3, "10-12"], ["Lateral Raise", 4, "12-15"], ["Triceps Pushdown", 3, "12-15"], ["Dip", 3, "AMRAP"]],
+    },
+    {
+      author: null, title: "Beginner 5K Run/Walk", kind: "cardio", difficulty: 1, est: 35,
+      description: "Easy intervals toward a 5K: run what you can, walk before form falls apart.",
+      structure: [{ exercise: "Outdoor Run", duration: 35, distanceM: 5000, notes: "Alternate easy running and brisk walking." }],
+    },
+    {
+      author: null, title: "Treadmill Intervals", kind: "cardio", difficulty: 2, est: 30,
+      description: "Warm up, alternate controlled pushes with easy recovery, cool down.",
+      structure: [{ exercise: "Treadmill Run", duration: 30, notes: "10 min easy, 8 x 1 min fast / 1 min easy, cool down." }],
+    },
+    {
+      author: null, title: "2K Row Benchmark", kind: "cardio", difficulty: 3, est: 12,
+      description: "Classic rowing benchmark. Log meters and time; MacroVerse tracks 2K and split PRs.",
+      structure: [{ exercise: "Rowing Machine", duration: 10, distanceM: 2000, notes: "Record total time and average stroke rate." }],
+    },
+    {
+      author: null, title: "Zone 2 Bike", kind: "cardio", difficulty: 1, est: 45,
+      description: "Steady aerobic ride. Keep effort conversational.",
+      structure: [{ exercise: "Stationary Bike", duration: 45, notes: "RPE 4-6, smooth cadence." }],
+    },
+    {
+      author: null, title: "Full Body Strength + Cardio Finisher", kind: "mixed", difficulty: 2, est: 55,
+      description: "Simple full-body lifting with a short rowing finisher.",
+      structure: [["Goblet Squat", 3, "10"], ["Push-up", 3, "AMRAP"], ["Seated Cable Row", 3, "10"], { exercise: "Rowing Machine", duration: 8, notes: "Easy-hard finish, log meters." }],
     },
     {
       author: "coach_dan", title: "Dan's 40-min Lunch Break Full Body", kind: "strength", difficulty: 2, est: 40,
@@ -656,7 +734,24 @@ async function seedWorkouts(
         authorId: w.author ? authorIdFor!(w.author) : null,
         title: w.title, description: w.description, kind: w.kind,
         difficulty: w.difficulty, estDurationMin: w.est, isTemplate: w.author == null,
-        structure: w.structure.map(([name, sets, reps]) => ({ exerciseId: ex(name), sets, reps })),
+        structure: w.structure.map((item) => {
+          if (Array.isArray(item)) {
+            const [name, sets, reps] = item;
+            return { exerciseId: ex(name), kind: "strength", activityType: "strength", sets, reps };
+          }
+          const row = exByName.get(item.exercise);
+          if (!row) throw new Error(`Seed exercise missing: ${item.exercise}`);
+          return {
+            exerciseId: row.id,
+            kind: row.activityType === "mobility" ? "mobility" : "cardio",
+            activityType: row.activityType,
+            sets: item.sets,
+            reps: item.reps,
+            targetDurationMin: item.duration,
+            targetDistanceM: item.distanceM,
+            notes: item.notes,
+          };
+        }) as schema.WorkoutStructure,
         completedCount: w.completed ?? 0, saveCount: w.saves ?? 0,
       })
       .returning();
@@ -664,6 +759,90 @@ async function seedWorkouts(
   }
   console.log(`  ${defs.length} workouts (${defs.filter((w) => !w.author).length} templates)`);
   return workoutIdByTitle;
+}
+
+async function ensureCardioWorkoutTemplates(exByName: Awaited<ReturnType<typeof seedExercises>>) {
+  const existingTitles = new Set((await db.select({ title: workouts.title }).from(workouts)).map((w) => w.title));
+  const ex = (name: string) => {
+    const row = exByName.get(name);
+    if (!row) throw new Error(`Seed exercise missing: ${name}`);
+    return row;
+  };
+  const templates = [
+    {
+      title: "Beginner 5K Run/Walk",
+      description: "Easy intervals toward a 5K: run what you can, walk before form falls apart.",
+      kind: "cardio",
+      difficulty: 1,
+      estDurationMin: 35,
+      structure: [{ name: "Outdoor Run", duration: 35, distanceM: 5000, notes: "Alternate easy running and brisk walking." }],
+    },
+    {
+      title: "Treadmill Intervals",
+      description: "Warm up, alternate controlled pushes with easy recovery, cool down.",
+      kind: "cardio",
+      difficulty: 2,
+      estDurationMin: 30,
+      structure: [{ name: "Treadmill Run", duration: 30, notes: "10 min easy, 8 x 1 min fast / 1 min easy, cool down." }],
+    },
+    {
+      title: "2K Row Benchmark",
+      description: "Classic rowing benchmark. Log meters and time; MacroVerse tracks 2K and split PRs.",
+      kind: "cardio",
+      difficulty: 3,
+      estDurationMin: 12,
+      structure: [{ name: "Rowing Machine", duration: 10, distanceM: 2000, notes: "Record total time and average stroke rate." }],
+    },
+    {
+      title: "Zone 2 Bike",
+      description: "Steady aerobic ride. Keep effort conversational.",
+      kind: "cardio",
+      difficulty: 1,
+      estDurationMin: 45,
+      structure: [{ name: "Stationary Bike", duration: 45, notes: "RPE 4-6, smooth cadence." }],
+    },
+    {
+      title: "Full Body Strength + Cardio Finisher",
+      description: "Simple full-body lifting with a short rowing finisher.",
+      kind: "mixed",
+      difficulty: 2,
+      estDurationMin: 55,
+      structure: [
+        { name: "Goblet Squat", sets: 3, reps: "10" },
+        { name: "Push-up", sets: 3, reps: "AMRAP" },
+        { name: "Seated Cable Row", sets: 3, reps: "10" },
+        { name: "Rowing Machine", duration: 8, notes: "Easy-hard finish, log meters." },
+      ],
+    },
+  ];
+  let inserted = 0;
+  for (const t of templates) {
+    if (existingTitles.has(t.title)) continue;
+    await db.insert(workouts).values({
+      authorId: null,
+      title: t.title,
+      description: t.description,
+      kind: t.kind,
+      difficulty: t.difficulty,
+      estDurationMin: t.estDurationMin,
+      isTemplate: true,
+      structure: t.structure.map((item) => {
+        const row = ex(item.name);
+        return {
+          exerciseId: row.id,
+          kind: row.activityType === "strength" ? "strength" : row.activityType === "mobility" ? "mobility" : "cardio",
+          activityType: row.activityType,
+          sets: "sets" in item ? item.sets : undefined,
+          reps: "reps" in item ? item.reps : undefined,
+          targetDurationMin: "duration" in item ? item.duration : undefined,
+          targetDistanceM: "distanceM" in item ? item.distanceM : undefined,
+          notes: item.notes,
+        };
+      }) as schema.WorkoutStructure,
+    });
+    inserted++;
+  }
+  console.log(`  workout templates: cardio templates ready (${inserted} inserted)`);
 }
 
 async function main() {
@@ -675,10 +854,8 @@ async function main() {
     else await seedFoods();
     if (await db.$count(chains)) console.log("  chains: table not empty, skipped");
     else await seedChainsAndMenus();
-    const exByName = (await db.$count(exercises))
-      ? new Map((await db.select().from(exercises)).map((e) => [e.name, e]))
-      : await seedExercises();
-    if (await db.$count(workouts)) console.log("  workouts: table not empty, skipped");
+    const exByName = (await db.$count(exercises)) ? await ensureWorkoutActivities() : await seedExercises();
+    if (await db.$count(workouts)) await ensureCardioWorkoutTemplates(exByName);
     else await seedWorkouts(exByName, null);
     console.log("Done (reference data only — no demo accounts created).");
     return;

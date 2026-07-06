@@ -4,7 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { saves } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
-import { getWorkoutWithExercises } from "@/lib/workouts";
+import { formatDistance, formatDuration, getWorkoutWithExercises, structureSummary } from "@/lib/workouts";
 import { toggleSaveWorkout } from "@/actions/workouts";
 import { Card, Badge, btnGhost } from "@/components/ui";
 
@@ -16,6 +16,7 @@ export default async function WorkoutDetailPage({ params }: { params: Promise<{ 
   const data = await getWorkoutWithExercises(id);
   if (!data) notFound();
   const { workout, username, displayName, exerciseById } = data;
+  const units = (user?.profile.units ?? "imperial") as "metric" | "imperial";
 
   const [saved] = user
     ? await db
@@ -36,7 +37,7 @@ export default async function WorkoutDetailPage({ params }: { params: Promise<{ 
                 saved ? "border-accent bg-accent/15 text-accent" : "border-edge bg-card text-ink-dim hover:text-accent"
               }`}
             >
-              {saved ? "🔖 Saved" : "🔖 Save"}
+              {saved ? "Saved" : "Save"}
             </button>
           </form>
         </div>
@@ -51,8 +52,8 @@ export default async function WorkoutDetailPage({ params }: { params: Promise<{ 
           <Badge>{workout.kind}</Badge>
           {workout.difficulty && <Badge>difficulty {workout.difficulty}/5</Badge>}
           {workout.estDurationMin && <Badge>~{workout.estDurationMin} min</Badge>}
-          {workout.completedCount > 0 && <span>✓ completed {workout.completedCount}×</span>}
-          {workout.saveCount > 0 && <span>🔖 {workout.saveCount}</span>}
+          {workout.completedCount > 0 && <span>completed {workout.completedCount}x</span>}
+          {workout.saveCount > 0 && <span>saved {workout.saveCount}</span>}
         </div>
         {workout.description && <p className="text-sm text-ink-dim">{workout.description}</p>}
       </div>
@@ -62,22 +63,28 @@ export default async function WorkoutDetailPage({ params }: { params: Promise<{ 
         <ul className="divide-y divide-edge">
           {workout.structure.map((s, i) => {
             const ex = exerciseById.get(s.exerciseId);
+            const activityType = s.activityType ?? ex?.activityType ?? "strength";
+            const target =
+              activityType === "strength"
+                ? `${s.sets ?? 1} x ${s.reps ?? "reps"}`
+                : [s.targetDistanceM ? formatDistance(s.targetDistanceM, units, activityType as never) : null, s.targetDurationMin ? formatDuration(s.targetDurationMin) : null]
+                    .filter(Boolean)
+                    .join(" · ");
             return (
-              <li key={i} className="flex items-baseline justify-between py-2 text-sm">
-                <div>
-                  <span className="font-medium">{ex?.name ?? "Unknown exercise"}</span>
+              <li key={i} className="flex items-baseline justify-between gap-3 py-2 text-sm">
+                <div className="min-w-0">
+                  <span className="font-medium">{ex?.name ?? "Unknown activity"}</span>
                   {ex && ex.muscleGroups.length > 0 && (
                     <span className="ml-2 text-[10px] text-ink-faint">{ex.muscleGroups.join(", ")}</span>
                   )}
                   {s.notes && <div className="text-[11px] text-ink-faint">{s.notes}</div>}
                 </div>
-                <span className="tabular-nums text-ink-dim">
-                  {s.sets} × {s.reps}
-                </span>
+                <span className="shrink-0 tabular-nums text-ink-dim">{target || "planned"}</span>
               </li>
             );
           })}
         </ul>
+        <p className="mt-3 text-xs text-ink-faint">{structureSummary(workout.structure, exerciseById, units)}</p>
       </Card>
 
       <div className="flex gap-2">
@@ -88,7 +95,7 @@ export default async function WorkoutDetailPage({ params }: { params: Promise<{ 
           Start this workout
         </Link>
         <Link href={`/workouts/new?fork=${workout.id}`} className={btnGhost}>
-          ⑂ Fork
+          Fork
         </Link>
       </div>
       <p className="text-center text-[10px] text-ink-faint">

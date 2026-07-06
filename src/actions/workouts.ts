@@ -24,8 +24,12 @@ const structureSchema = z
   .array(
     z.object({
       exerciseId: z.string().uuid(),
-      sets: z.number().int().min(1).max(20),
-      reps: z.string().min(1).max(20), // "5", "8-12", "AMRAP"
+      kind: z.enum(["strength", "cardio", "mobility", "mixed"]).optional(),
+      activityType: z.string().max(40).optional(),
+      sets: z.number().int().min(1).max(20).optional(),
+      reps: z.string().min(1).max(20).optional(), // "5", "8-12", "AMRAP"
+      targetDurationMin: z.number().min(1).max(1440).optional(),
+      targetDistanceM: z.number().min(1).max(1000000).optional(),
       notes: z.string().max(120).optional(),
     }),
   )
@@ -82,27 +86,65 @@ export async function createWorkout(
 
 // ─── log a session (with PR detection — docs/08 §5 "milestones are detected") ─
 
-const entriesSchema = z
-  .array(
-    z.object({
-      exerciseId: z.string().uuid(),
-      sets: z
-        .array(
-          z
-            .object({
-              reps: z.number().int().min(0).max(200),
-              weightKg: z.number().min(0).max(600).nullable(),
-              durationMin: z.number().min(0.5).max(1440).optional(),
-            })
-            // a set counts as either a strength set (reps ≥ 1) or a cardio set (duration)
-            .refine((s) => s.reps >= 1 || s.durationMin != null, "Empty set"),
-        )
-        .min(1)
-        .max(30),
-    }),
-  )
-  .min(1)
-  .max(20);
+const nullableNumber = z.number().finite().nullable().optional();
+
+const strengthEntrySchema = z.object({
+  kind: z.literal("strength"),
+  activityType: z.literal("strength"),
+  exerciseId: z.string().uuid(),
+  sets: z
+    .array(
+      z.object({
+        reps: z.number().int().min(1).max(200),
+        weightKg: z.number().min(0).max(600).nullable(),
+        rpe: z.number().min(1).max(10).nullable().optional(),
+        restSec: z.number().int().min(0).max(1800).nullable().optional(),
+      }),
+    )
+    .min(1)
+    .max(60),
+});
+
+const cardioActivitySchema = z.enum([
+  "outdoor_run",
+  "treadmill_run",
+  "rowing",
+  "stationary_bike",
+  "outdoor_bike",
+  "walk",
+  "hike",
+  "elliptical",
+  "generic_cardio",
+]);
+
+const cardioEntrySchema = z.object({
+  kind: z.literal("cardio"),
+  activityType: cardioActivitySchema,
+  exerciseId: z.string().uuid(),
+  durationMin: z.number().min(0.5).max(1440),
+  distanceM: nullableNumber,
+  speedKph: nullableNumber,
+  inclinePct: nullableNumber,
+  resistance: nullableNumber,
+  strokeRate: nullableNumber,
+  powerWatts: nullableNumber,
+  calories: nullableNumber,
+  perceivedEffort: z.number().min(1).max(10).nullable().optional(),
+  routeNote: z.string().max(160).nullable().optional(),
+  notes: z.string().max(300).nullable().optional(),
+});
+
+const mobilityEntrySchema = z.object({
+  kind: z.literal("mobility"),
+  activityType: z.literal("mobility"),
+  exerciseId: z.string().uuid(),
+  durationMin: z.number().min(1).max(1440),
+  focusArea: z.string().max(80).nullable().optional(),
+  perceivedEffort: z.number().min(1).max(10).nullable().optional(),
+  notes: z.string().max(300).nullable().optional(),
+});
+
+const entriesSchema = z.array(z.discriminatedUnion("kind", [strengthEntrySchema, cardioEntrySchema, mobilityEntrySchema])).min(1).max(20);
 
 const logSchema = z.object({
   workoutId: z.string().uuid().optional(),
@@ -141,6 +183,10 @@ export async function logWorkout(
 
   const entries = d.entries as WorkoutLogEntries;
   const hits = await detectPrs(user.id, entries);
+  const entryDuration = Math.max(
+    0,
+    ...entries.map((entry) => ("durationMin" in entry && typeof entry.durationMin === "number" ? entry.durationMin : 0)),
+  );
 
   const logId = await db.transaction(async (tx) => {
     const [log] = await tx
@@ -148,7 +194,7 @@ export async function logWorkout(
       .values({
         userId: user.id,
         workoutId: d.workoutId ?? null,
-        durationMin: d.durationMin ?? null,
+        durationMin: d.durationMin ?? (entryDuration > 0 ? Math.round(entryDuration) : null),
         notes: d.notes ?? null,
         entries,
       })
@@ -161,12 +207,14 @@ export async function logWorkout(
         eq(personalRecords.metric, hit.metric),
       );
       const [existing] = await tx.select().from(personalRecords).where(where);
-      if (existing) {
+      const isLowerBetter = hit.better === "lower";
+      const shouldPersist = !existing || (isLowerBetter ? hit.value < existing.value : hit.value > existing.value);
+      if (existing && shouldPersist) {
         await tx
           .update(personalRecords)
           .set({ value: hit.value, achievedAt: new Date(), workoutLogId: log.id })
           .where(where);
-      } else {
+      } else if (!existing) {
         await tx.insert(personalRecords).values({
           userId: user.id,
           exerciseId: hit.exerciseId,

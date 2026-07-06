@@ -2,7 +2,7 @@ import Link from "next/link";
 import { db } from "@/db/client";
 import { exercises } from "@/db/schema";
 import { getWorkoutWithExercises } from "@/lib/workouts";
-import { WorkoutForm } from "@/components/WorkoutForms";
+import { WorkoutForm, type ExerciseOption } from "@/components/WorkoutForms";
 
 export const metadata = { title: "Create workout" };
 
@@ -12,7 +12,13 @@ export default async function NewWorkoutPage({
   searchParams: Promise<{ fork?: string }>;
 }) {
   const { fork: forkId } = await searchParams;
-  const exerciseOptions = await db.select().from(exercises).orderBy(exercises.name);
+  const exerciseOptions: ExerciseOption[] = (await db.select().from(exercises).orderBy(exercises.name)).map((e) => ({
+    id: e.id,
+    name: e.name,
+    isBodyweight: e.isBodyweight,
+    isCardio: e.muscleGroups.includes("cardio"),
+    activityType: e.activityType as ExerciseOption["activityType"],
+  }));
 
   // fork = pre-filled new workout with a byline back to the original (docs/06 §4)
   let fork;
@@ -26,8 +32,10 @@ export default async function NewWorkoutPage({
         title: data.workout.title,
         rows: data.workout.structure.map((s) => ({
           exerciseName: data.exerciseById.get(s.exerciseId)?.name ?? "",
-          sets: String(s.sets),
-          reps: s.reps,
+          sets: String(s.sets ?? 1),
+          reps: s.reps ?? "",
+          durationMin: String(s.targetDurationMin ?? ""),
+          distance: s.targetDistanceM ? String(Math.round(s.targetDistanceM / 1609.344 * 100) / 100) : "",
           notes: s.notes ?? "",
         })),
       };

@@ -641,16 +641,71 @@ export const exercises = pgTable("exercises", {
   muscleGroups: text().array().notNull().default([]),
   equipment: text(), // barbell | dumbbell | machine | cable | bodyweight | other
   isBodyweight: boolean().notNull().default(false),
+  activityType: text().notNull().default("strength"), // strength | outdoor_run | treadmill_run | rowing | bike | walk | hike | elliptical | mobility | generic_cardio
 });
 
 // structure/entries as JSONB: set rows are write-once, read-whole documents;
 // personal_records extracts the queryable bits (docs/03 key choices)
-export type WorkoutStructure = { exerciseId: string; sets: number; reps: string; notes?: string }[];
-// cardio sets carry durationMin (and reps 0) instead of weight×reps
-export type WorkoutLogEntries = {
+export type WorkoutKind = "strength" | "cardio" | "mobility" | "mixed";
+export type ActivityType =
+  | "strength"
+  | "outdoor_run"
+  | "treadmill_run"
+  | "rowing"
+  | "stationary_bike"
+  | "outdoor_bike"
+  | "walk"
+  | "hike"
+  | "elliptical"
+  | "mobility"
+  | "generic_cardio";
+export type WorkoutStructure = {
+  exerciseId: string;
+  kind?: WorkoutKind;
+  activityType?: ActivityType;
+  sets?: number;
+  reps?: string;
+  targetDurationMin?: number;
+  targetDistanceM?: number;
+  notes?: string;
+}[];
+export type StrengthLogEntry = {
+  kind: "strength";
+  activityType: "strength";
+  exerciseId: string;
+  sets: { reps: number; weightKg: number | null; rpe?: number | null; restSec?: number | null }[];
+};
+export type CardioLogEntry = {
+  kind: "cardio";
+  activityType: Exclude<ActivityType, "strength" | "mobility">;
+  exerciseId?: string | null;
+  durationMin: number;
+  distanceM?: number | null;
+  speedKph?: number | null;
+  inclinePct?: number | null;
+  resistance?: number | null;
+  strokeRate?: number | null;
+  powerWatts?: number | null;
+  calories?: number | null;
+  perceivedEffort?: number | null;
+  routeNote?: string | null;
+  notes?: string | null;
+};
+export type MobilityLogEntry = {
+  kind: "mobility";
+  activityType: "mobility";
+  exerciseId?: string | null;
+  durationMin: number;
+  focusArea?: string | null;
+  perceivedEffort?: number | null;
+  notes?: string | null;
+};
+// Legacy logs are kept readable: strength rows used to be just {exerciseId, sets}.
+export type LegacyWorkoutLogEntry = {
   exerciseId: string;
   sets: { reps: number; weightKg: number | null; durationMin?: number }[];
-}[];
+};
+export type WorkoutLogEntries = (StrengthLogEntry | CardioLogEntry | MobilityLogEntry | LegacyWorkoutLogEntry)[];
 
 export const workouts = pgTable(
   "workouts",
