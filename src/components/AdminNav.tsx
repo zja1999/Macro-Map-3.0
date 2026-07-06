@@ -8,6 +8,7 @@ export function AdminNav({ isAdmin }: { isAdmin: boolean }) {
     ...(isAdmin
       ? [
           { href: "/admin/users", label: "Users" },
+          { href: "/admin/templates", label: "Templates" },
           { href: "/admin/imports", label: "Imports" },
         ]
       : []),

@@ -1,10 +1,20 @@
 import { db } from "@/db/client";
-import { exercises } from "@/db/schema";
+import { exercises, type ActivityType } from "@/db/schema";
 import { getWorkoutWithExercises } from "@/lib/workouts";
 import { requireUser } from "@/lib/auth";
-import { WorkoutLogger, type ExerciseOption } from "@/components/WorkoutForms";
+import { WorkoutLogger, type CardioPrefill, type ExerciseOption } from "@/components/WorkoutForms";
 
 export const metadata = { title: "Log workout" };
+
+const MI_PER_M = 0.000621371;
+
+// planned distance (meters) → the number the matching logger expects in its field
+function displayDistance(meters: number | undefined, units: "metric" | "imperial", activityType: ActivityType): string {
+  if (!meters || meters <= 0) return "";
+  if (activityType === "rowing") return String(Math.round(meters));
+  const value = units === "imperial" ? meters * MI_PER_M : meters / 1000;
+  return String(Math.round(value * 100) / 100);
+}
 
 export default async function LogWorkoutPage({
   searchParams,
@@ -25,15 +35,24 @@ export default async function LogWorkoutPage({
 
   let workoutId: string | undefined;
   let prefill;
+  let initialActivity: ActivityType | undefined;
+  let cardioPrefill: CardioPrefill | undefined;
+  let droppedMovements: string[] = [];
   let title = "Log a session";
   if (from && /^[0-9a-f-]{36}$/.test(from)) {
     const data = await getWorkoutWithExercises(from);
     if (data) {
       workoutId = data.workout.id;
       title = data.workout.title;
-      prefill = data.workout.structure
-        .filter((s) => (s.activityType ?? data.exerciseById.get(s.exerciseId)?.activityType ?? "strength") === "strength")
-        .map((s) => {
+      const typed = data.workout.structure.map((s) => ({
+        s,
+        activityType: (s.activityType ?? data.exerciseById.get(s.exerciseId)?.activityType ?? "strength") as ActivityType,
+      }));
+      const strengthEntries = typed.filter((t) => t.activityType === "strength");
+
+      if (strengthEntries.length) {
+        // strength (and mixed) templates prefill the strength logger's exercise list
+        prefill = strengthEntries.map(({ s }) => {
           // Templates express timed isometric holds as a seconds string in `reps`
           // (e.g. a plank planned as "45s"). Those log a hold time, not reps/weight.
           const holdMatch = /^\s*(\d+)\s*s(ec(onds?)?)?\s*$/i.exec(s.reps ?? "");
@@ -45,6 +64,21 @@ export default async function LogWorkoutPage({
             sets: Array.from({ length: s.sets ?? 1 }, () => ({ reps: "", weight: "", rpe: "", restSec: "", holdSec })),
           };
         });
+        // a mixed template's cardio/mobility movements can't ride in the strength
+        // logger — call them out so they aren't silently dropped
+        droppedMovements = typed
+          .filter((t) => t.activityType !== "strength")
+          .map((t) => data.exerciseById.get(t.s.exerciseId)?.name ?? "");
+      } else if (typed.length) {
+        // pure cardio/mobility template: open the right logger and prefill its plan
+        const first = typed[0];
+        initialActivity = first.activityType;
+        cardioPrefill = {
+          durationMin: first.s.targetDurationMin ? String(first.s.targetDurationMin) : "",
+          distance: displayDistance(first.s.targetDistanceM, units, first.activityType),
+          notes: first.s.notes ?? "",
+        };
+      }
     }
   }
 
@@ -53,10 +87,23 @@ export default async function LogWorkoutPage({
       <h1 className="text-lg font-bold">Log workout</h1>
       <p className="text-xs text-ink-dim">
         {workoutId
-          ? `Starting from ${title}. Strength templates prefill their exercise list; cardio templates can be logged from the activity cards below.`
+          ? `Starting from ${title}. Your session opens on the right activity with the plan prefilled — adjust anything before you save.`
           : "Pick the activity first so MacroVerse asks for the right data: weights for lifting, distance and pace for runs, meters and split for rowing."}
       </p>
-      <WorkoutLogger exerciseOptions={exerciseOptions} workoutId={workoutId} prefill={prefill} units={units} />
+      {droppedMovements.length > 0 && (
+        <p className="rounded-lg border border-carbs/40 bg-carbs/10 px-3 py-2 text-[11px] text-carbs">
+          This template also includes {droppedMovements.join(", ")}. Log {droppedMovements.length === 1 ? "it" : "them"} as a
+          separate cardio/mobility session from the activity picker.
+        </p>
+      )}
+      <WorkoutLogger
+        exerciseOptions={exerciseOptions}
+        workoutId={workoutId}
+        prefill={prefill}
+        units={units}
+        initialActivity={initialActivity}
+        cardioPrefill={cardioPrefill}
+      />
     </div>
   );
 }

@@ -17,6 +17,7 @@ import {
   type WorkoutStructure,
 } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
+import { assertAdmin, isAdmin } from "@/lib/permissions";
 import { detectPrs, prLabel } from "@/lib/workouts";
 
 // ─── create / fork a community workout ──────────────────────────────────────
@@ -83,6 +84,80 @@ export async function createWorkout(
     })
     .returning({ id: workouts.id });
   redirect(`/workouts/${workout.id}`);
+}
+
+// ─── official templates — admin-managed starter shelf (docs/08 §5) ───────────
+// Templates are workouts with isTemplate=true and no author. Only admins can
+// create, edit, or remove them; they live at /admin/templates.
+
+const templateSchema = z.object({
+  templateId: z.string().uuid().optional(),
+  title: z.string().min(3).max(80),
+  description: z.string().max(500).optional(),
+  kind: z.enum(["strength", "cardio", "mobility", "mixed"]),
+  difficulty: z.coerce.number().min(1).max(5).optional(),
+  estDurationMin: z.coerce.number().min(5).max(300).optional(),
+  structure: structureSchema,
+});
+
+export async function saveOfficialTemplate(
+  _prev: { error?: string } | undefined,
+  formData: FormData,
+): Promise<{ error?: string }> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  if (!isAdmin(user)) return { error: "Only admins can manage official templates." };
+
+  let d: z.infer<typeof templateSchema>;
+  try {
+    d = templateSchema.parse({
+      templateId: formData.get("templateId") || undefined,
+      title: formData.get("title"),
+      description: formData.get("description") || undefined,
+      kind: formData.get("kind"),
+      difficulty: formData.get("difficulty") || undefined,
+      estDurationMin: formData.get("estDurationMin") || undefined,
+      structure: JSON.parse(String(formData.get("structure") ?? "[]")),
+    });
+  } catch {
+    return { error: "Add a title and at least one exercise." };
+  }
+
+  const values = {
+    title: d.title,
+    description: d.description ?? null,
+    kind: d.kind,
+    difficulty: d.difficulty ?? null,
+    estDurationMin: d.estDurationMin ?? null,
+    structure: d.structure as WorkoutStructure,
+  };
+
+  if (d.templateId) {
+    // only edit rows that are actually official templates — never a user's workout
+    const [existing] = await db.select().from(workouts).where(eq(workouts.id, d.templateId)).limit(1);
+    if (!existing || !existing.isTemplate) return { error: "Template not found." };
+    await db.update(workouts).set(values).where(eq(workouts.id, d.templateId));
+  } else {
+    await db.insert(workouts).values({ ...values, authorId: null, isTemplate: true, status: "published" });
+  }
+  revalidatePath("/admin/templates");
+  revalidatePath("/workouts");
+  redirect("/admin/templates");
+}
+
+export async function deleteOfficialTemplate(formData: FormData) {
+  await assertAdmin();
+  const templateId = z.string().uuid().parse(formData.get("templateId"));
+  const [existing] = await db.select().from(workouts).where(eq(workouts.id, templateId)).limit(1);
+  if (!existing || !existing.isTemplate) return;
+  // workout_logs.workoutId has no cascade — null it so past sessions survive the delete
+  await db.transaction(async (tx) => {
+    await tx.update(workoutLogs).set({ workoutId: null }).where(eq(workoutLogs.workoutId, templateId));
+    await tx.delete(workouts).where(eq(workouts.id, templateId));
+  });
+  revalidatePath("/admin/templates");
+  revalidatePath("/workouts");
+  redirect("/admin/templates");
 }
 
 // ─── log a session (with PR detection — docs/08 §5 "milestones are detected") ─

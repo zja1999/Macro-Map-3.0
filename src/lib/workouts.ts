@@ -85,6 +85,42 @@ function isLegacyCardio(entry: LegacyWorkoutLogEntry): boolean {
   return entry.sets.length > 0 && entry.sets.every((s) => (s.durationMin ?? 0) > 0 && s.reps === 0);
 }
 
+/** Editable-row shape for the admin template form (mirrors WorkoutForm's StructureRow). */
+export type StructureRow = {
+  exerciseName: string;
+  sets: string;
+  reps: string;
+  durationMin: string;
+  distance: string;
+  notes: string;
+};
+
+/** Turn a stored workout structure into editable form rows (server-safe). */
+export function structureToRows(
+  structure: WorkoutStructure,
+  exerciseById: Map<string, Exercise>,
+  units: UnitsPref,
+): StructureRow[] {
+  return structure.map((s) => {
+    const activityType = (s.activityType ?? "strength") as ActivityType;
+    const isStrength = activityType === "strength";
+    const distance =
+      s.targetDistanceM == null
+        ? ""
+        : activityType === "rowing"
+          ? String(Math.round(s.targetDistanceM))
+          : String(Math.round((units === "imperial" ? s.targetDistanceM * MI_PER_M : s.targetDistanceM * KM_PER_M) * 100) / 100);
+    return {
+      exerciseName: exerciseById.get(s.exerciseId)?.name ?? "",
+      sets: isStrength ? String(s.sets ?? 3) : "",
+      reps: isStrength ? s.reps ?? "" : "",
+      durationMin: s.targetDurationMin != null ? String(s.targetDurationMin) : "",
+      distance,
+      notes: s.notes ?? "",
+    };
+  });
+}
+
 export function structureSummary(structure: WorkoutStructure, exerciseById: Map<string, Exercise>, units: UnitsPref): string {
   if (!structure.length) return "No planned movements";
   return structure

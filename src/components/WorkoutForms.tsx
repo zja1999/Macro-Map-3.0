@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useMemo, useState } from "react";
-import { createWorkout, logWorkout } from "@/actions/workouts";
+import { createWorkout, logWorkout, saveOfficialTemplate } from "@/actions/workouts";
 import { lbToKg, type UnitsPref } from "@/lib/units";
 import { inputCls, btnPrimary, btnGhost } from "./ui";
 
@@ -55,7 +55,7 @@ const toKph = (value: number | null, units: UnitsPref) => {
 
 // ─── create / fork a shareable workout ───────────────────────────────────────
 
-type StructureRow = {
+export type StructureRow = {
   exerciseName: string;
   sets: string;
   reps: string;
@@ -64,17 +64,30 @@ type StructureRow = {
   notes: string;
 };
 
+export type TemplateEdit = {
+  id?: string;
+  title: string;
+  description: string;
+  kind: string;
+  difficulty: string;
+  estDurationMin: string;
+  rows: StructureRow[];
+};
+
 export function WorkoutForm({
   exerciseOptions,
   fork,
+  template,
 }: {
   exerciseOptions: ExerciseOption[];
   fork?: { forkedFromId: string; title: string; rows: StructureRow[] };
+  // present in admin "official template" mode (create when id is absent, edit otherwise)
+  template?: TemplateEdit;
 }) {
   const [rows, setRows] = useState<StructureRow[]>(
-    fork?.rows ?? [{ exerciseName: "", sets: "3", reps: "8-12", durationMin: "", distance: "", notes: "" }],
+    template?.rows ?? fork?.rows ?? [{ exerciseName: "", sets: "3", reps: "8-12", durationMin: "", distance: "", notes: "" }],
   );
-  const [state, action, pending] = useActionState(createWorkout, undefined);
+  const [state, action, pending] = useActionState(template ? saveOfficialTemplate : createWorkout, undefined);
   const byName = useMemo(() => new Map(exerciseOptions.map((e) => [e.name.toLowerCase(), e])), [exerciseOptions]);
 
   const structure = rows
@@ -108,6 +121,7 @@ export function WorkoutForm({
   return (
     <form action={action} className="space-y-4">
       {fork && <input type="hidden" name="forkedFromId" value={fork.forkedFromId} />}
+      {template?.id && <input type="hidden" name="templateId" value={template.id} />}
       <input type="hidden" name="structure" value={JSON.stringify(structure)} />
 
       <input
@@ -115,15 +129,15 @@ export function WorkoutForm({
         required
         minLength={3}
         maxLength={80}
-        defaultValue={fork ? `${fork.title} (my version)` : ""}
+        defaultValue={template ? template.title : fork ? `${fork.title} (my version)` : ""}
         placeholder="Workout name (e.g. Push Day A, 5K Run/Walk)"
         className={inputCls}
       />
-      <textarea name="description" maxLength={500} rows={2} placeholder="What's the idea? (optional)" className={`${inputCls} resize-none`} />
+      <textarea name="description" maxLength={500} rows={2} defaultValue={template?.description ?? ""} placeholder="What's the idea? (optional)" className={`${inputCls} resize-none`} />
       <div className="grid grid-cols-3 gap-2">
         <label className="space-y-1 text-[10px] text-ink-dim">
           Type
-          <select name="kind" className={inputCls}>
+          <select name="kind" defaultValue={template?.kind ?? "strength"} className={inputCls}>
             {["strength", "cardio", "mobility", "mixed"].map((k) => (
               <option key={k} value={k} className="capitalize">
                 {k}
@@ -133,11 +147,11 @@ export function WorkoutForm({
         </label>
         <label className="space-y-1 text-[10px] text-ink-dim">
           Difficulty 1-5
-          <input type="number" name="difficulty" min={1} max={5} className={inputCls} />
+          <input type="number" name="difficulty" min={1} max={5} defaultValue={template?.difficulty ?? ""} className={inputCls} />
         </label>
         <label className="space-y-1 text-[10px] text-ink-dim">
           Duration (min)
-          <input type="number" name="estDurationMin" min={5} max={300} className={inputCls} />
+          <input type="number" name="estDurationMin" min={5} max={300} defaultValue={template?.estDurationMin ?? ""} className={inputCls} />
         </label>
       </div>
 
@@ -190,7 +204,7 @@ export function WorkoutForm({
 
       {state?.error && <p className="text-sm text-danger">{state.error}</p>}
       <button disabled={pending || structure.length === 0} className={`${btnPrimary} w-full`}>
-        {pending ? "Publishing..." : fork ? "Publish fork" : "Publish workout"}
+        {pending ? "Saving..." : template ? (template.id ? "Save template" : "Create template") : fork ? "Publish fork" : "Publish workout"}
       </button>
     </form>
   );
@@ -211,32 +225,38 @@ function ExerciseDatalist({ exerciseOptions }: { exerciseOptions: ExerciseOption
 type LoggerSet = { reps: string; weight: string; rpe: string; restSec: string; holdSec: string };
 // isHold rows log a timed isometric hold (e.g. a plank) — seconds per set, no weight/reps
 type LoggerRow = { exerciseName: string; sets: LoggerSet[]; isHold?: boolean };
+// planned values carried from a cardio/mobility template into its logger
+export type CardioPrefill = { durationMin?: string; distance?: string; notes?: string };
 
 export function WorkoutLogger({
   exerciseOptions,
   workoutId,
   prefill,
   units,
+  initialActivity,
+  cardioPrefill,
 }: {
   exerciseOptions: ExerciseOption[];
   workoutId?: string;
   prefill?: LoggerRow[];
   units: UnitsPref;
+  initialActivity?: ActivityType;
+  cardioPrefill?: CardioPrefill;
 }) {
-  const [activityType, setActivityType] = useState<ActivityType>(prefill?.length ? "strength" : "strength");
+  const [activityType, setActivityType] = useState<ActivityType>(prefill?.length ? "strength" : initialActivity ?? "strength");
   const hasPrefill = Boolean(prefill?.length);
   return (
     <div className="space-y-4">
       {!hasPrefill && <WorkoutTypePicker value={activityType} onChange={setActivityType} />}
       {activityType === "strength" && <StrengthLogger exerciseOptions={exerciseOptions} workoutId={workoutId} prefill={prefill} units={units} />}
-      {activityType === "outdoor_run" && <RunLogger exerciseOptions={exerciseOptions} activityType="outdoor_run" units={units} workoutId={workoutId} />}
-      {activityType === "treadmill_run" && <TreadmillLogger exerciseOptions={exerciseOptions} units={units} workoutId={workoutId} />}
-      {activityType === "rowing" && <RowingLogger exerciseOptions={exerciseOptions} workoutId={workoutId} />}
-      {(activityType === "stationary_bike" || activityType === "outdoor_bike") && <BikeLogger exerciseOptions={exerciseOptions} activityType={activityType} units={units} workoutId={workoutId} />}
-      {(activityType === "walk" || activityType === "hike") && <RunLogger exerciseOptions={exerciseOptions} activityType={activityType} units={units} workoutId={workoutId} />}
-      {activityType === "elliptical" && <BikeLogger exerciseOptions={exerciseOptions} activityType="elliptical" units={units} workoutId={workoutId} />}
-      {activityType === "mobility" && <MobilityLogger exerciseOptions={exerciseOptions} workoutId={workoutId} />}
-      {activityType === "generic_cardio" && <BikeLogger exerciseOptions={exerciseOptions} activityType="generic_cardio" units={units} workoutId={workoutId} />}
+      {activityType === "outdoor_run" && <RunLogger exerciseOptions={exerciseOptions} activityType="outdoor_run" units={units} workoutId={workoutId} prefill={cardioPrefill} />}
+      {activityType === "treadmill_run" && <TreadmillLogger exerciseOptions={exerciseOptions} units={units} workoutId={workoutId} prefill={cardioPrefill} />}
+      {activityType === "rowing" && <RowingLogger exerciseOptions={exerciseOptions} workoutId={workoutId} prefill={cardioPrefill} />}
+      {(activityType === "stationary_bike" || activityType === "outdoor_bike") && <BikeLogger exerciseOptions={exerciseOptions} activityType={activityType} units={units} workoutId={workoutId} prefill={cardioPrefill} />}
+      {(activityType === "walk" || activityType === "hike") && <RunLogger exerciseOptions={exerciseOptions} activityType={activityType} units={units} workoutId={workoutId} prefill={cardioPrefill} />}
+      {activityType === "elliptical" && <BikeLogger exerciseOptions={exerciseOptions} activityType="elliptical" units={units} workoutId={workoutId} prefill={cardioPrefill} />}
+      {activityType === "mobility" && <MobilityLogger exerciseOptions={exerciseOptions} workoutId={workoutId} prefill={cardioPrefill} />}
+      {activityType === "generic_cardio" && <BikeLogger exerciseOptions={exerciseOptions} activityType="generic_cardio" units={units} workoutId={workoutId} prefill={cardioPrefill} />}
     </div>
   );
 }
@@ -365,14 +385,14 @@ function useActivityExercise(exerciseOptions: ExerciseOption[], activityType: Ac
   return exerciseOptions.find((e) => e.activityType === activityType) ?? null;
 }
 
-export function RunLogger({ exerciseOptions, activityType, units, workoutId }: { exerciseOptions: ExerciseOption[]; activityType: "outdoor_run" | "walk" | "hike"; units: UnitsPref; workoutId?: string }) {
+export function RunLogger({ exerciseOptions, activityType, units, workoutId, prefill }: { exerciseOptions: ExerciseOption[]; activityType: "outdoor_run" | "walk" | "hike"; units: UnitsPref; workoutId?: string; prefill?: CardioPrefill }) {
   const [state, action, pending] = useActionState(logWorkout, undefined);
   const exercise = useActivityExercise(exerciseOptions, activityType);
-  const [durationMin, setDurationMin] = useState("");
-  const [distance, setDistance] = useState("");
+  const [durationMin, setDurationMin] = useState(prefill?.durationMin ?? "");
+  const [distance, setDistance] = useState(prefill?.distance ?? "");
   const [effort, setEffort] = useState("");
   const [routeNote, setRouteNote] = useState("");
-  const [notes, setNotes] = useState("");
+  const [notes, setNotes] = useState(prefill?.notes ?? "");
   const distanceM = toMeters(toNum(distance), units, activityType);
   const entry = exercise && toNum(durationMin)
     ? { kind: "cardio", activityType, exerciseId: exercise.id, durationMin: toNum(durationMin), distanceM, perceivedEffort: toNum(effort), routeNote: routeNote || null, notes: notes || null }
@@ -392,15 +412,15 @@ export function RunLogger({ exerciseOptions, activityType, units, workoutId }: {
   );
 }
 
-export function TreadmillLogger({ exerciseOptions, units, workoutId }: { exerciseOptions: ExerciseOption[]; units: UnitsPref; workoutId?: string }) {
+export function TreadmillLogger({ exerciseOptions, units, workoutId, prefill }: { exerciseOptions: ExerciseOption[]; units: UnitsPref; workoutId?: string; prefill?: CardioPrefill }) {
   const [state, action, pending] = useActionState(logWorkout, undefined);
   const exercise = useActivityExercise(exerciseOptions, "treadmill_run");
-  const [durationMin, setDurationMin] = useState("");
-  const [distance, setDistance] = useState("");
+  const [durationMin, setDurationMin] = useState(prefill?.durationMin ?? "");
+  const [distance, setDistance] = useState(prefill?.distance ?? "");
   const [speed, setSpeed] = useState("");
   const [incline, setIncline] = useState("");
   const [effort, setEffort] = useState("");
-  const [notes, setNotes] = useState("");
+  const [notes, setNotes] = useState(prefill?.notes ?? "");
   const entry = exercise && toNum(durationMin)
     ? { kind: "cardio", activityType: "treadmill_run", exerciseId: exercise.id, durationMin: toNum(durationMin), distanceM: toMeters(toNum(distance), units, "treadmill_run"), speedKph: toKph(toNum(speed), units), inclinePct: toNum(incline), perceivedEffort: toNum(effort), notes: notes || null }
     : null;
@@ -423,15 +443,15 @@ export function TreadmillLogger({ exerciseOptions, units, workoutId }: { exercis
   );
 }
 
-export function RowingLogger({ exerciseOptions, workoutId }: { exerciseOptions: ExerciseOption[]; workoutId?: string }) {
+export function RowingLogger({ exerciseOptions, workoutId, prefill }: { exerciseOptions: ExerciseOption[]; workoutId?: string; prefill?: CardioPrefill }) {
   const [state, action, pending] = useActionState(logWorkout, undefined);
   const exercise = useActivityExercise(exerciseOptions, "rowing");
-  const [durationMin, setDurationMin] = useState("");
-  const [distance, setDistance] = useState("");
+  const [durationMin, setDurationMin] = useState(prefill?.durationMin ?? "");
+  const [distance, setDistance] = useState(prefill?.distance ?? "");
   const [strokeRate, setStrokeRate] = useState("");
   const [resistance, setResistance] = useState("");
   const [effort, setEffort] = useState("");
-  const [notes, setNotes] = useState("");
+  const [notes, setNotes] = useState(prefill?.notes ?? "");
   const entry = exercise && toNum(durationMin)
     ? { kind: "cardio", activityType: "rowing", exerciseId: exercise.id, durationMin: toNum(durationMin), distanceM: toMeters(toNum(distance), "metric", "rowing"), strokeRate: toNum(strokeRate), resistance: toNum(resistance), perceivedEffort: toNum(effort), notes: notes || null }
     : null;
@@ -454,17 +474,17 @@ export function RowingLogger({ exerciseOptions, workoutId }: { exerciseOptions: 
   );
 }
 
-export function BikeLogger({ exerciseOptions, activityType, units, workoutId }: { exerciseOptions: ExerciseOption[]; activityType: "stationary_bike" | "outdoor_bike" | "elliptical" | "generic_cardio"; units: UnitsPref; workoutId?: string }) {
+export function BikeLogger({ exerciseOptions, activityType, units, workoutId, prefill }: { exerciseOptions: ExerciseOption[]; activityType: "stationary_bike" | "outdoor_bike" | "elliptical" | "generic_cardio"; units: UnitsPref; workoutId?: string; prefill?: CardioPrefill }) {
   const [state, action, pending] = useActionState(logWorkout, undefined);
   const exercise = useActivityExercise(exerciseOptions, activityType);
-  const [durationMin, setDurationMin] = useState("");
-  const [distance, setDistance] = useState("");
+  const [durationMin, setDurationMin] = useState(prefill?.durationMin ?? "");
+  const [distance, setDistance] = useState(prefill?.distance ?? "");
   const [speed, setSpeed] = useState("");
   const [resistance, setResistance] = useState("");
   const [powerWatts, setPowerWatts] = useState("");
   const [calories, setCalories] = useState("");
   const [effort, setEffort] = useState("");
-  const [notes, setNotes] = useState("");
+  const [notes, setNotes] = useState(prefill?.notes ?? "");
   const entry = exercise && toNum(durationMin)
     ? { kind: "cardio", activityType, exerciseId: exercise.id, durationMin: toNum(durationMin), distanceM: toMeters(toNum(distance), units, activityType), speedKph: toKph(toNum(speed), units), resistance: toNum(resistance), powerWatts: toNum(powerWatts), calories: toNum(calories), perceivedEffort: toNum(effort), notes: notes || null }
     : null;
@@ -495,13 +515,13 @@ export function BikeLogger({ exerciseOptions, activityType, units, workoutId }: 
   );
 }
 
-export function MobilityLogger({ exerciseOptions, workoutId }: { exerciseOptions: ExerciseOption[]; workoutId?: string }) {
+export function MobilityLogger({ exerciseOptions, workoutId, prefill }: { exerciseOptions: ExerciseOption[]; workoutId?: string; prefill?: CardioPrefill }) {
   const [state, action, pending] = useActionState(logWorkout, undefined);
   const exercise = useActivityExercise(exerciseOptions, "mobility");
-  const [durationMin, setDurationMin] = useState("");
+  const [durationMin, setDurationMin] = useState(prefill?.durationMin ?? "");
   const [focusArea, setFocusArea] = useState("");
   const [effort, setEffort] = useState("");
-  const [notes, setNotes] = useState("");
+  const [notes, setNotes] = useState(prefill?.notes ?? "");
   const entry = exercise && toNum(durationMin)
     ? { kind: "mobility", activityType: "mobility", exerciseId: exercise.id, durationMin: toNum(durationMin), focusArea: focusArea || null, perceivedEffort: toNum(effort), notes: notes || null }
     : null;
