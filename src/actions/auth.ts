@@ -155,12 +155,7 @@ export async function resendVerificationEmail(
 
   const [user] = await db.select().from(users).where(eq(users.email, parsed.data.email)).limit(1);
   if (user && !user.emailVerifiedAt && !user.bannedAt) {
-    try {
-      await sendEmailVerification(user.id, user.email);
-    } catch (err) {
-      console.error("[auth] Failed to resend verification email", err);
-      return { error: "Verification email could not be sent right now. Please try again shortly." };
-    }
+    await sendEmailVerification(user.id, user.email);
   }
 
   return { success: "If that account needs verification, a new link is on the way." };
