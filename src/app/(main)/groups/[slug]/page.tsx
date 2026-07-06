@@ -4,6 +4,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { challenges, groupMembers, groups, profiles } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
+import { isModerator } from "@/lib/permissions";
 import { getGroupFeed } from "@/lib/queries";
 import { todayStr } from "@/lib/utils";
 import { toggleGroupMembership } from "@/actions/groups";
@@ -34,6 +35,7 @@ export default async function GroupPage({ params }: { params: Promise<{ slug: st
       .where(and(eq(groupMembers.groupId, group.id), eq(groupMembers.userId, user.id))),
   ]);
   const isMember = !!myMembership;
+  const canModerate = isModerator(user);
 
   return (
     <div className="mx-auto max-w-xl space-y-4">
@@ -111,7 +113,7 @@ export default async function GroupPage({ params }: { params: Promise<{ slug: st
       ) : (
         <div className="space-y-3">
           {feed.map((fp) => (
-            <PostCard key={fp.post.id} item={fp} />
+            <PostCard key={fp.post.id} item={fp} canModerate={canModerate} moderationPath={`/groups/${group.slug}`} />
           ))}
         </div>
       )}

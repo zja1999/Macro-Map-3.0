@@ -1,18 +1,17 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { desc, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { nutritionImportBatches, profiles } from "@/db/schema";
-import { getCurrentUser } from "@/lib/auth";
+import { requireAdmin } from "@/lib/permissions";
 import { timeAgo } from "@/lib/utils";
 import { Card } from "@/components/ui";
 import { AdminImportForm } from "@/components/AdminImportForm";
+import { AdminNav } from "@/components/AdminNav";
 
 export const metadata = { title: "Admin · Nutrition imports" };
 
 export default async function AdminImportsPage() {
-  const user = await getCurrentUser();
-  if (!user || user.role !== "admin") redirect("/");
+  await requireAdmin();
 
   const batches = await db
     .select({ batch: nutritionImportBatches, username: profiles.username })
@@ -29,6 +28,7 @@ export default async function AdminImportsPage() {
           Reports queue →
         </Link>
       </div>
+      <AdminNav isAdmin />
       <p className="text-xs text-ink-dim">
         Paste CSV from chain nutrition pages or USDA exports. Rows are validated (required fields, numeric sanity,
         4/4/9 consistency) and deduplicated against the file and existing data. Every batch is logged below.

@@ -6,6 +6,7 @@ import { z } from "zod";
 import { db } from "@/db/client";
 import { chains, foods, menuItems, nutritionImportBatches } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
+import { isAdmin } from "@/lib/permissions";
 
 /* Admin nutrition import (docs/08 §1d): CSV paste → required-field + numeric-sanity
  * checks, duplicate detection against the file AND existing rows, and a changelog
@@ -69,7 +70,7 @@ export async function importNutritionCsv(
 ): Promise<{ error?: string; summary?: string }> {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-  if (user.role !== "admin") return { error: "Admin only" };
+  if (!isAdmin(user)) return { error: "Admin only" };
 
   const target = z.enum(["foods", "menu_items"]).catch("foods").parse(formData.get("target"));
   const filename = String(formData.get("filename") || "pasted.csv").slice(0, 120);

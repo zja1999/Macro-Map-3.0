@@ -4,6 +4,7 @@ import { timeAgo, REACTION_KINDS } from "@/lib/utils";
 import type { FeedPost } from "@/lib/queries";
 import { Card, UserChip, Badge } from "./ui";
 import { RecipeCard } from "./RecipeCard";
+import { ModerationControls } from "./ModerationControls";
 
 const TYPE_BADGES: Record<string, string> = {
   recipe: "🍳 recipe",
@@ -14,7 +15,17 @@ const TYPE_BADGES: Record<string, string> = {
   meal_log_highlight: "🍽️ meal log",
 };
 
-export function PostCard({ item, authorForRecipe }: { item: FeedPost; authorForRecipe?: { displayName: string; username: string } }) {
+export function PostCard({
+  item,
+  authorForRecipe,
+  canModerate = false,
+  moderationPath,
+}: {
+  item: FeedPost;
+  authorForRecipe?: { displayName: string; username: string };
+  canModerate?: boolean;
+  moderationPath?: string;
+}) {
   const { post, author, recipe, myReaction } = item;
   return (
     <Card className="space-y-3 p-4">
@@ -32,6 +43,10 @@ export function PostCard({ item, authorForRecipe }: { item: FeedPost; authorForR
           authorUsername={authorForRecipe?.username ?? author.username}
           compact
         />
+      )}
+
+      {canModerate && (
+        <ModerationControls subjectType="post" subjectId={post.id} hidden={post.isRemoved} path={moderationPath ?? `/posts/${post.id}`} />
       )}
 
       <div className="flex items-center justify-between border-t border-edge pt-2">

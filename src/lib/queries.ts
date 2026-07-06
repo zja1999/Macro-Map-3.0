@@ -36,10 +36,11 @@ export async function getFeed(viewerId: string, scope: "following" | "trending")
   const base = db
     .select({ post: posts, username: profiles.username, displayName: profiles.displayName, goal: profiles.goal })
     .from(posts)
-    .innerJoin(profiles, eq(profiles.userId, posts.authorId));
+    .innerJoin(profiles, eq(profiles.userId, posts.authorId))
+    .innerJoin(users, eq(users.id, posts.authorId));
 
   // home feeds exclude group posts (those live on the group page) and moderated content
-  const homeVisible = and(isNull(posts.groupId), eq(posts.isRemoved, false));
+  const homeVisible = and(isNull(posts.groupId), eq(posts.isRemoved, false), isNull(users.bannedAt));
 
   let rows;
   if (scope === "following") {
@@ -65,7 +66,15 @@ export async function getFeed(viewerId: string, scope: "following" | "trending")
 
   // hydrate referenced recipes + viewer's reactions in two batch queries
   const recipeIds = rows.filter((r) => r.post.refType === "recipe" && r.post.refId).map((r) => r.post.refId!);
-  const recipeRows = recipeIds.length ? await db.select().from(recipes).where(inArray(recipes.id, recipeIds)) : [];
+  const recipeRows = recipeIds.length
+    ? (
+        await db
+          .select({ recipe: recipes })
+          .from(recipes)
+          .innerJoin(users, eq(users.id, recipes.authorId))
+          .where(and(inArray(recipes.id, recipeIds), eq(recipes.status, "published"), isNull(users.bannedAt)))
+      ).map((r) => r.recipe)
+    : [];
   const recipeById = new Map(recipeRows.map((r) => [r.id, r]));
 
   const postIds = rows.map((r) => r.post.id);
@@ -90,12 +99,21 @@ export async function getUserPosts(viewerId: string, authorId: string): Promise<
     .select({ post: posts, username: profiles.username, displayName: profiles.displayName, goal: profiles.goal })
     .from(posts)
     .innerJoin(profiles, eq(profiles.userId, posts.authorId))
-    .where(and(eq(posts.authorId, authorId), isNull(posts.groupId), eq(posts.isRemoved, false)))
+    .innerJoin(users, eq(users.id, posts.authorId))
+    .where(and(eq(posts.authorId, authorId), isNull(posts.groupId), eq(posts.isRemoved, false), isNull(users.bannedAt)))
     .orderBy(desc(posts.createdAt))
     .limit(40);
 
   const recipeIds = rows.filter((r) => r.post.refType === "recipe" && r.post.refId).map((r) => r.post.refId!);
-  const recipeRows = recipeIds.length ? await db.select().from(recipes).where(inArray(recipes.id, recipeIds)) : [];
+  const recipeRows = recipeIds.length
+    ? (
+        await db
+          .select({ recipe: recipes })
+          .from(recipes)
+          .innerJoin(users, eq(users.id, recipes.authorId))
+          .where(and(inArray(recipes.id, recipeIds), eq(recipes.status, "published"), isNull(users.bannedAt)))
+      ).map((r) => r.recipe)
+    : [];
   const recipeById = new Map(recipeRows.map((r) => [r.id, r]));
 
   const postIds = rows.map((r) => r.post.id);
@@ -120,7 +138,8 @@ export async function getGroupFeed(viewerId: string, groupId: string): Promise<F
     .select({ post: posts, username: profiles.username, displayName: profiles.displayName, goal: profiles.goal })
     .from(posts)
     .innerJoin(profiles, eq(profiles.userId, posts.authorId))
-    .where(and(eq(posts.groupId, groupId), eq(posts.isRemoved, false)))
+    .innerJoin(users, eq(users.id, posts.authorId))
+    .where(and(eq(posts.groupId, groupId), eq(posts.isRemoved, false), isNull(users.bannedAt)))
     .orderBy(desc(posts.createdAt))
     .limit(40);
 
@@ -146,7 +165,7 @@ export async function getGroupFeed(viewerId: string, groupId: string): Promise<F
 export type RecipeSort = "hot" | "new" | "protein" | "top";
 
 export async function listRecipes(opts: { q?: string; tag?: string; sort?: RecipeSort; authorId?: string; limit?: number }) {
-  const conds = [eq(recipes.status, "published")];
+  const conds = [eq(recipes.status, "published"), isNull(users.bannedAt)];
   if (opts.q) conds.push(ilike(recipes.name, `%${opts.q}%`));
   if (opts.tag) conds.push(sql`${opts.tag} = ANY(${recipes.tags})`);
   if (opts.authorId) conds.push(eq(recipes.authorId, opts.authorId));
@@ -165,6 +184,7 @@ export async function listRecipes(opts: { q?: string; tag?: string; sort?: Recip
     .select({ recipe: recipes, username: profiles.username, displayName: profiles.displayName })
     .from(recipes)
     .innerJoin(profiles, eq(profiles.userId, recipes.authorId))
+    .innerJoin(users, eq(users.id, recipes.authorId))
     .where(and(...conds))
     .orderBy(...order)
     .limit(opts.limit ?? 30);
@@ -176,7 +196,8 @@ export async function getSavedRecipes(userId: string) {
     .from(saves)
     .innerJoin(recipes, eq(recipes.id, saves.subjectId))
     .innerJoin(profiles, eq(profiles.userId, recipes.authorId))
-    .where(and(eq(saves.userId, userId), eq(saves.subjectType, "recipe")))
+    .innerJoin(users, eq(users.id, recipes.authorId))
+    .where(and(eq(saves.userId, userId), eq(saves.subjectType, "recipe"), eq(recipes.status, "published"), isNull(users.bannedAt)))
     .orderBy(desc(saves.createdAt));
 }
 
@@ -369,7 +390,7 @@ export async function getProfileByUsername(username: string) {
     .select({ profile: profiles, reputation: users.reputation })
     .from(profiles)
     .innerJoin(users, eq(users.id, profiles.userId))
-    .where(eq(profiles.username, username.toLowerCase()))
+    .where(and(eq(profiles.username, username.toLowerCase()), isNull(users.bannedAt)))
     .limit(1);
   return row ?? null;
 }
@@ -395,7 +416,8 @@ export async function getComments(subjectType: "post" | "recipe", subjectId: str
     .select({ comment: comments, username: profiles.username, displayName: profiles.displayName })
     .from(comments)
     .innerJoin(profiles, eq(profiles.userId, comments.authorId))
-    .where(and(eq(comments.subjectType, subjectType), eq(comments.subjectId, subjectId)))
+    .innerJoin(users, eq(users.id, comments.authorId))
+    .where(and(eq(comments.subjectType, subjectType), eq(comments.subjectId, subjectId), isNull(users.bannedAt)))
     .orderBy(comments.createdAt);
 }
 
@@ -407,6 +429,7 @@ export async function getSuggestedUsers(viewerId: string, limit = 5) {
     .where(
       and(
         sql`${profiles.userId} <> ${viewerId}`,
+        isNull(users.bannedAt),
         sql`${profiles.userId} NOT IN (SELECT followee_id FROM follows WHERE follower_id = ${viewerId})`,
       ),
     )

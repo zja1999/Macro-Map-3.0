@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
+import { isModerator } from "@/lib/permissions";
 import { getFeed, getSuggestedUsers } from "@/lib/queries";
 import { PostCard } from "@/components/PostCard";
 import { PostComposer } from "@/components/PostComposer";
@@ -15,6 +16,7 @@ export default async function FeedPage({
   const { tab } = await searchParams;
   const scope = tab === "trending" ? "trending" : "following";
   const [feed, suggested] = await Promise.all([getFeed(user.id, scope), getSuggestedUsers(user.id, 4)]);
+  const canModerate = isModerator(user);
 
   return (
     <div className="mx-auto max-w-xl space-y-4">
@@ -68,7 +70,7 @@ export default async function FeedPage({
           }
         />
       ) : (
-        feed.map((item) => <PostCard key={item.post.id} item={item} />)
+        feed.map((item) => <PostCard key={item.post.id} item={item} canModerate={canModerate} moderationPath="/" />)
       )}
     </div>
   );

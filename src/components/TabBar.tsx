@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const tabs = [
+type NavItem = { href: string; label: string; icon: string; primary?: boolean };
+
+const tabs: NavItem[] = [
   { href: "/", label: "Feed", icon: "🏠" },
   { href: "/discover", label: "Discover", icon: "🔍" },
   { href: "/track/add", label: "Log", icon: "＋", primary: true },
@@ -11,12 +13,15 @@ const tabs = [
   { href: "/me", label: "Profile", icon: "👤" },
 ];
 
-export function TabBar() {
+const adminLink: NavItem = { href: "/admin", label: "Admin", icon: "Admin" };
+
+export function TabBar({ canModerate = false }: { canModerate?: boolean }) {
   const pathname = usePathname();
+  const visibleTabs = canModerate ? [...tabs.slice(0, 4), adminLink, tabs[4]] : tabs;
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-edge bg-surface/95 backdrop-blur md:hidden">
       <div className="mx-auto flex max-w-lg items-stretch justify-around">
-        {tabs.map((t) => {
+        {visibleTabs.map((t) => {
           const active = t.href === "/" ? pathname === "/" : pathname.startsWith(t.href);
           if (t.primary) {
             return (
@@ -45,7 +50,7 @@ export function TabBar() {
   );
 }
 
-export function SideNav() {
+export function SideNav({ canModerate = false }: { canModerate?: boolean }) {
   const pathname = usePathname();
   const links = [
     { href: "/", label: "Feed", icon: "🏠" },
@@ -61,9 +66,10 @@ export function SideNav() {
     { href: "/groceries", label: "Groceries", icon: "🛒" },
     { href: "/me", label: "Profile", icon: "👤" },
   ];
+  const visibleLinks = canModerate ? [...links.slice(0, -1), adminLink, links[links.length - 1]] : links;
   return (
     <nav className="sticky top-16 hidden w-48 shrink-0 flex-col gap-0.5 md:flex">
-      {links.map((l) => {
+      {visibleLinks.map((l) => {
         const active = l.href === "/" ? pathname === "/" : pathname.startsWith(l.href);
         return (
           <Link

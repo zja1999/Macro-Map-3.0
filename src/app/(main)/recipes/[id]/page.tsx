@@ -2,8 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { and, eq, asc } from "drizzle-orm";
 import { db } from "@/db/client";
-import { recipes, recipeIngredients, profiles, foods, contentWarnings } from "@/db/schema";
+import { recipes, recipeIngredients, profiles, foods, contentWarnings, users } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
+import { isModerator } from "@/lib/permissions";
 import { getRecipeInteractions } from "@/lib/queries";
 import { todayStr, MEAL_SLOTS } from "@/lib/utils";
 import { voteRecipe, toggleSaveRecipe, reviewRecipe } from "@/actions/recipes";
@@ -14,19 +15,24 @@ import { Card, Badge, UserChip, inputCls, btnGhost } from "@/components/ui";
 import { MacroPills, ProvenanceBadge } from "@/components/macros";
 import { CommentSection } from "@/components/CommentSection";
 import { ReportButton } from "@/components/ReportButton";
+import { ModerationControls } from "@/components/ModerationControls";
 
 export default async function RecipePage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
   const { id } = await params;
 
   const [row] = await db
-    .select({ recipe: recipes, username: profiles.username, displayName: profiles.displayName })
+    .select({ recipe: recipes, username: profiles.username, displayName: profiles.displayName, bannedAt: users.bannedAt })
     .from(recipes)
     .innerJoin(profiles, eq(profiles.userId, recipes.authorId))
+    .innerJoin(users, eq(users.id, recipes.authorId))
     .where(eq(recipes.id, id))
     .limit(1);
   if (!row) notFound();
   const { recipe, username, displayName } = row;
+  const canModerate = isModerator(user);
+  if (row.bannedAt && !canModerate) notFound();
+  if (recipe.status !== "published" && recipe.authorId !== user.id && !canModerate) notFound();
 
   const [ingredients, { myVote, saved }, warnings] = await Promise.all([
     db
@@ -47,6 +53,11 @@ export default async function RecipePage({ params }: { params: Promise<{ id: str
 
   return (
     <div className="mx-auto max-w-xl space-y-5">
+      {recipe.status !== "published" && (
+        <p className="rounded-xl border border-danger/40 bg-danger/10 px-4 py-3 text-xs text-danger">
+          This recipe is hidden from the community.
+        </p>
+      )}
       {warnings.map((w) => (
         <p key={w.kind} className="rounded-xl border border-carbs/40 bg-carbs/10 px-4 py-3 text-xs text-carbs">
           ⚠ Community warning: {w.kind.replace(/_/g, " ")}
@@ -101,6 +112,10 @@ export default async function RecipePage({ params }: { params: Promise<{ id: str
           ))}
         </div>
       </div>
+
+      {canModerate && (
+        <ModerationControls subjectType="recipe" subjectId={recipe.id} hidden={recipe.status === "removed"} path={`/recipes/${recipe.id}`} />
+      )}
 
       {/* macro panel */}
       <Card className="space-y-3 p-4">

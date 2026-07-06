@@ -25,6 +25,8 @@ export const users = pgTable("users", {
   role: text().notNull().default("user"), // user | moderator | admin
   reputation: integer().notNull().default(0),
   isGuest: boolean().notNull().default(false), // anonymous session; claimed via settings (docs/08 §1a)
+  bannedAt: timestamp({ withTimezone: true }), // set = suspended: can't log in, content hidden (docs/07)
+  bannedReason: text(),
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -829,15 +831,13 @@ export const reports = pgTable(
   "reports",
   {
     id: uuid().primaryKey().defaultRandom(),
-    reporterId: uuid()
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+    reporterId: uuid().references(() => users.id, { onDelete: "set null" }),
     subjectType: text().notNull(), // post | recipe | comment | user
     subjectId: uuid().notNull(),
     reason: text().notNull(), // inaccurate_macros | unsafe_advice | harassment | body_shaming | ed_content | spam | stolen_content | fake_transformation | medical_claim | other
     detail: text(),
     status: text().notNull().default("open"), // open | actioned | dismissed
-    reviewedBy: uuid().references(() => users.id),
+    reviewedBy: uuid().references(() => users.id, { onDelete: "set null" }),
     reviewedAt: timestamp({ withTimezone: true }),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
@@ -849,13 +849,11 @@ export const reports = pgTable(
 
 export const moderationActions = pgTable("moderation_actions", {
   id: uuid().primaryKey().defaultRandom(),
-  actorId: uuid()
-    .notNull()
-    .references(() => users.id),
+  actorId: uuid().references(() => users.id, { onDelete: "set null" }),
   kind: text().notNull(), // remove_content | restore_content | add_warning_label | dismiss_report | auto_hide
   subjectType: text().notNull(),
   subjectId: uuid().notNull(),
-  reportId: uuid().references(() => reports.id),
+  reportId: uuid().references(() => reports.id, { onDelete: "set null" }),
   reason: text().notNull(),
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });
@@ -867,9 +865,7 @@ export const contentWarnings = pgTable(
     subjectId: uuid().notNull(),
     kind: text().notNull(), // misinformation | unsafe_diet | unverified_macros
     note: text(),
-    addedBy: uuid()
-      .notNull()
-      .references(() => users.id),
+    addedBy: uuid().references(() => users.id, { onDelete: "set null" }),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [primaryKey({ columns: [t.subjectType, t.subjectId, t.kind] })],

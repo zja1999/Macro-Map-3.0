@@ -1,12 +1,12 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { asc, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db/client";
 import { comments, moderationActions, posts, profiles, recipes, reports } from "@/db/schema";
-import { getCurrentUser } from "@/lib/auth";
+import { requireModerator, isAdmin } from "@/lib/permissions";
 import { timeAgo } from "@/lib/utils";
 import { resolveReport } from "@/actions/moderation";
 import { Card, Badge, inputCls } from "@/components/ui";
+import { AdminNav } from "@/components/AdminNav";
 
 export const metadata = { title: "Admin · Reports" };
 
@@ -14,13 +14,12 @@ export const metadata = { title: "Admin · Reports" };
 const SAFETY = ["ed_content", "unsafe_advice", "harassment", "body_shaming"];
 
 export default async function AdminReportsPage() {
-  const user = await getCurrentUser();
-  if (!user || (user.role !== "admin" && user.role !== "moderator")) redirect("/");
+  const user = await requireModerator();
 
   const open = await db
     .select({ report: reports, reporter: profiles.username })
     .from(reports)
-    .innerJoin(profiles, eq(profiles.userId, reports.reporterId))
+    .leftJoin(profiles, eq(profiles.userId, reports.reporterId))
     .where(eq(reports.status, "open"))
     .orderBy(asc(reports.createdAt))
     .limit(100);
@@ -43,7 +42,7 @@ export default async function AdminReportsPage() {
   const recentActions = await db
     .select({ action: moderationActions, actor: profiles.username })
     .from(moderationActions)
-    .innerJoin(profiles, eq(profiles.userId, moderationActions.actorId))
+    .leftJoin(profiles, eq(profiles.userId, moderationActions.actorId))
     .orderBy(desc(moderationActions.createdAt))
     .limit(15);
 
@@ -55,6 +54,8 @@ export default async function AdminReportsPage() {
           Nutrition imports →
         </Link>
       </div>
+
+      <AdminNav isAdmin={isAdmin(user)} />
 
       {sorted.length === 0 ? (
         <p className="rounded-xl border border-dashed border-edge py-10 text-center text-sm text-ink-faint">
@@ -72,7 +73,7 @@ export default async function AdminReportsPage() {
                   <Badge>{report.subjectType}</Badge>
                   {p?.hidden && <Badge tone="warn">already hidden</Badge>}
                   <span className="text-ink-faint">
-                    by @{reporter} · {timeAgo(report.createdAt)}
+                    by {reporter ? `@${reporter}` : "deleted user"} · {timeAgo(report.createdAt)}
                   </span>
                 </div>
                 <p className="rounded-lg bg-surface px-3 py-2 text-xs text-ink-dim">
@@ -132,7 +133,7 @@ export default async function AdminReportsPage() {
           <ul className="divide-y divide-edge text-xs">
             {recentActions.map(({ action, actor }) => (
               <li key={action.id} className="py-1.5 text-ink-dim">
-                <span className="font-medium">@{actor}</span> · {action.kind.replace(/_/g, " ")} ·{" "}
+                <span className="font-medium">{actor ? `@${actor}` : "Deleted user"}</span> · {action.kind.replace(/_/g, " ")} ·{" "}
                 {action.subjectType} · <span className="text-ink-faint">{action.reason}</span>{" "}
                 <span className="text-ink-faint">({timeAgo(action.createdAt)})</span>
               </li>

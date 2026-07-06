@@ -57,6 +57,8 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   if (!rows[0]) return null;
 
   const { user, profile } = rows[0];
+  // banned = the session is dead: block every authenticated surface at the source
+  if (user.bannedAt) return null;
   const targets = await db
     .select()
     .from(nutritionTargets)

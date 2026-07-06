@@ -1,8 +1,9 @@
 import { notFound } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db/client";
-import { contentWarnings, posts, profiles, recipes, reactions } from "@/db/schema";
+import { contentWarnings, posts, profiles, recipes, reactions, users } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
+import { isModerator } from "@/lib/permissions";
 import { PostCard } from "@/components/PostCard";
 import { CommentSection } from "@/components/CommentSection";
 import { ReportButton } from "@/components/ReportButton";
@@ -13,9 +14,10 @@ export default async function PostPage({ params }: { params: Promise<{ id: strin
   const { id } = await params;
 
   const [row] = await db
-    .select({ post: posts, username: profiles.username, displayName: profiles.displayName, goal: profiles.goal })
+    .select({ post: posts, username: profiles.username, displayName: profiles.displayName, goal: profiles.goal, bannedAt: users.bannedAt })
     .from(posts)
     .innerJoin(profiles, eq(profiles.userId, posts.authorId))
+    .innerJoin(users, eq(users.id, posts.authorId))
     .where(eq(posts.id, id))
     .limit(1);
   if (!row) notFound();
@@ -35,7 +37,9 @@ export default async function PostPage({ params }: { params: Promise<{ id: strin
     .where(and(eq(contentWarnings.subjectType, "post"), eq(contentWarnings.subjectId, id)));
 
   // moderated content: author sees a notice, everyone else gets a 404 (docs/07 §2)
-  if (row.post.isRemoved && row.post.authorId !== user.id && user.role === "user") notFound();
+  const canModerate = isModerator(user);
+  if (row.bannedAt && !canModerate) notFound();
+  if (row.post.isRemoved && row.post.authorId !== user.id && !canModerate) notFound();
 
   return (
     <div className="mx-auto max-w-xl space-y-5">
@@ -57,6 +61,8 @@ export default async function PostPage({ params }: { params: Promise<{ id: strin
           recipe,
           myReaction: myReaction?.kind ?? null,
         }}
+        canModerate={canModerate}
+        moderationPath={`/posts/${row.post.id}`}
       />
       <div className="flex items-center justify-between">
         {row.post.authorId !== user.id ? (

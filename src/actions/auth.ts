@@ -61,6 +61,9 @@ export async function login(
   if (!user || !(await bcrypt.compare(parsed.data.password, user.passwordHash))) {
     return { error: "Invalid email or password" };
   }
+  if (user.bannedAt) {
+    return { error: "This account has been suspended." };
+  }
   await createSession(user.id);
   redirect("/");
 }

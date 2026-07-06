@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
+import { isModerator } from "@/lib/permissions";
 import { getProfileByUsername, getFollowStats, getUserPosts, listRecipes } from "@/lib/queries";
 import { toggleFollow } from "@/actions/social";
 import { logout } from "@/actions/auth";
@@ -23,6 +24,7 @@ export default async function ProfilePage({
   if (!row) notFound();
   const { profile, reputation } = row;
   const isMe = profile.userId === viewer.id;
+  const canModerate = isModerator(viewer);
   const stats = await getFollowStats(profile.userId, viewer.id);
   const activeTab = tab === "recipes" ? "recipes" : "posts";
 
@@ -102,7 +104,7 @@ export default async function ProfilePage({
         (posts.length === 0 ? (
           <EmptyState title="No posts yet" />
         ) : (
-          posts.map((item) => <PostCard key={item.post.id} item={item} />)
+          posts.map((item) => <PostCard key={item.post.id} item={item} canModerate={canModerate} moderationPath={`/u/${profile.username}`} />)
         ))}
 
       {activeTab === "recipes" &&

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
+import { isModerator } from "@/lib/permissions";
 import { getStreak } from "@/lib/queries";
 import { todayStr } from "@/lib/utils";
 import { TabBar, SideNav } from "@/components/TabBar";
@@ -11,6 +12,7 @@ export default async function MainLayout({ children }: { children: React.ReactNo
   if (!user) redirect("/login");
   if (!user.profile.onboardedAt) redirect("/onboarding");
   const streak = await getStreak(user.id, todayStr());
+  const canModerate = isModerator(user);
 
   return (
     <div className="min-h-dvh pb-20 md:pb-8">
@@ -45,10 +47,10 @@ export default async function MainLayout({ children }: { children: React.ReactNo
         </div>
       )}
       <div className="mx-auto flex max-w-5xl gap-8 px-4 pt-6">
-        <SideNav />
+        <SideNav canModerate={canModerate} />
         <main className="min-w-0 flex-1">{children}</main>
       </div>
-      <TabBar />
+      <TabBar canModerate={canModerate} />
     </div>
   );
 }

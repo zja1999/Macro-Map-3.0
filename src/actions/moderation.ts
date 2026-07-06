@@ -7,6 +7,7 @@ import { z } from "zod";
 import { db } from "@/db/client";
 import { comments, contentWarnings, moderationActions, posts, recipes, reports } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
+import { assertModerator } from "@/lib/permissions";
 import { checkRateLimit } from "@/lib/rateLimit";
 
 const REASONS = [
@@ -112,9 +113,7 @@ const resolveSchema = z.object({
 });
 
 export async function resolveReport(formData: FormData) {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
-  if (user.role !== "admin" && user.role !== "moderator") throw new Error("Moderators only");
+  const user = await assertModerator();
 
   const d = resolveSchema.parse({
     reportId: formData.get("reportId"),
@@ -171,4 +170,103 @@ export async function resolveReport(formData: FormData) {
     });
   });
   revalidatePath("/admin/reports");
+}
+
+// ─── proactive moderation — act on any content, no report required (docs/07) ──
+
+const moderateSchema = z.object({
+  subjectType: z.enum(["post", "recipe", "comment"]),
+  subjectId: z.string().uuid(),
+  // hide = reversible soft-hide (posts/recipes); delete = permanent; restore = un-hide;
+  // warn = attach a community warning label. Comments have no soft state → use delete.
+  action: z.enum(["hide", "restore", "delete", "warn"]),
+  warningKind: z.enum(["misinformation", "unsafe_diet", "unverified_macros"]).optional(),
+  note: z.string().max(300).optional(),
+  path: z.string().max(200).optional(), // page to revalidate (the surface the mod acted from)
+});
+
+export async function moderateContent(formData: FormData) {
+  const actor = await assertModerator();
+  const d = moderateSchema.parse({
+    subjectType: formData.get("subjectType"),
+    subjectId: formData.get("subjectId"),
+    action: formData.get("action"),
+    warningKind: formData.get("warningKind") || undefined,
+    note: formData.get("note") || undefined,
+    path: formData.get("path") || undefined,
+  });
+
+  await db.transaction(async (tx) => {
+    if (d.action === "warn") {
+      await tx
+        .insert(contentWarnings)
+        .values({
+          subjectType: d.subjectType,
+          subjectId: d.subjectId,
+          kind: d.warningKind ?? "misinformation",
+          note: d.note ?? null,
+          addedBy: actor.id,
+        })
+        .onConflictDoNothing();
+    } else if (d.action === "delete") {
+      // hard delete — mirrors the author self-delete convention (polymorphic
+      // children are left unreferenced, never re-queried once the parent is gone)
+      if (d.subjectType === "post") await tx.delete(posts).where(eq(posts.id, d.subjectId));
+      else if (d.subjectType === "recipe") await tx.delete(recipes).where(eq(recipes.id, d.subjectId));
+      else if (d.subjectType === "comment") {
+        const [c] = await tx.select().from(comments).where(eq(comments.id, d.subjectId));
+        if (c) {
+          await tx.delete(comments).where(eq(comments.id, c.id));
+          if (c.subjectType === "post") {
+            await tx
+              .update(posts)
+              .set({ commentCount: sql`GREATEST(0, ${posts.commentCount} - 1)` })
+              .where(eq(posts.id, c.subjectId));
+          }
+        }
+      }
+    } else {
+      // hide / restore — soft state on posts and recipes; comments have none
+      const removed = d.action === "hide";
+      if (d.subjectType === "post") {
+        await tx.update(posts).set({ isRemoved: removed }).where(eq(posts.id, d.subjectId));
+      } else if (d.subjectType === "recipe") {
+        await tx.update(recipes).set({ status: removed ? "removed" : "published" }).where(eq(recipes.id, d.subjectId));
+      } else if (d.subjectType === "comment" && removed) {
+        // no soft-hide for comments → hide means delete
+        const [c] = await tx.select().from(comments).where(eq(comments.id, d.subjectId));
+        if (c) {
+          await tx.delete(comments).where(eq(comments.id, c.id));
+          if (c.subjectType === "post") {
+            await tx
+              .update(posts)
+              .set({ commentCount: sql`GREATEST(0, ${posts.commentCount} - 1)` })
+              .where(eq(posts.id, c.subjectId));
+          }
+        }
+      }
+    }
+
+    const kind =
+      d.action === "warn"
+        ? "add_warning_label"
+        : d.action === "delete"
+          ? "delete_content"
+          : d.action === "hide"
+            ? "hide_content"
+            : "restore_content";
+    await tx.insert(moderationActions).values({
+      actorId: actor.id,
+      kind,
+      subjectType: d.subjectType,
+      subjectId: d.subjectId,
+      reason: d.note ?? `${kind.replace(/_/g, " ")} (proactive, no report)`,
+    });
+  });
+
+  revalidatePath("/");
+  revalidatePath("/admin/audit");
+  if (d.path) revalidatePath(d.path);
+  if (d.subjectType === "post") revalidatePath(`/posts/${d.subjectId}`);
+  if (d.subjectType === "recipe") revalidatePath(`/recipes/${d.subjectId}`);
 }
