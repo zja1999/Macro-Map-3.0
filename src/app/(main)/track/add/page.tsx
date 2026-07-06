@@ -11,6 +11,7 @@ import { logFood, logRecipe, quickAdd } from "@/actions/logging";
 import { logGoToOrder, logMenuItem } from "@/actions/restaurants";
 import { Card, inputCls, btnPrimary } from "@/components/ui";
 import { MacroPills } from "@/components/macros";
+import { BarcodeScanner } from "@/components/BarcodeScanner";
 
 export const metadata = { title: "Add food" };
 
@@ -23,7 +24,8 @@ export default async function AddFoodPage({
   const sp = await searchParams;
   const date = /^\d{4}-\d{2}-\d{2}$/.test(sp.date ?? "") ? sp.date! : todayStr();
   const slot = MEAL_SLOTS.includes((sp.slot ?? "") as (typeof MEAL_SLOTS)[number]) ? sp.slot! : "snack";
-  const tab = sp.tab === "saved" ? "saved" : sp.tab === "quick" ? "quick" : "search";
+  const tab =
+    sp.tab === "saved" ? "saved" : sp.tab === "quick" ? "quick" : sp.tab === "scan" ? "scan" : "search";
   const q = (sp.q ?? "").slice(0, 60);
 
   // fallback dataset (docs/08 §1d): DB outage degrades search to a bundled snapshot
@@ -81,7 +83,8 @@ export default async function AddFoodPage({
       <div className="flex gap-1 rounded-lg border border-edge bg-card p-1">
         {[
           { key: "search", label: "🔍 Search" },
-          { key: "saved", label: "🔖 Saved recipes" },
+          { key: "scan", label: "📷 Scan" },
+          { key: "saved", label: "🔖 Saved" },
           { key: "quick", label: "⚡ Quick add" },
         ].map((t) => (
           <Link
@@ -314,6 +317,8 @@ export default async function AddFoodPage({
           ))}
         </div>
       )}
+
+      {tab === "scan" && <BarcodeScanner date={date} slot={slot} />}
 
       {tab === "quick" && (
         <Card className="p-4">

@@ -1,4 +1,7 @@
-# Macro Map — Health Integrations & Extended Tracking (planned design)
+# Macro Map — Health Integrations & Extended Tracking
+
+**Status:** §1–4 are built (micronutrients, barcode scanning, fasting timer, manual sleep
+logging). §5 wearable sync remains planned. Implementation notes inline per section.
 
 Five roadmap items that came out of a feature-gap review against the major nutrition/workout apps
 (MyFitnessPal, Cronometer, Whoop, Strava, MacroFactor): **micronutrients, barcode scanning, a
@@ -32,6 +35,13 @@ nullable columns on tables that already exist, not a new subsystem.
 **Phase:** roadmap Phase 2 — pure schema + UI extension of an already-built vertical, no external
 dependency, no new risk.
 
+> **Built.** Columns live on `foods`/`recipes`/`menu_items`/`food_logs` (shared `microColumns()`
+> helper in [schema.ts](../src/db/schema.ts)); all log paths snapshot them; the diary shows a
+> collapsed "More nutrients" panel ([lib/nutrients.ts](../src/lib/nutrients.ts) holds the FDA DVs).
+> Nutrients no logged item carries render as "—", never a fake 0. Seed foods carry
+> fiber/sugar/sat-fat/sodium; vitamins arrive via barcode imports. Recipe-form ingredient
+> roll-up of micros and the admin CSV columns are still open (seed recipes do roll up).
+
 ## 2. Barcode scanning
 
 Client-side barcode decode (`@zxing/browser` or similar, `getUserMedia` camera access — works in
@@ -55,6 +65,12 @@ entry friction shows up in retention data, same deferral discipline as Redis/sea
 
 **Phase:** roadmap Phase 2 (barcode only) — client-side + one free API call, no OAuth, no native app.
 
+> **Built.** "📷 Scan" tab on Add Food: `@zxing/browser` camera decode with manual digit entry as
+> the always-works fallback ([BarcodeScanner.tsx](../src/components/BarcodeScanner.tsx));
+> [actions/barcode.ts](../src/actions/barcode.ts) resolves via OFF v2, inserts a `foods` row
+> (per-100 g, `source='off_import'`, unverified, micros mapped with g→mg/mcg conversions) and
+> redirects into the normal search-and-log flow. Re-scans of a known barcode skip the API.
+
 ## 3. Fasting timer
 
 A `fasting_windows` table: `userId`, `startedAt`, `endedAt` (nullable while active), `targetHours`.
@@ -63,6 +79,9 @@ Streaks compute the same way the existing habit streaks do ([08 §1b](08-mvp-roa
 no new streak engine, just another `*_logs`-shaped table feeding the same computation.
 
 **Phase:** roadmap Phase 2 — same size and shape as the habits tracker that's already built.
+
+> **Built.** `fasting_windows` table; start/end/discard actions; live-elapsed card on the tracker
+> (today only), progress bar against target, last-completed line when idle.
 
 ## 4. Sleep tracking
 
@@ -76,6 +95,11 @@ Two tiers, shippable independently:
 
 **Phase:** manual entry — Phase 2 (no dependency, ships now). Synced sleep — bundled with whichever
 wearable integration lands it (§5).
+
+> **Built** (manual tier). Implementation refinement over the sketch above: times are stored as
+> local `"HH:MM"` strings + a computed `durationMin` (bed ≥ wake ⇒ overnight, +24 h) instead of
+> timestamps — no timezone round-trip for a web form. `source` column is ready for §5 providers.
+> Card on /progress: log form, last-7 nights with duration bars, quality, running average.
 
 ## 5. Wearable & health-platform sync
 

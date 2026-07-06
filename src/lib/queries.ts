@@ -17,6 +17,8 @@ import {
   habitLogs,
   photos,
   mediaAttachments,
+  fastingWindows,
+  sleepLogs,
 } from "@/db/schema";
 import { shiftDate, todayStr } from "./utils";
 import type { Remaining } from "./restaurants";
@@ -217,6 +219,28 @@ export async function getWeekSummary(userId: string, endDate: string) {
     .where(and(eq(foodLogs.userId, userId), gte(foodLogs.logDate, startDate)))
     .groupBy(foodLogs.logDate);
   return rows;
+}
+
+export async function getFastingState(userId: string) {
+  // active fast (endedAt null) + most recent completed one, in one small scan
+  const rows = await db
+    .select()
+    .from(fastingWindows)
+    .where(eq(fastingWindows.userId, userId))
+    .orderBy(desc(fastingWindows.startedAt))
+    .limit(5);
+  return {
+    active: rows.find((r) => r.endedAt == null) ?? null,
+    lastCompleted: rows.find((r) => r.endedAt != null) ?? null,
+  };
+}
+
+export async function getSleepLogs(userId: string, days = 14) {
+  return db
+    .select()
+    .from(sleepLogs)
+    .where(and(eq(sleepLogs.userId, userId), gte(sleepLogs.sleepDate, shiftDate(todayStr(), -days))))
+    .orderBy(desc(sleepLogs.sleepDate));
 }
 
 export async function getStreak(userId: string, fromDate: string): Promise<number> {

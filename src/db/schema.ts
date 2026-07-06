@@ -211,6 +211,21 @@ export const mediaAttachments = pgTable(
   (t) => [index("media_subject_idx").on(t.subjectType, t.subjectId)],
 );
 
+// FDA-label micronutrients (docs/10 §1) — sparse by design: null means "no data",
+// same contract as fiberG/sodiumMg. Fresh builders per table (drizzle builders are stateful).
+const microColumns = () => ({
+  sugarG: real(),
+  addedSugarG: real(),
+  saturatedFatG: real(),
+  cholesterolMg: real(),
+  potassiumMg: real(),
+  calciumMg: real(),
+  ironMg: real(),
+  vitaminAMcg: real(),
+  vitaminCMg: real(),
+  vitaminDMcg: real(),
+});
+
 export const foods = pgTable(
   "foods",
   {
@@ -225,10 +240,12 @@ export const foods = pgTable(
     fatG: real().notNull(),
     fiberG: real(),
     sodiumMg: real(),
-    source: text().notNull().default("seed"), // seed | user | admin
+    ...microColumns(),
+    barcode: text(), // EAN/UPC digits for scan lookup (docs/10 §2)
+    source: text().notNull().default("seed"), // seed | user | admin | off_import
     verified: boolean().notNull().default(false),
   },
-  (t) => [index("foods_name_idx").on(t.name)],
+  (t) => [index("foods_name_idx").on(t.name), index("foods_barcode_idx").on(t.barcode)],
 );
 
 export const foodLogs = pgTable(
@@ -250,6 +267,9 @@ export const foodLogs = pgTable(
     proteinG: real().notNull(),
     carbsG: real().notNull(),
     fatG: real().notNull(),
+    fiberG: real(),
+    sodiumMg: real(),
+    ...microColumns(),
     loggedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
@@ -290,6 +310,8 @@ export const recipes = pgTable(
     carbsG: real().notNull(),
     fatG: real().notNull(),
     fiberG: real(),
+    sodiumMg: real(),
+    ...microColumns(),
     macroSource: text().notNull().default("creator_entered"), // ingredient_calculated | creator_entered | verified
     macroConfidence: real().notNull().default(0.3),
     prepMin: integer(),
@@ -410,6 +432,7 @@ export const menuItems = pgTable(
     fatG: real().notNull(),
     fiberG: real(),
     sodiumMg: real(),
+    ...microColumns(),
     macroSource: text().notNull().default("label_imported"),
     verified: boolean().notNull().default(true),
   },
@@ -523,6 +546,39 @@ export const habitLogs = pgTable(
     logDate: date().notNull(),
   },
   (t) => [primaryKey({ columns: [t.habitId, t.logDate] })],
+);
+
+// One row per fast; endedAt null while active (docs/10 §3)
+export const fastingWindows = pgTable(
+  "fasting_windows",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    startedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    endedAt: timestamp({ withTimezone: true }),
+    targetHours: real().notNull(),
+  },
+  (t) => [index("fasting_user_idx").on(t.userId, t.startedAt)],
+);
+
+// One row per night, keyed by wake-up date; times as local "HH:MM" strings so no
+// timezone round-trip is needed — durationMin is the number analytics use (docs/10 §4)
+export const sleepLogs = pgTable(
+  "sleep_logs",
+  {
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    sleepDate: date().notNull(), // the morning you woke up
+    bedTime: text().notNull(), // "23:15"
+    wakeTime: text().notNull(), // "07:05"
+    durationMin: integer().notNull(),
+    quality: smallint(), // 1-5, optional
+    source: text().notNull().default("manual"), // manual | fitbit | whoop | … (docs/10 §5)
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.sleepDate] })],
 );
 
 // ─── feedback + admin import changelog ───────────────────────────────────────

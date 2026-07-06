@@ -1,6 +1,7 @@
 import { requireUser } from "@/lib/auth";
-import { getProgressEntries, getProgressPhotos, getHabitsWithStreaks, getWeekSummary } from "@/lib/queries";
+import { getProgressEntries, getProgressPhotos, getHabitsWithStreaks, getWeekSummary, getSleepLogs } from "@/lib/queries";
 import { ensureDefaultHabits, toggleHabit, addHabit, archiveHabit } from "@/actions/progress";
+import { logSleep, deleteSleepLog } from "@/actions/sleep";
 import { todayStr, formatDateLabel } from "@/lib/utils";
 import { Card, EmptyState, inputCls } from "@/components/ui";
 import { ProgressPhotoForm, WeighInForm } from "@/components/ProgressForms";
@@ -38,12 +39,17 @@ export default async function ProgressPage() {
   const today = todayStr();
   await ensureDefaultHabits(user.id);
 
-  const [entries, photos, habitList, week] = await Promise.all([
+  const [entries, photos, habitList, week, sleep] = await Promise.all([
     getProgressEntries(user.id),
     getProgressPhotos(user.id),
     getHabitsWithStreaks(user.id, today),
     getWeekSummary(user.id, today),
+    getSleepLogs(user.id, 14),
   ]);
+  const sleepAvgMin = sleep.length
+    ? Math.round(sleep.reduce((a, s) => a + s.durationMin, 0) / sleep.length)
+    : null;
+  const fmtSleep = (min: number) => `${Math.floor(min / 60)}h ${String(min % 60).padStart(2, "0")}m`;
 
   const weightPoints = entries.filter((e) => e.weightKg != null).map((e) => ({ date: e.entryDate, kg: e.weightKg! }));
   const latest = entries[entries.length - 1];
@@ -181,6 +187,69 @@ export default async function ProgressPage() {
             Add
           </button>
         </form>
+      </Card>
+
+      {/* sleep (docs/10 §4) — manual tier; synced sleep lands in the same rows later */}
+      <Card className="p-4">
+        <div className="mb-3 flex items-baseline justify-between">
+          <h2 className="text-sm font-semibold">😴 Sleep</h2>
+          {sleepAvgMin != null && (
+            <span className="text-[10px] text-ink-faint">
+              avg {fmtSleep(sleepAvgMin)} over {sleep.length} night{sleep.length === 1 ? "" : "s"}
+            </span>
+          )}
+        </div>
+        <form action={logSleep} className="flex flex-wrap items-end gap-2">
+          <label className="space-y-1 text-[10px] text-ink-dim">
+            Woke up on
+            <input type="date" name="sleepDate" defaultValue={today} max={today} required className={inputCls} />
+          </label>
+          <label className="space-y-1 text-[10px] text-ink-dim">
+            Bed
+            <input type="time" name="bedTime" defaultValue="23:00" required className={inputCls} />
+          </label>
+          <label className="space-y-1 text-[10px] text-ink-dim">
+            Woke
+            <input type="time" name="wakeTime" defaultValue="07:00" required className={inputCls} />
+          </label>
+          <label className="space-y-1 text-[10px] text-ink-dim">
+            Quality
+            <select name="quality" defaultValue="" className={inputCls}>
+              <option value="">—</option>
+              {[1, 2, 3, 4, 5].map((q) => (
+                <option key={q} value={q}>
+                  {q}/5
+                </option>
+              ))}
+            </select>
+          </label>
+          <button className="rounded-lg bg-accent/10 px-3 py-1.5 text-xs font-semibold text-accent hover:bg-accent/20">
+            Save
+          </button>
+        </form>
+        {sleep.length > 0 && (
+          <ul className="mt-3 space-y-1.5">
+            {sleep.slice(0, 7).map((s) => (
+              <li key={s.sleepDate} className="flex items-center gap-2 text-xs">
+                <span className="w-16 shrink-0 text-ink-faint">{formatDateLabel(s.sleepDate)}</span>
+                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface">
+                  <div
+                    className="h-full rounded-full bg-accent/70"
+                    style={{ width: `${Math.min(100, (s.durationMin / 600) * 100)}%` }}
+                  />
+                </div>
+                <span className="w-14 shrink-0 text-right tabular-nums">{fmtSleep(s.durationMin)}</span>
+                <span className="w-7 shrink-0 text-right text-ink-faint">{s.quality != null ? `${s.quality}/5` : ""}</span>
+                <form action={deleteSleepLog}>
+                  <input type="hidden" name="sleepDate" value={s.sleepDate} />
+                  <button className="px-1 text-ink-faint hover:text-danger" aria-label="Delete sleep entry">
+                    ✕
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        )}
       </Card>
 
       <Card className="p-4">

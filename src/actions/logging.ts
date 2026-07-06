@@ -7,6 +7,7 @@ import { z } from "zod";
 import { db } from "@/db/client";
 import { foodLogs, foods, recipes, waterLogs } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
+import { nutrientSnapshot, NUTRIENT_DEFS } from "@/lib/nutrients";
 import { round1, shiftDate } from "@/lib/utils";
 
 const dateRe = /^\d{4}-\d{2}-\d{2}$/;
@@ -38,6 +39,7 @@ export async function logFood(formData: FormData) {
     proteinG: round1(food.proteinG * d.servings),
     carbsG: round1(food.carbsG * d.servings),
     fatG: round1(food.fatG * d.servings),
+    ...nutrientSnapshot(food, d.servings),
   });
   revalidatePath("/track");
   redirect(`/track?date=${d.logDate}`);
@@ -70,6 +72,7 @@ export async function logRecipe(formData: FormData) {
       proteinG: round1(recipe.proteinG * d.servings),
       carbsG: round1(recipe.carbsG * d.servings),
       fatG: round1(recipe.fatG * d.servings),
+      ...nutrientSnapshot(recipe, d.servings),
     });
     // logging community content is the strongest quality signal (docs/06 §5)
     await tx
@@ -144,6 +147,7 @@ export async function copyPreviousDay(formData: FormData) {
         proteinG: l.proteinG,
         carbsG: l.carbsG,
         fatG: l.fatG,
+        ...Object.fromEntries(NUTRIENT_DEFS.map(({ key }) => [key, l[key]])),
       })),
     );
   }

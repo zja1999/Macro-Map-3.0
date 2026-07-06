@@ -7,6 +7,7 @@ import { z } from "zod";
 import { db } from "@/db/client";
 import { chains, foodLogs, goToOrders, menuItems, saves } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
+import { nutrientSnapshot } from "@/lib/nutrients";
 import { getOptionGroups } from "@/lib/restaurants";
 import { round1 } from "@/lib/utils";
 
@@ -52,6 +53,7 @@ export async function logMenuItem(formData: FormData) {
         proteinG: item.proteinG,
         carbsG: item.carbsG,
         fatG: item.fatG,
+        ...nutrientSnapshot(item, 1),
       };
     }),
   );

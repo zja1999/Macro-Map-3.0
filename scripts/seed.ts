@@ -51,57 +51,58 @@ const {
   groups, groupMembers, challenges, challengeParticipants, reports,
 } = schema;
 
-// name, kcal, P, C, F per 100 g (fiber, sodium omitted for brevity)
-const FOODS: [string, number, number, number, number][] = [
-  ["Chicken breast, cooked", 165, 31, 0, 3.6],
-  ["Chicken thigh, cooked", 209, 26, 0, 10.9],
-  ["Ground turkey 93/7, cooked", 213, 27, 0, 11],
-  ["Ground beef 90/10, cooked", 217, 26, 0, 12],
-  ["Salmon, cooked", 206, 22, 0, 12],
-  ["Tuna, canned in water", 116, 26, 0, 0.8],
-  ["Shrimp, cooked", 99, 24, 0.2, 0.3],
-  ["Egg, whole", 143, 12.6, 0.7, 9.5],
-  ["Egg whites", 52, 11, 0.7, 0.2],
-  ["Greek yogurt, nonfat", 59, 10, 3.6, 0.4],
-  ["Cottage cheese, low-fat", 72, 12, 4.3, 1],
-  ["Whey protein powder", 400, 80, 8, 6],
-  ["Skim milk", 34, 3.4, 5, 0.1],
-  ["Cheddar cheese", 403, 23, 3.1, 33],
-  ["Mozzarella, part-skim", 254, 24, 3, 16],
-  ["White rice, cooked", 130, 2.7, 28, 0.3],
-  ["Brown rice, cooked", 112, 2.6, 24, 0.9],
-  ["Quinoa, cooked", 120, 4.4, 21, 1.9],
-  ["Oats, dry", 379, 13, 68, 6.5],
-  ["Whole wheat bread", 247, 13, 41, 3.4],
-  ["Flour tortilla", 306, 8.2, 49, 8],
-  ["Corn tortilla", 218, 5.7, 45, 2.9],
-  ["Pasta, cooked", 158, 5.8, 31, 0.9],
-  ["Sweet potato, baked", 90, 2, 21, 0.2],
-  ["White potato, baked", 93, 2.5, 21, 0.1],
-  ["Black beans, cooked", 132, 8.9, 24, 0.5],
-  ["Chickpeas, cooked", 164, 8.9, 27, 2.6],
-  ["Lentils, cooked", 116, 9, 20, 0.4],
-  ["Broccoli", 34, 2.8, 7, 0.4],
-  ["Spinach", 23, 2.9, 3.6, 0.4],
-  ["Bell pepper", 26, 1, 6, 0.3],
-  ["Onion", 40, 1.1, 9.3, 0.1],
-  ["Tomato", 18, 0.9, 3.9, 0.2],
-  ["Cucumber", 15, 0.7, 3.6, 0.1],
-  ["Avocado", 160, 2, 8.5, 14.7],
-  ["Banana", 89, 1.1, 22.8, 0.3],
-  ["Blueberries", 57, 0.7, 14.5, 0.3],
-  ["Strawberries", 32, 0.7, 7.7, 0.3],
-  ["Apple", 52, 0.3, 13.8, 0.2],
-  ["Olive oil", 884, 0, 0, 100],
-  ["Butter", 717, 0.9, 0.1, 81],
-  ["Peanut butter", 588, 25, 20, 50],
-  ["Almonds", 579, 21, 22, 50],
-  ["Honey", 304, 0.3, 82, 0],
-  ["Soy sauce", 53, 8.1, 4.9, 0.6],
-  ["Salsa", 36, 1.5, 7, 0.2],
-  ["Marinara sauce", 50, 1.4, 8, 1.5],
-  ["Maple syrup", 260, 0, 67, 0.1],
-  ["Feta cheese", 264, 14, 4.1, 21],
+// name, kcal, P, C, F, fiber, sugar, sat fat (g), sodium (mg) per 100 g
+// (vitamins/minerals stay null in seed — barcode imports carry them, docs/10 §1-2)
+const FOODS: [string, number, number, number, number, number, number, number, number][] = [
+  ["Chicken breast, cooked", 165, 31, 0, 3.6, 0, 0, 1, 74],
+  ["Chicken thigh, cooked", 209, 26, 0, 10.9, 0, 0, 3, 95],
+  ["Ground turkey 93/7, cooked", 213, 27, 0, 11, 0, 0, 3, 78],
+  ["Ground beef 90/10, cooked", 217, 26, 0, 12, 0, 0, 4.7, 75],
+  ["Salmon, cooked", 206, 22, 0, 12, 0, 0, 2.5, 61],
+  ["Tuna, canned in water", 116, 26, 0, 0.8, 0, 0, 0.2, 247],
+  ["Shrimp, cooked", 99, 24, 0.2, 0.3, 0, 0, 0.1, 111],
+  ["Egg, whole", 143, 12.6, 0.7, 9.5, 0, 0.4, 3.1, 142],
+  ["Egg whites", 52, 11, 0.7, 0.2, 0, 0.7, 0, 166],
+  ["Greek yogurt, nonfat", 59, 10, 3.6, 0.4, 0, 3.2, 0.1, 36],
+  ["Cottage cheese, low-fat", 72, 12, 4.3, 1, 0, 2.7, 0.7, 330],
+  ["Whey protein powder", 400, 80, 8, 6, 1, 6, 2, 200],
+  ["Skim milk", 34, 3.4, 5, 0.1, 0, 5, 0.1, 42],
+  ["Cheddar cheese", 403, 23, 3.1, 33, 0, 0.5, 21, 621],
+  ["Mozzarella, part-skim", 254, 24, 3, 16, 0, 1.2, 10, 619],
+  ["White rice, cooked", 130, 2.7, 28, 0.3, 0.4, 0.1, 0.1, 1],
+  ["Brown rice, cooked", 112, 2.6, 24, 0.9, 1.8, 0.4, 0.2, 5],
+  ["Quinoa, cooked", 120, 4.4, 21, 1.9, 2.8, 0.9, 0.2, 7],
+  ["Oats, dry", 379, 13, 68, 6.5, 10.6, 1, 1.1, 2],
+  ["Whole wheat bread", 247, 13, 41, 3.4, 6, 4.3, 0.6, 450],
+  ["Flour tortilla", 306, 8.2, 49, 8, 3, 2, 2, 750],
+  ["Corn tortilla", 218, 5.7, 45, 2.9, 6.3, 0.9, 0.4, 45],
+  ["Pasta, cooked", 158, 5.8, 31, 0.9, 1.8, 0.6, 0.2, 1],
+  ["Sweet potato, baked", 90, 2, 21, 0.2, 3.3, 6.5, 0, 36],
+  ["White potato, baked", 93, 2.5, 21, 0.1, 2.1, 1.2, 0, 10],
+  ["Black beans, cooked", 132, 8.9, 24, 0.5, 8.7, 0.3, 0.1, 1],
+  ["Chickpeas, cooked", 164, 8.9, 27, 2.6, 7.6, 4.8, 0.3, 7],
+  ["Lentils, cooked", 116, 9, 20, 0.4, 7.9, 1.8, 0.1, 2],
+  ["Broccoli", 34, 2.8, 7, 0.4, 2.6, 1.7, 0.1, 33],
+  ["Spinach", 23, 2.9, 3.6, 0.4, 2.2, 0.4, 0.1, 79],
+  ["Bell pepper", 26, 1, 6, 0.3, 1.7, 4.2, 0.1, 4],
+  ["Onion", 40, 1.1, 9.3, 0.1, 1.7, 4.2, 0, 4],
+  ["Tomato", 18, 0.9, 3.9, 0.2, 1.2, 2.6, 0, 5],
+  ["Cucumber", 15, 0.7, 3.6, 0.1, 0.5, 1.7, 0, 2],
+  ["Avocado", 160, 2, 8.5, 14.7, 6.7, 0.7, 2.1, 7],
+  ["Banana", 89, 1.1, 22.8, 0.3, 2.6, 12.2, 0.1, 1],
+  ["Blueberries", 57, 0.7, 14.5, 0.3, 2.4, 10, 0, 1],
+  ["Strawberries", 32, 0.7, 7.7, 0.3, 2, 4.9, 0, 1],
+  ["Apple", 52, 0.3, 13.8, 0.2, 2.4, 10.4, 0, 1],
+  ["Olive oil", 884, 0, 0, 100, 0, 0, 14, 2],
+  ["Butter", 717, 0.9, 0.1, 81, 0, 0.1, 51, 576],
+  ["Peanut butter", 588, 25, 20, 50, 6, 9, 10, 430],
+  ["Almonds", 579, 21, 22, 50, 12.5, 4.4, 3.8, 1],
+  ["Honey", 304, 0.3, 82, 0, 0.2, 82, 0, 4],
+  ["Soy sauce", 53, 8.1, 4.9, 0.6, 0.8, 0.4, 0.1, 5490],
+  ["Salsa", 36, 1.5, 7, 0.2, 1.4, 4, 0, 711],
+  ["Marinara sauce", 50, 1.4, 8, 1.5, 1.8, 5, 0.2, 430],
+  ["Maple syrup", 260, 0, 67, 0.1, 0, 60, 0, 12],
+  ["Feta cheese", 264, 14, 4.1, 21, 0, 4.1, 15, 917],
 ];
 
 type Ing = [foodName: string, grams: number];
@@ -280,8 +281,8 @@ async function seedFoods() {
   const foodRows = await db
     .insert(foods)
     .values(
-      FOODS.map(([name, calories, proteinG, carbsG, fatG]) => ({
-        name, calories, proteinG, carbsG, fatG,
+      FOODS.map(([name, calories, proteinG, carbsG, fatG, fiberG, sugarG, saturatedFatG, sodiumMg]) => ({
+        name, calories, proteinG, carbsG, fatG, fiberG, sugarG, saturatedFatG, sodiumMg,
         servingDesc: "100 g", servingGrams: 100, source: "seed", verified: true,
       })),
     )
@@ -746,7 +747,7 @@ async function main() {
   // recipes with ingredient-calculated macros
   const recipeIds: { id: string; author: string; name: string }[] = [];
   for (const r of RECIPES) {
-    const totals = { calories: 0, proteinG: 0, carbsG: 0, fatG: 0 };
+    const totals = { calories: 0, proteinG: 0, carbsG: 0, fatG: 0, fiberG: 0, sugarG: 0, saturatedFatG: 0, sodiumMg: 0 };
     for (const [name, grams] of r.ingredients) {
       const f = foodByName.get(name);
       if (!f) throw new Error(`Seed food missing: ${name}`);
@@ -755,6 +756,10 @@ async function main() {
       totals.proteinG += f.proteinG * k;
       totals.carbsG += f.carbsG * k;
       totals.fatG += f.fatG * k;
+      totals.fiberG += (f.fiberG ?? 0) * k;
+      totals.sugarG += (f.sugarG ?? 0) * k;
+      totals.saturatedFatG += (f.saturatedFatG ?? 0) * k;
+      totals.sodiumMg += (f.sodiumMg ?? 0) * k;
     }
     const per = (n: number) => Math.round((n / r.servings) * 10) / 10;
     const [rec] = await db
@@ -765,6 +770,8 @@ async function main() {
         servings: r.servings, servingDesc: r.servingDesc,
         calories: per(totals.calories), proteinG: per(totals.proteinG),
         carbsG: per(totals.carbsG), fatG: per(totals.fatG),
+        fiberG: per(totals.fiberG), sugarG: per(totals.sugarG),
+        saturatedFatG: per(totals.saturatedFatG), sodiumMg: per(totals.sodiumMg),
         macroSource: "ingredient_calculated", macroConfidence: 0.8,
         prepMin: r.prepMin, cookMin: r.cookMin, difficulty: r.difficulty,
         costCents: r.costCents, tags: r.tags,
@@ -882,6 +889,10 @@ async function main() {
       servings,
       calories: full.calories * servings, proteinG: full.proteinG * servings,
       carbsG: full.carbsG * servings, fatG: full.fatG * servings,
+      fiberG: full.fiberG != null ? full.fiberG * servings : null,
+      sugarG: full.sugarG != null ? full.sugarG * servings : null,
+      saturatedFatG: full.saturatedFatG != null ? full.saturatedFatG * servings : null,
+      sodiumMg: full.sodiumMg != null ? full.sodiumMg * servings : null,
     });
     await db.update(recipes).set({ logCount: sql`${recipes.logCount} + 1` }).where(sql`id = ${rec.id}`);
   };
@@ -891,6 +902,10 @@ async function main() {
       userId: demoId, logDate: dateStr, mealSlot: slot, foodId: f.id, name: f.name, servings,
       calories: f.calories * servings, proteinG: f.proteinG * servings,
       carbsG: f.carbsG * servings, fatG: f.fatG * servings,
+      fiberG: f.fiberG != null ? f.fiberG * servings : null,
+      sugarG: f.sugarG != null ? f.sugarG * servings : null,
+      saturatedFatG: f.saturatedFatG != null ? f.saturatedFatG * servings : null,
+      sodiumMg: f.sodiumMg != null ? f.sodiumMg * servings : null,
     });
   };
   for (const offset of [-3, -2, -1]) {

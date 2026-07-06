@@ -5,6 +5,9 @@ import { todayStr, shiftDate, formatDateLabel, MEAL_SLOTS } from "@/lib/utils";
 import { MacroRing, MacroBar } from "@/components/macros";
 import { Card, btnGhost } from "@/components/ui";
 import { deleteLog, copyPreviousDay, addWater } from "@/actions/logging";
+import { NUTRIENT_DEFS, nutrientTotals } from "@/lib/nutrients";
+import { FastingCard } from "@/components/FastingCard";
+import { getFastingState } from "@/lib/queries";
 
 export const metadata = { title: "Track" };
 
@@ -18,9 +21,10 @@ export default async function TrackPage({
   const date = /^\d{4}-\d{2}-\d{2}$/.test(sp.date ?? "") ? sp.date! : todayStr();
   const targets = user.targets;
 
-  const [{ logs, waterMl }, week] = await Promise.all([
+  const [{ logs, waterMl }, week, fasting] = await Promise.all([
     getDayLogs(user.id, date),
     getWeekSummary(user.id, date),
+    getFastingState(user.id),
   ]);
 
   const totals = logs.reduce(
@@ -34,6 +38,7 @@ export default async function TrackPage({
   );
 
   const bySlot = Object.fromEntries(MEAL_SLOTS.map((s) => [s, logs.filter((l) => l.mealSlot === s)]));
+  const { totals: micros, covered: microsCovered, missing: microsMissing } = nutrientTotals(logs);
   const weekAvg = week.length
     ? Math.round(week.reduce((a, d) => a + Number(d.calories), 0) / week.length)
     : 0;
@@ -67,6 +72,53 @@ export default async function TrackPage({
           <MacroBar label="Fat" consumed={totals.fatG} target={targets?.fatG ?? 65} color="var(--color-fat)" />
         </div>
       </Card>
+
+      {/* more nutrients (docs/10 §1) — collapsed so the 80/20 screen stays clean */}
+      {logs.length > 0 && (
+        <Card className="p-0">
+          <details className="group">
+            <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-2.5 text-sm font-semibold [&::-webkit-details-marker]:hidden">
+              More nutrients
+              <span className="text-xs text-ink-faint transition group-open:rotate-90">▸</span>
+            </summary>
+            <div className="border-t border-edge px-4 py-3">
+              <ul className="grid grid-cols-2 gap-x-6 gap-y-1.5">
+                {NUTRIENT_DEFS.map((d) => {
+                  if (!microsCovered[d.key]) {
+                    return (
+                      <li key={d.key} className="flex items-baseline justify-between text-xs">
+                        <span className="text-ink-faint">{d.label}</span>
+                        <span className="text-ink-faint" title="No logged item has data for this yet">—</span>
+                      </li>
+                    );
+                  }
+                  const v = Math.round(micros[d.key] * 10) / 10;
+                  const pct = d.dv ? Math.round((micros[d.key] / d.dv) * 100) : null;
+                  return (
+                    <li key={d.key} className="flex items-baseline justify-between text-xs">
+                      <span className="text-ink-dim">{d.label}</span>
+                      <span className="tabular-nums">
+                        {v}
+                        <span className="text-ink-faint">{d.unit}</span>
+                        {pct != null && <span className="ml-1 text-[10px] text-ink-faint">{pct}% DV</span>}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+              {microsMissing > 0 && (
+                <p className="mt-2 text-[10px] text-ink-faint">
+                  {microsMissing} of {logs.length} logged item{logs.length === 1 ? "" : "s"} carr
+                  {microsMissing === 1 ? "ies" : "y"} no detailed nutrition data — totals are a floor, not exact.
+                </p>
+              )}
+            </div>
+          </details>
+        </Card>
+      )}
+
+      {/* fasting timer (docs/10 §3) — only rendered for today, where start/end make sense */}
+      {date === todayStr() && <FastingCard active={fasting.active} lastCompleted={fasting.lastCompleted} />}
 
       {/* meals */}
       {MEAL_SLOTS.map((slot) => {
