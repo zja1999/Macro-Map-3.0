@@ -168,15 +168,21 @@ export function WorkoutLogger({
       const sets = r.sets
         .map((s) => {
           const raw = s.weightKg === "" ? null : parseFloat(s.weightKg) || 0;
+          const repsValue = s.reps.trim() === "" ? 0 : Number(s.reps);
           // field is always labeled/entered in the user's unit — convert to
           // canonical kg here, once, before it reaches the server action
           const weightKg = raw == null ? null : units === "imperial" ? lbToKg(raw) : raw;
-          return { reps: parseInt(s.reps) || 0, weightKg };
+          return { reps: Number.isInteger(repsValue) ? repsValue : 0, weightKg };
         })
         .filter((s) => s.reps > 0);
       return sets.length ? { exerciseId: ex.id, sets } : null;
     })
     .filter(Boolean);
+  const repsError = rows.some((r) =>
+    r.sets.some((s) => s.reps.trim() !== "" && !Number.isInteger(Number(s.reps))),
+  )
+    ? "Reps must be whole numbers. Add partial reps in notes."
+    : null;
 
   const update = (i: number, fn: (r: LoggerRow) => LoggerRow) => setRows(rows.map((x, j) => (j === i ? fn(x) : x)));
 
@@ -238,6 +244,7 @@ export function WorkoutLogger({
                     }
                     placeholder="reps"
                     min={1}
+                    step={1}
                     className={`${inputCls} w-20 py-1.5 text-center`}
                     aria-label="Reps"
                   />
@@ -284,8 +291,8 @@ export function WorkoutLogger({
         </label>
       </div>
 
-      {state?.error && <p className="text-sm text-danger">{state.error}</p>}
-      <button disabled={pending || entries.length === 0} className={`${btnPrimary} w-full`}>
+      {(repsError || state?.error) && <p className="text-sm text-danger">{repsError ?? state?.error}</p>}
+      <button disabled={pending || entries.length === 0 || Boolean(repsError)} className={`${btnPrimary} w-full`}>
         {pending ? "Saving…" : "Finish session (checks for PRs)"}
       </button>
     </form>

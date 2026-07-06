@@ -5,10 +5,11 @@ import { getRemainingMacros } from "@/lib/queries";
 import { geocode, getAroundMe, getSavedRestaurantSubjectIds, type AroundMeFilters } from "@/lib/restaurants";
 import { todayStr, slotForNow } from "@/lib/utils";
 import { logMenuItem, toggleRestaurantSave } from "@/actions/restaurants";
-import { Card, Badge, EmptyState, btnGhost } from "@/components/ui";
+import { Card, Badge, EmptyState } from "@/components/ui";
 import { MacroPills } from "@/components/macros";
 import { LocationBar } from "@/components/LocationBar";
 import { RestaurantMap } from "@/components/RestaurantMap";
+import { MealSlotSelect } from "@/components/MealSlotSelect";
 
 export const metadata = { title: "Restaurants" };
 
@@ -254,11 +255,11 @@ export default async function RestaurantsPage({ searchParams }: { searchParams: 
                       Build →
                     </Link>
                   ) : (
-                    <form action={logMenuItem}>
+                    <form action={logMenuItem} className="flex flex-col gap-1.5">
                       <input type="hidden" name="menuItemId" value={r.item.id} />
                       {r.sideItem && <input type="hidden" name="sideItemId" value={r.sideItem.id} />}
                       <input type="hidden" name="logDate" value={date} />
-                      <input type="hidden" name="mealSlot" value={slot} />
+                      <MealSlotSelect defaultValue={slot} />
                       <button className="rounded-lg bg-accent px-2.5 py-1.5 text-xs font-bold text-black">Log</button>
                     </form>
                   )}

@@ -26,12 +26,20 @@ export default async function SettingsPage({
           dietaryStyle: user.profile.dietaryStyle ?? "",
           shareMacroGoals: user.profile.shareMacroGoals,
           units: user.profile.units as "metric" | "imperial",
+          goal: user.profile.goal ?? "maintenance",
+          trackingStyle: user.profile.trackingStyle ?? "strict_macro",
+          sex: user.profile.sex === "male" ? "male" : "female",
+          heightCm: user.profile.heightCm ?? 170,
+          weightKg: user.profile.weightKg ?? 75,
+          birthYear: user.profile.birthYear ?? new Date().getFullYear() - 30,
+          activityLevel: user.profile.activityLevel ?? "moderate",
         }}
         targets={{
           calories: user.targets?.calories ?? 2000,
           proteinG: user.targets?.proteinG ?? 150,
           carbsG: user.targets?.carbsG ?? 200,
           fatG: user.targets?.fatG ?? 65,
+          isManual: user.targets?.isManual ?? false,
         }}
       />
       <FeedbackForm />

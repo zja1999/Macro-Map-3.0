@@ -50,6 +50,31 @@ export function TabBar({ canModerate = false }: { canModerate?: boolean }) {
   );
 }
 
+export function MobileQuickActions() {
+  const actions = [
+    { href: "/track/add", label: "Meal" },
+    { href: "/progress", label: "Weight" },
+    { href: "/workouts/log", label: "Workout" },
+    { href: "/restaurants", label: "Restaurants" },
+  ];
+
+  return (
+    <div className="border-b border-edge bg-bg md:hidden">
+      <div className="mx-auto flex max-w-lg gap-2 overflow-x-auto px-4 py-2">
+        {actions.map((action) => (
+          <Link
+            key={action.href}
+            href={action.href}
+            className="shrink-0 rounded-full border border-edge bg-card px-3 py-1.5 text-xs font-semibold text-ink-dim"
+          >
+            {action.label}
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function SideNav({ canModerate = false }: { canModerate?: boolean }) {
   const pathname = usePathname();
   const links = [

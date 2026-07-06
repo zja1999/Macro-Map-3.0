@@ -2,11 +2,12 @@
 
 import { useActionState, useState } from "react";
 import { usePathname } from "next/navigation";
-import { updateProfile, updateTargets } from "@/actions/onboarding";
+import { updateBiometrics, updateProfile, updateTargets } from "@/actions/onboarding";
 import { claimAccount } from "@/actions/auth";
 import { submitFeedback } from "@/actions/feedback";
 import { inputCls, btnPrimary } from "./ui";
 import { CALORIE_FLOOR } from "@/lib/targets";
+import { cmToFtIn, kgToLb } from "@/lib/units";
 
 /** Guest → real account: attaches email/password to the same users row (docs/08 §1a). */
 export function ClaimAccountForm() {
@@ -67,12 +68,28 @@ export function SettingsForms({
   profile,
   targets,
 }: {
-  profile: { displayName: string; bio: string; dietaryStyle: string; shareMacroGoals: boolean; units: "metric" | "imperial" };
-  targets: { calories: number; proteinG: number; carbsG: number; fatG: number };
+  profile: {
+    displayName: string;
+    bio: string;
+    dietaryStyle: string;
+    shareMacroGoals: boolean;
+    units: "metric" | "imperial";
+    goal: string;
+    trackingStyle: string;
+    sex: "male" | "female";
+    heightCm: number;
+    weightKg: number;
+    birthYear: number;
+    activityLevel: string;
+  };
+  targets: { calories: number; proteinG: number; carbsG: number; fatG: number; isManual: boolean };
 }) {
   const [pState, pAction, pPending] = useActionState(updateProfile, undefined);
   const [tState, tAction, tPending] = useActionState(updateTargets, undefined);
+  const [bState, bAction, bPending] = useActionState(updateBiometrics, undefined);
   const [units, setUnits] = useState(profile.units);
+  const age = Math.max(13, new Date().getFullYear() - profile.birthYear);
+  const heightFtIn = cmToFtIn(profile.heightCm);
 
   return (
     <div className="space-y-8">
@@ -121,10 +138,106 @@ export function SettingsForms({
         </div>
       </form>
 
+      <form action={bAction} className="space-y-3 rounded-xl border border-edge bg-card p-4">
+        <div>
+          <h2 className="text-sm font-semibold">Macro calculation profile</h2>
+          <p className="mt-1 text-xs text-ink-faint">
+            Update the measurements and goal used for automatic macro targets. Saving here switches targets back to auto-calculated.
+          </p>
+        </div>
+        <input type="hidden" name="units" value={units} />
+        <div className="grid grid-cols-2 gap-2">
+          <label className="space-y-1 text-[10px] text-ink-dim">
+            Goal
+            <select name="goal" defaultValue={profile.goal} className={inputCls}>
+              <option value="fat_loss">Fat loss</option>
+              <option value="muscle_gain">Muscle gain</option>
+              <option value="maintenance">Maintenance</option>
+              <option value="recomp">Recomp</option>
+              <option value="performance">Performance</option>
+              <option value="general_health">General health</option>
+              <option value="custom">Custom</option>
+            </select>
+          </label>
+          <label className="space-y-1 text-[10px] text-ink-dim">
+            Tracking style
+            <select name="trackingStyle" defaultValue={profile.trackingStyle} className={inputCls}>
+              <option value="strict_macro">Strict macros</option>
+              <option value="calorie_only">Calories only</option>
+              <option value="protein_focused">Protein focused</option>
+              <option value="habit">Habit focused</option>
+              <option value="maintenance">Maintenance</option>
+              <option value="performance">Performance</option>
+              <option value="no_scale">No scale</option>
+            </select>
+          </label>
+          <label className="space-y-1 text-[10px] text-ink-dim">
+            Sex
+            <select name="sex" defaultValue={profile.sex} className={inputCls}>
+              <option value="female">Female</option>
+              <option value="male">Male</option>
+            </select>
+          </label>
+          <label className="space-y-1 text-[10px] text-ink-dim">
+            Activity
+            <select name="activityLevel" defaultValue={profile.activityLevel} className={inputCls}>
+              <option value="sedentary">Sedentary</option>
+              <option value="light">Light</option>
+              <option value="moderate">Moderate</option>
+              <option value="very">Very active</option>
+              <option value="extra">Extra active</option>
+            </select>
+          </label>
+          <label className="space-y-1 text-[10px] text-ink-dim">
+            Age
+            <input type="number" name="age" min={13} max={100} defaultValue={age} className={inputCls} />
+          </label>
+          <label className="space-y-1 text-[10px] text-ink-dim">
+            Weight ({units === "imperial" ? "lb" : "kg"})
+            <input
+              type="number"
+              name="weight"
+              step="0.1"
+              min={units === "imperial" ? 66 : 30}
+              max={units === "imperial" ? 660 : 300}
+              defaultValue={units === "imperial" ? kgToLb(profile.weightKg).toFixed(1) : profile.weightKg.toFixed(1)}
+              className={inputCls}
+            />
+          </label>
+          {units === "imperial" ? (
+            <>
+              <label className="space-y-1 text-[10px] text-ink-dim">
+                Height (ft)
+                <input type="number" name="heightFt" min={3} max={8} defaultValue={heightFtIn.ft} className={inputCls} />
+              </label>
+              <label className="space-y-1 text-[10px] text-ink-dim">
+                Height (in)
+                <input type="number" name="heightIn" min={0} max={11} defaultValue={heightFtIn.inches} className={inputCls} />
+              </label>
+            </>
+          ) : (
+            <label className="space-y-1 text-[10px] text-ink-dim">
+              Height (cm)
+              <input type="number" name="heightCm" min={100} max={250} defaultValue={Math.round(profile.heightCm)} className={inputCls} />
+            </label>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
+          <button disabled={bPending} className={btnPrimary}>
+            {bPending ? "Recalculating..." : "Recalculate targets"}
+          </button>
+          {bState?.ok && <span className="text-xs text-accent">Targets updated</span>}
+          {bState?.error && <span className="text-xs text-danger">{bState.error}</span>}
+        </div>
+      </form>
+
       <form action={tAction} className="space-y-3 rounded-xl border border-edge bg-card p-4">
         <h2 className="text-sm font-semibold">Daily targets</h2>
         <p className="text-xs text-ink-faint">
           Manual override — for safety, calories can&apos;t be set below {CALORIE_FLOOR}.
+        </p>
+        <p className="text-[10px] text-ink-faint">
+          Current mode: {targets.isManual ? "manual override" : "auto-calculated"}.
         </p>
         <div className="grid grid-cols-4 gap-2">
           {(

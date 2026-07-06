@@ -117,8 +117,17 @@ export async function logWorkout(
       notes: formData.get("notes") || undefined,
       entries: JSON.parse(String(formData.get("entries") ?? "[]")),
     });
-  } catch {
-    return { error: "Log at least one exercise with one completed set." };
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      const issue = err.issues[0];
+      if (issue?.path.includes("reps")) {
+        return { error: "Reps must be whole numbers. Use notes for partial reps." };
+      }
+      if (issue?.path.includes("weightKg")) {
+        return { error: "Check the weight for each set." };
+      }
+    }
+    return { error: "Choose an exercise and enter at least one completed set." };
   }
 
   const entries = d.entries as WorkoutLogEntries;

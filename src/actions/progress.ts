@@ -5,8 +5,9 @@ import { redirect } from "next/navigation";
 import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db/client";
-import { habitLogs, habits, mediaAttachments, photos, progressEntries } from "@/db/schema";
+import { habitLogs, habits, mediaAttachments, nutritionTargets, photos, profiles, progressEntries } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
+import { calculateTargetsFromProfile } from "@/lib/targets";
 import { weightToKg, lengthToCm } from "@/lib/units";
 
 const dateRe = /^\d{4}-\d{2}-\d{2}$/;
@@ -81,6 +82,20 @@ export async function saveProgressEntry(
       note: d.note,
     });
   }
+
+  if (weightKg != null && !user.targets?.isManual) {
+    const targets = calculateTargetsFromProfile(user.profile, weightKg);
+    if (targets) {
+      await db.transaction(async (tx) => {
+        await tx.update(profiles).set({ weightKg }).where(eq(profiles.userId, user.id));
+        await tx.insert(nutritionTargets).values({ userId: user.id, ...targets, isManual: false });
+      });
+      revalidatePath("/track");
+      revalidatePath("/restaurants");
+      revalidatePath("/settings");
+    }
+  }
+
   revalidatePath("/progress");
   return {};
 }

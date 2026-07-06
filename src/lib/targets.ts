@@ -41,6 +41,41 @@ export type TargetInput = {
   goal: string;
 };
 
+export type RecalcProfileInput = {
+  sex: string | null;
+  weightKg: number | null;
+  heightCm: number | null;
+  birthYear: number | null;
+  activityLevel: string | null;
+  goal: string | null;
+};
+
+export function ageFromBirthYear(birthYear: number, now = new Date()): number {
+  return Math.max(13, now.getFullYear() - birthYear);
+}
+
+export function calculateTargetsFromProfile(input: RecalcProfileInput, weightKg = input.weightKg) {
+  if (
+    (input.sex !== "male" && input.sex !== "female") ||
+    weightKg == null ||
+    input.heightCm == null ||
+    input.birthYear == null ||
+    !input.activityLevel ||
+    !input.goal
+  ) {
+    return null;
+  }
+
+  return calculateTargets({
+    sex: input.sex,
+    weightKg,
+    heightCm: input.heightCm,
+    age: ageFromBirthYear(input.birthYear),
+    activityLevel: input.activityLevel,
+    goal: input.goal,
+  });
+}
+
 export function calculateTargets(input: TargetInput) {
   const { sex, weightKg, heightCm, age, activityLevel, goal } = input;
   const bmr =

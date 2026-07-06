@@ -7,6 +7,7 @@ import { todayStr, slotForNow } from "@/lib/utils";
 import { logMenuItem, logGoToOrder, toggleRestaurantSave } from "@/actions/restaurants";
 import { Card, Badge } from "@/components/ui";
 import { MacroPills } from "@/components/macros";
+import { MealSlotSelect } from "@/components/MealSlotSelect";
 
 export default async function ChainPage({ params }: { params: Promise<{ chainId: string }> }) {
   const user = await requireUser();
@@ -84,10 +85,10 @@ export default async function ChainPage({ params }: { params: Promise<{ chainId:
                     {savedIds.has(`go_to_order:${order.id}`) ? "Saved" : "Save"}
                   </button>
                 </form>
-                <form action={logGoToOrder}>
+                <form action={logGoToOrder} className="flex flex-col gap-1.5">
                   <input type="hidden" name="orderId" value={order.id} />
                   <input type="hidden" name="logDate" value={date} />
-                  <input type="hidden" name="mealSlot" value={slot} />
+                  <MealSlotSelect defaultValue={slot} />
                   <button className="rounded-lg bg-accent px-2.5 py-1.5 text-xs font-bold text-black">Log</button>
                 </form>
               </div>
@@ -148,10 +149,10 @@ export default async function ChainPage({ params }: { params: Promise<{ chainId:
                       Build →
                     </Link>
                   ) : (
-                    <form action={logMenuItem}>
+                    <form action={logMenuItem} className="flex flex-col gap-1.5">
                       <input type="hidden" name="menuItemId" value={item.id} />
                       <input type="hidden" name="logDate" value={date} />
-                      <input type="hidden" name="mealSlot" value={slot} />
+                      <MealSlotSelect defaultValue={slot} />
                       <button className="rounded-lg bg-accent px-2.5 py-1.5 text-xs font-bold text-black">Log</button>
                     </form>
                   )}

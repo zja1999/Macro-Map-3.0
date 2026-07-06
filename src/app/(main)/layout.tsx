@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { isModerator } from "@/lib/permissions";
 import { getStreak } from "@/lib/queries";
 import { todayStr } from "@/lib/utils";
-import { TabBar, SideNav } from "@/components/TabBar";
+import { MobileQuickActions, TabBar, SideNav } from "@/components/TabBar";
 import { Avatar } from "@/components/ui";
 
 export default async function MainLayout({ children }: { children: React.ReactNode }) {
@@ -46,6 +46,7 @@ export default async function MainLayout({ children }: { children: React.ReactNo
           </div>
         </div>
       )}
+      <MobileQuickActions />
       <div className="mx-auto flex max-w-5xl gap-8 px-4 pt-6">
         <SideNav canModerate={canModerate} />
         <main className="min-w-0 flex-1">{children}</main>

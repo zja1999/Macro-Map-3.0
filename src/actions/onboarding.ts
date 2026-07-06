@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
@@ -7,6 +8,7 @@ import { db } from "@/db/client";
 import { profiles, nutritionTargets } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
 import { calculateTargets, CALORIE_FLOOR } from "@/lib/targets";
+import { ftInToCm, weightToKg } from "@/lib/units";
 
 const schema = z.object({
   goal: z.enum(["fat_loss", "muscle_gain", "maintenance", "recomp", "performance", "general_health", "custom"]),
@@ -92,6 +94,76 @@ export async function updateTargets(
     return { error: `Check your numbers — calories must be at least ${CALORIE_FLOOR}.` };
   }
   await db.insert(nutritionTargets).values({ userId: user.id, ...parsed.data, isManual: true });
+  revalidatePath("/settings");
+  revalidatePath("/track");
+  revalidatePath("/restaurants");
+  return { ok: true };
+}
+
+const biometricsSchema = z.object({
+  goal: schema.shape.goal,
+  trackingStyle: schema.shape.trackingStyle,
+  sex: schema.shape.sex,
+  units: z.enum(["metric", "imperial"]),
+  weight: z.coerce.number().positive(),
+  heightCm: z.coerce.number().positive().optional(),
+  heightFt: z.coerce.number().int().min(3).max(8).optional(),
+  heightIn: z.coerce.number().min(0).max(11.9).optional(),
+  age: schema.shape.age,
+  activityLevel: schema.shape.activityLevel,
+});
+
+export async function updateBiometrics(
+  _prev: { error?: string; ok?: boolean } | undefined,
+  formData: FormData,
+): Promise<{ error?: string; ok?: boolean }> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+
+  const parsed = biometricsSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const d = parsed.data;
+
+  const weightKg = weightToKg(d.weight, d.units);
+  const heightCm =
+    d.units === "imperial"
+      ? ftInToCm(d.heightFt ?? 0, d.heightIn ?? 0)
+      : d.heightCm;
+
+  if (weightKg < 30 || weightKg > 300) return { error: "Weight is outside the supported range." };
+  if (heightCm == null || heightCm < 100 || heightCm > 250) {
+    return { error: "Height is outside the supported range." };
+  }
+
+  const targets = calculateTargets({
+    sex: d.sex,
+    weightKg,
+    heightCm,
+    age: d.age,
+    activityLevel: d.activityLevel,
+    goal: d.goal,
+  });
+
+  await db.transaction(async (tx) => {
+    await tx
+      .update(profiles)
+      .set({
+        goal: d.goal,
+        trackingStyle: d.trackingStyle,
+        sex: d.sex,
+        weightKg,
+        heightCm,
+        birthYear: new Date().getFullYear() - d.age,
+        activityLevel: d.activityLevel,
+      })
+      .where(eq(profiles.userId, user.id));
+    await tx.insert(nutritionTargets).values({ userId: user.id, ...targets, isManual: false });
+  });
+
+  revalidatePath("/settings");
+  revalidatePath("/track");
+  revalidatePath("/restaurants");
+  revalidatePath("/progress");
   return { ok: true };
 }
 
@@ -121,5 +193,7 @@ export async function updateProfile(
       ...(parsed.data.units ? { units: parsed.data.units } : {}),
     })
     .where(eq(profiles.userId, user.id));
+  revalidatePath("/settings");
+  revalidatePath("/");
   return { ok: true };
 }
