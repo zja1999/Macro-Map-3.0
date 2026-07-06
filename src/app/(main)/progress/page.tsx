@@ -1,5 +1,5 @@
 import { requireUser } from "@/lib/auth";
-import { getProgressEntries, getProgressPhotos, getHabitsWithStreaks, getWeekSummary, getSleepLogs } from "@/lib/queries";
+import { getProgressEntries, getProgressPhotos, getHabitsWithStreaks, getWeekSummary, getSleepLogs, getDailyHealthMetrics } from "@/lib/queries";
 import { ensureDefaultHabits } from "@/actions/progress";
 import { logSleep, deleteSleepLog } from "@/actions/sleep";
 import { todayStr, formatDateLabel } from "@/lib/utils";
@@ -41,12 +41,13 @@ export default async function ProgressPage() {
   const today = todayStr();
   await ensureDefaultHabits(user.id);
 
-  const [entries, photos, habitList, week, sleep] = await Promise.all([
+  const [entries, photos, habitList, week, sleep, dailyMetrics] = await Promise.all([
     getProgressEntries(user.id),
     getProgressPhotos(user.id),
     getHabitsWithStreaks(user.id, today),
     getWeekSummary(user.id, today),
     getSleepLogs(user.id, 14),
+    getDailyHealthMetrics(user.id, 14),
   ]);
   const sleepAvgMin = sleep.length
     ? Math.round(sleep.reduce((a, s) => a + s.durationMin, 0) / sleep.length)
@@ -86,6 +87,9 @@ export default async function ProgressPage() {
     .filter((m) => m.value != null);
 
   const loggedDays = week.length;
+  const latestMetrics = dailyMetrics[0] ?? null;
+  const stepTotal = dailyMetrics.reduce((sum, row) => sum + (row.steps ?? 0), 0);
+  const energyTotal = dailyMetrics.reduce((sum, row) => sum + (row.activeEnergyKcal ?? 0), 0);
 
   // No-scale mode (docs/07 §4): weight prompts, charts, and measurements are
   // suppressed globally — habits and adherence carry the page instead.
@@ -154,6 +158,33 @@ export default async function ProgressPage() {
 
       {/* habits (docs/08 §1b) — each with its own streak + inline edit toggle */}
       <HabitsSection habits={habitList} today={today} loggedDays={loggedDays} />
+
+      <Card className="p-4">
+        <div className="mb-3 flex items-baseline justify-between">
+          <h2 className="text-sm font-semibold">Synced activity</h2>
+          <span className="text-[10px] text-ink-faint">private by default</span>
+        </div>
+        {dailyMetrics.length ? (
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div className="rounded-lg bg-surface px-3 py-2">
+              <div className="text-sm font-bold tabular-nums">{(latestMetrics?.steps ?? 0).toLocaleString()}</div>
+              <div className="text-[10px] text-ink-faint">latest steps</div>
+            </div>
+            <div className="rounded-lg bg-surface px-3 py-2">
+              <div className="text-sm font-bold tabular-nums">{Math.round(stepTotal / dailyMetrics.length).toLocaleString()}</div>
+              <div className="text-[10px] text-ink-faint">avg steps</div>
+            </div>
+            <div className="rounded-lg bg-surface px-3 py-2">
+              <div className="text-sm font-bold tabular-nums">{Math.round(energyTotal).toLocaleString()}</div>
+              <div className="text-[10px] text-ink-faint">active kcal</div>
+            </div>
+          </div>
+        ) : (
+          <p className="text-xs text-ink-faint">
+            Connect Strava or Fitbit in Settings, or sync Apple Health / Health Connect from the future mobile app.
+          </p>
+        )}
+      </Card>
 
       {/* sleep (docs/10 §4) — manual tier; synced sleep lands in the same rows later */}
       <Card className="p-4">

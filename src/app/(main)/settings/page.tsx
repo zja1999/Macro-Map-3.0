@@ -1,7 +1,8 @@
 import { requireUser } from "@/lib/auth";
 import { SettingsForms } from "@/components/SettingsForms";
 import { AvatarUpload } from "@/components/AvatarUpload";
-import { Card } from "@/components/ui";
+import { Card, btnGhost } from "@/components/ui";
+import Link from "next/link";
 
 export const metadata = { title: "Settings" };
 
@@ -13,6 +14,15 @@ export default async function SettingsPage() {
       <Card className="space-y-3 p-4">
         <h2 className="text-sm font-semibold">Profile picture</h2>
         <AvatarUpload displayName={user.profile.displayName} currentAvatar={user.profile.avatarUrl} />
+      </Card>
+      <Card className="flex items-center justify-between gap-3 p-4">
+        <div>
+          <h2 className="text-sm font-semibold">Health integrations</h2>
+          <p className="mt-1 text-xs text-ink-faint">Connect Strava/Fitbit now; Apple Health and Health Connect are ready for the mobile app.</p>
+        </div>
+        <Link href="/settings/integrations" className={btnGhost}>
+          Manage
+        </Link>
       </Card>
       <SettingsForms
         profile={{

@@ -520,6 +520,9 @@ export const progressEntries = pgTable(
     hipsCm: real(),
     armsCm: real(),
     note: text(),
+    source: text().notNull().default("manual"),
+    externalProvider: text(),
+    externalId: text(),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("progress_user_date_idx").on(t.userId, t.entryDate)],
@@ -602,9 +605,109 @@ export const sleepLogs = pgTable(
     wakeTime: text().notNull(), // "07:05"
     durationMin: integer().notNull(),
     quality: smallint(), // 1-5, optional
+    externalProvider: text(),
+    externalId: text(),
     source: text().notNull().default("manual"), // manual | fitbit | whoop | … (docs/10 §5)
   },
   (t) => [primaryKey({ columns: [t.userId, t.sleepDate] })],
+);
+
+export const integrationAccounts = pgTable(
+  "integration_accounts",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    provider: text().notNull(),
+    providerAccountId: text(),
+    displayName: text(),
+    scopes: text().array().notNull().default([]),
+    accessTokenCiphertext: text(),
+    refreshTokenCiphertext: text(),
+    expiresAt: timestamp({ withTimezone: true }),
+    syncSettings: jsonb()
+      .notNull()
+      .$type<{ metrics: Record<string, boolean>; backfillDays: number }>()
+      .default({ metrics: {}, backfillDays: 30 }),
+    lastSyncCursor: text(),
+    lastSyncedAt: timestamp({ withTimezone: true }),
+    status: text().notNull().default("connected"),
+    statusMessage: text(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("integration_accounts_user_idx").on(t.userId, t.provider),
+    index("integration_accounts_provider_account_idx").on(t.provider, t.providerAccountId),
+  ],
+);
+
+export const integrationSyncRuns = pgTable(
+  "integration_sync_runs",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    accountId: uuid()
+      .notNull()
+      .references(() => integrationAccounts.id, { onDelete: "cascade" }),
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    provider: text().notNull(),
+    kind: text().notNull(),
+    status: text().notNull().default("running"),
+    startedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    finishedAt: timestamp({ withTimezone: true }),
+    samplesRead: integer().notNull().default(0),
+    samplesWritten: integer().notNull().default(0),
+    errorMessage: text(),
+  },
+  (t) => [index("sync_runs_account_idx").on(t.accountId, t.startedAt), index("sync_runs_user_idx").on(t.userId, t.startedAt)],
+);
+
+export const dailyHealthMetrics = pgTable(
+  "daily_health_metrics",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    metricDate: date().notNull(),
+    source: text().notNull(),
+    externalProvider: text(),
+    externalId: text(),
+    steps: integer(),
+    activeEnergyKcal: real(),
+    restingHeartRateBpm: real(),
+    hrvMs: real(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("daily_health_user_date_idx").on(t.userId, t.metricDate),
+    index("daily_health_external_idx").on(t.externalProvider, t.externalId),
+  ],
+);
+
+export const sleepStageSamples = pgTable(
+  "sleep_stage_samples",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    sleepDate: date().notNull(),
+    source: text().notNull(),
+    externalProvider: text(),
+    externalId: text(),
+    stage: text().notNull(),
+    startedAt: timestamp({ withTimezone: true }).notNull(),
+    endedAt: timestamp({ withTimezone: true }).notNull(),
+  },
+  (t) => [
+    index("sleep_stages_user_date_idx").on(t.userId, t.sleepDate),
+    index("sleep_stages_external_idx").on(t.externalProvider, t.externalId),
+  ],
 );
 
 // ─── feedback + admin import changelog ───────────────────────────────────────
@@ -741,8 +844,55 @@ export const workoutLogs = pgTable(
     durationMin: integer(),
     notes: text(),
     entries: jsonb().notNull().$type<WorkoutLogEntries>(),
+    source: text().notNull().default("manual"),
+    externalProvider: text(),
+    externalId: text(),
   },
   (t) => [index("workout_logs_user_idx").on(t.userId, t.performedAt)],
+);
+
+export const workoutRoutes = pgTable(
+  "workout_routes",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    workoutLogId: uuid().references(() => workoutLogs.id, { onDelete: "cascade" }),
+    source: text().notNull(),
+    externalProvider: text(),
+    externalId: text(),
+    encodedPolyline: text(),
+    gpxStorageKey: text(),
+    distanceM: real(),
+    elevationGainM: real(),
+    privacyStatus: text().notNull().default("private"),
+    startHiddenM: integer().notNull().default(400),
+    endHiddenM: integer().notNull().default(400),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("workout_routes_user_idx").on(t.userId), index("workout_routes_external_idx").on(t.externalProvider, t.externalId)],
+);
+
+export const externalSampleLinks = pgTable(
+  "external_sample_links",
+  {
+    provider: text().notNull(),
+    externalId: text().notNull(),
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    accountId: uuid().references(() => integrationAccounts.id, { onDelete: "set null" }),
+    subjectType: text().notNull(),
+    subjectId: text().notNull(),
+    sourceUpdatedAt: timestamp({ withTimezone: true }),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.provider, t.externalId, t.subjectType] }),
+    index("external_links_user_idx").on(t.userId),
+    index("external_links_subject_idx").on(t.subjectType, t.subjectId),
+  ],
 );
 
 export const personalRecords = pgTable(

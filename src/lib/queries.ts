@@ -19,6 +19,7 @@ import {
   mediaAttachments,
   fastingWindows,
   sleepLogs,
+  dailyHealthMetrics,
   notifications,
 } from "@/db/schema";
 import { shiftDate, todayStr } from "./utils";
@@ -299,6 +300,14 @@ export async function getSleepLogs(userId: string, days = 14) {
     .from(sleepLogs)
     .where(and(eq(sleepLogs.userId, userId), gte(sleepLogs.sleepDate, shiftDate(todayStr(), -days))))
     .orderBy(desc(sleepLogs.sleepDate));
+}
+
+export async function getDailyHealthMetrics(userId: string, days = 14) {
+  return db
+    .select()
+    .from(dailyHealthMetrics)
+    .where(and(eq(dailyHealthMetrics.userId, userId), gte(dailyHealthMetrics.metricDate, shiftDate(todayStr(), -days))))
+    .orderBy(desc(dailyHealthMetrics.metricDate));
 }
 
 export async function getStreak(userId: string, fromDate: string): Promise<number> {
