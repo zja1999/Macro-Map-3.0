@@ -3,12 +3,13 @@ import { getProgressEntries, getProgressPhotos, getHabitsWithStreaks, getWeekSum
 import { ensureDefaultHabits, toggleHabit, addHabit, archiveHabit } from "@/actions/progress";
 import { logSleep, deleteSleepLog } from "@/actions/sleep";
 import { todayStr, formatDateLabel } from "@/lib/utils";
+import { formatWeight, formatLength, kgToLb, type UnitsPref } from "@/lib/units";
 import { Card, EmptyState, inputCls } from "@/components/ui";
 import { ProgressPhotoForm, WeighInForm } from "@/components/ProgressForms";
 
 export const metadata = { title: "Progress" };
 
-function WeightChart({ points }: { points: { date: string; kg: number }[] }) {
+function WeightChart({ points, units }: { points: { date: string; kg: number }[]; units: UnitsPref }) {
   const W = 560;
   const H = 150;
   const PAD = 6;
@@ -24,11 +25,11 @@ function WeightChart({ points }: { points: { date: string; kg: number }[] }) {
       <path d={path} fill="none" stroke="var(--color-accent)" strokeWidth={2} strokeLinejoin="round" />
       {points.map((p, i) => (
         <circle key={p.date} cx={x(i)} cy={y(p.kg)} r={2.5} fill="var(--color-accent)">
-          <title>{`${p.date}: ${p.kg} kg`}</title>
+          <title>{`${p.date}: ${formatWeight(p.kg, units)}`}</title>
         </circle>
       ))}
       <text x={W - PAD} y={y(points[points.length - 1].kg) - 8} textAnchor="end" fontSize={11} fill="var(--color-ink)" fontWeight="bold">
-        {points[points.length - 1].kg} kg
+        {formatWeight(points[points.length - 1].kg, units)}
       </text>
     </svg>
   );
@@ -51,6 +52,7 @@ export default async function ProgressPage() {
     : null;
   const fmtSleep = (min: number) => `${Math.floor(min / 60)}h ${String(min % 60).padStart(2, "0")}m`;
 
+  const units = user.profile.units as UnitsPref;
   const weightPoints = entries.filter((e) => e.weightKg != null).map((e) => ({ date: e.entryDate, kg: e.weightKg! }));
   const latest = entries[entries.length - 1];
   const firstWeight = weightPoints[0]?.kg;
@@ -63,14 +65,23 @@ export default async function ProgressPage() {
   };
   const measurements = (
     [
-      ["bodyFatPct", "Body fat", "%"],
-      ["waistCm", "Waist", "cm"],
-      ["chestCm", "Chest", "cm"],
-      ["hipsCm", "Hips", "cm"],
-      ["armsCm", "Arms", "cm"],
+      ["bodyFatPct", "Body fat", "pct"],
+      ["waistCm", "Waist", "length"],
+      ["chestCm", "Chest", "length"],
+      ["hipsCm", "Hips", "length"],
+      ["armsCm", "Arms", "length"],
     ] as const
   )
-    .map(([key, label, unit]) => ({ label, unit, value: latestOf(key) }))
+    .map(([key, label, kind]) => ({
+      label,
+      value: latestOf(key),
+      display:
+        latestOf(key) == null
+          ? null
+          : kind === "pct"
+            ? `${latestOf(key)}%`
+            : formatLength(latestOf(key), units),
+    }))
     .filter((m) => m.value != null);
 
   const loggedDays = week.length;
@@ -96,7 +107,7 @@ export default async function ProgressPage() {
           <h2 className="mb-3 text-sm font-semibold">
             {latest?.entryDate === today ? "Today's entry (edits merge in)" : "Log a weigh-in"}
           </h2>
-          <WeighInForm today={today} />
+          <WeighInForm today={today} units={units} />
         </Card>
       )}
 
@@ -107,13 +118,16 @@ export default async function ProgressPage() {
             <h2 className="text-sm font-semibold">Weight trend</h2>
             {delta != null && weightPoints.length >= 2 && (
               <span className={`text-xs font-semibold tabular-nums ${delta <= 0 ? "text-accent" : "text-carbs"}`}>
-                {delta > 0 ? "+" : ""}
-                {delta.toFixed(1)} kg since {formatDateLabel(weightPoints[0].date)}
+                {(() => {
+                  const d = units === "imperial" ? kgToLb(delta) : delta;
+                  return `${d > 0 ? "+" : ""}${d.toFixed(1)} ${units === "imperial" ? "lb" : "kg"}`;
+                })()}{" "}
+                since {formatDateLabel(weightPoints[0].date)}
               </span>
             )}
           </div>
           {weightPoints.length >= 2 ? (
-            <WeightChart points={weightPoints} />
+            <WeightChart points={weightPoints} units={units} />
           ) : (
             <p className="py-4 text-center text-xs text-ink-faint">
               Log two or more weigh-ins to see your trend line.
@@ -129,10 +143,7 @@ export default async function ProgressPage() {
           <div className="flex flex-wrap gap-2">
             {measurements.map((m) => (
               <div key={m.label} className="rounded-lg bg-surface px-3 py-2 text-center">
-                <div className="text-sm font-bold tabular-nums">
-                  {m.value}
-                  <span className="text-[10px] font-normal text-ink-faint"> {m.unit}</span>
-                </div>
+                <div className="text-sm font-bold tabular-nums">{m.display}</div>
                 <div className="text-[10px] text-ink-faint">{m.label}</div>
               </div>
             ))}
@@ -287,9 +298,11 @@ export default async function ProgressPage() {
               <li key={e.id} className="flex items-baseline justify-between py-1.5 text-sm">
                 <span className="text-xs text-ink-faint">{formatDateLabel(e.entryDate)}</span>
                 <span className="tabular-nums">
-                  {e.weightKg != null && <span className="font-medium">{e.weightKg} kg</span>}
+                  {e.weightKg != null && <span className="font-medium">{formatWeight(e.weightKg, units)}</span>}
                   {e.bodyFatPct != null && <span className="ml-2 text-xs text-ink-dim">{e.bodyFatPct}% bf</span>}
-                  {e.waistCm != null && <span className="ml-2 text-xs text-ink-dim">{e.waistCm}cm waist</span>}
+                  {e.waistCm != null && (
+                    <span className="ml-2 text-xs text-ink-dim">{formatLength(e.waistCm, units)} waist</span>
+                  )}
                   {e.note && <span className="ml-2 text-xs italic text-ink-faint">“{e.note}”</span>}
                 </span>
               </li>

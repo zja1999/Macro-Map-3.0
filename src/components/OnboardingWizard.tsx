@@ -3,6 +3,7 @@
 import { useActionState, useMemo, useState } from "react";
 import { completeOnboarding } from "@/actions/onboarding";
 import { calculateTargets } from "@/lib/targets";
+import { ftInToCm, lbToKg, type UnitsPref } from "@/lib/units";
 import { inputCls, btnPrimary, btnGhost } from "./ui";
 
 const GOALS = [
@@ -37,8 +38,16 @@ export function OnboardingWizard() {
   const [goal, setGoal] = useState("fat_loss");
   const [style, setStyle] = useState("strict_macro");
   const [sex, setSex] = useState<"male" | "female">("male");
-  const [heightCm, setHeightCm] = useState(178);
-  const [weightKg, setWeightKg] = useState(80);
+  const [units, setUnits] = useState<UnitsPref>("imperial");
+  // metric-mode inputs
+  const [heightCmInput, setHeightCmInput] = useState(178);
+  const [weightKgInput, setWeightKgInput] = useState(80);
+  // imperial-mode inputs — canonical cm/kg is always derived below, never stored twice
+  const [heightFt, setHeightFt] = useState(5);
+  const [heightIn, setHeightIn] = useState(10);
+  const [weightLb, setWeightLb] = useState(176);
+  const heightCm = units === "metric" ? heightCmInput : ftInToCm(heightFt, heightIn);
+  const weightKg = units === "metric" ? weightKgInput : lbToKg(weightLb);
   const [age, setAge] = useState(25);
   const [activity, setActivity] = useState("moderate");
   const [manual, setManual] = useState(false);
@@ -66,6 +75,7 @@ export function OnboardingWizard() {
       <input type="hidden" name="sex" value={sex} />
       <input type="hidden" name="heightCm" value={heightCm} />
       <input type="hidden" name="weightKg" value={weightKg} />
+      <input type="hidden" name="units" value={units} />
       <input type="hidden" name="age" value={age} />
       <input type="hidden" name="activityLevel" value={activity} />
       {manual && <input type="hidden" name="manual" value="true" />}
@@ -122,15 +132,59 @@ export function OnboardingWizard() {
               </button>
             ))}
           </div>
+          <div className="flex gap-1">
+            {(["imperial", "metric"] as const).map((u) => (
+              <button
+                key={u}
+                type="button"
+                onClick={() => setUnits(u)}
+                className={`flex-1 rounded-lg border px-2 py-1 text-xs capitalize ${
+                  units === u ? "border-accent bg-accent/10 font-semibold text-accent" : "border-edge bg-card text-ink-dim"
+                }`}
+              >
+                {u === "imperial" ? "lb / ft-in" : "kg / cm"}
+              </button>
+            ))}
+          </div>
           <div className="grid grid-cols-3 gap-3">
-            <label className="space-y-1 text-xs text-ink-dim">
-              Height (cm)
-              <input type="number" value={heightCm} onChange={(e) => setHeightCm(+e.target.value)} className={inputCls} />
-            </label>
-            <label className="space-y-1 text-xs text-ink-dim">
-              Weight (kg)
-              <input type="number" value={weightKg} onChange={(e) => setWeightKg(+e.target.value)} className={inputCls} />
-            </label>
+            {units === "imperial" ? (
+              <>
+                <label className="space-y-1 text-xs text-ink-dim">
+                  Height
+                  <div className="flex gap-1">
+                    <input
+                      type="number"
+                      value={heightFt}
+                      onChange={(e) => setHeightFt(+e.target.value)}
+                      className={`${inputCls} w-1/2`}
+                      aria-label="Feet"
+                    />
+                    <input
+                      type="number"
+                      value={heightIn}
+                      onChange={(e) => setHeightIn(+e.target.value)}
+                      className={`${inputCls} w-1/2`}
+                      aria-label="Inches"
+                    />
+                  </div>
+                </label>
+                <label className="space-y-1 text-xs text-ink-dim">
+                  Weight (lb)
+                  <input type="number" value={weightLb} onChange={(e) => setWeightLb(+e.target.value)} className={inputCls} />
+                </label>
+              </>
+            ) : (
+              <>
+                <label className="space-y-1 text-xs text-ink-dim">
+                  Height (cm)
+                  <input type="number" value={heightCmInput} onChange={(e) => setHeightCmInput(+e.target.value)} className={inputCls} />
+                </label>
+                <label className="space-y-1 text-xs text-ink-dim">
+                  Weight (kg)
+                  <input type="number" value={weightKgInput} onChange={(e) => setWeightKgInput(+e.target.value)} className={inputCls} />
+                </label>
+              </>
+            )}
             <label className="space-y-1 text-xs text-ink-dim">
               Age
               <input type="number" value={age} onChange={(e) => setAge(+e.target.value)} className={inputCls} />

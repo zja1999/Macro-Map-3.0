@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { usePathname } from "next/navigation";
 import { updateProfile, updateTargets } from "@/actions/onboarding";
 import { claimAccount } from "@/actions/auth";
@@ -67,11 +67,12 @@ export function SettingsForms({
   profile,
   targets,
 }: {
-  profile: { displayName: string; bio: string; dietaryStyle: string; shareMacroGoals: boolean };
+  profile: { displayName: string; bio: string; dietaryStyle: string; shareMacroGoals: boolean; units: "metric" | "imperial" };
   targets: { calories: number; proteinG: number; carbsG: number; fatG: number };
 }) {
   const [pState, pAction, pPending] = useActionState(updateProfile, undefined);
   const [tState, tAction, tPending] = useActionState(updateTargets, undefined);
+  const [units, setUnits] = useState(profile.units);
 
   return (
     <div className="space-y-8">
@@ -93,6 +94,24 @@ export function SettingsForms({
           <input type="checkbox" name="shareMacroGoals" value="true" defaultChecked={profile.shareMacroGoals} />
           Show my macro targets on my public profile
         </label>
+        <div className="space-y-1 text-xs text-ink-dim">
+          Units (weight, height, water)
+          <input type="hidden" name="units" value={units} />
+          <div className="flex gap-1">
+            {(["imperial", "metric"] as const).map((u) => (
+              <button
+                key={u}
+                type="button"
+                onClick={() => setUnits(u)}
+                className={`flex-1 rounded-lg border px-2 py-1.5 text-center text-xs capitalize ${
+                  units === u ? "border-accent bg-accent/10 font-semibold text-accent" : "border-edge bg-card"
+                }`}
+              >
+                {u === "imperial" ? "lb / ft-in / fl oz" : "kg / cm / L"}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="flex items-center gap-3">
           <button disabled={pPending} className={btnPrimary}>
             {pPending ? "Saving…" : "Save profile"}

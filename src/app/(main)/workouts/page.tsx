@@ -147,7 +147,7 @@ export default async function WorkoutsPage({
           <div className="flex flex-wrap gap-2">
             {prRows.slice(0, 12).map(({ pr, exerciseName }) => (
               <div key={pr.id} className="rounded-lg bg-surface px-3 py-2 text-center">
-                <div className="text-xs font-bold tabular-nums">{prLabel(pr)}</div>
+                <div className="text-xs font-bold tabular-nums">{prLabel(pr, user.profile.units as "metric" | "imperial")}</div>
                 <div className="text-[10px] text-ink-faint">{exerciseName}</div>
               </div>
             ))}

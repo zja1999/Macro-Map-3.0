@@ -8,6 +8,7 @@ import { deleteLog, copyPreviousDay, addWater } from "@/actions/logging";
 import { NUTRIENT_DEFS, nutrientTotals } from "@/lib/nutrients";
 import { FastingCard } from "@/components/FastingCard";
 import { getFastingState } from "@/lib/queries";
+import { formatWater, flOzToMl, type UnitsPref } from "@/lib/units";
 
 export const metadata = { title: "Track" };
 
@@ -20,6 +21,18 @@ export default async function TrackPage({
   const sp = await searchParams;
   const date = /^\d{4}-\d{2}-\d{2}$/.test(sp.date ?? "") ? sp.date! : todayStr();
   const targets = user.targets;
+  const units = user.profile.units as UnitsPref;
+  // buttons add a round amount in the user's unit; stored value is always ml
+  const waterSteps =
+    units === "imperial"
+      ? [
+          { label: "+8 fl oz", ml: Math.round(flOzToMl(8)) },
+          { label: "+16 fl oz", ml: Math.round(flOzToMl(16)) },
+        ]
+      : [
+          { label: "+250ml", ml: 250 },
+          { label: "+500ml", ml: 500 },
+        ];
 
   const [{ logs, waterMl }, week, fasting] = await Promise.all([
     getDayLogs(user.id, date),
@@ -177,16 +190,16 @@ export default async function TrackPage({
       {/* water + tools */}
       <Card className="flex items-center justify-between p-3">
         <div className="text-sm">
-          💧 <span className="font-semibold tabular-nums">{(waterMl / 1000).toFixed(1)}L</span>
+          💧 <span className="font-semibold tabular-nums">{formatWater(waterMl, units)}</span>
           <span className="text-xs text-ink-faint"> water</span>
         </div>
         <div className="flex gap-2">
-          {[250, 500].map((ml) => (
-            <form key={ml} action={addWater}>
+          {waterSteps.map((step) => (
+            <form key={step.label} action={addWater}>
               <input type="hidden" name="logDate" value={date} />
-              <input type="hidden" name="ml" value={ml} />
+              <input type="hidden" name="ml" value={step.ml} />
               <button className="rounded-md bg-protein/10 px-2 py-1 text-xs font-medium text-protein hover:bg-protein/20">
-                +{ml}ml
+                {step.label}
               </button>
             </form>
           ))}

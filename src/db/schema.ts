@@ -51,6 +51,7 @@ export const profiles = pgTable("profiles", {
   heightCm: real(),
   weightKg: real(),
   birthYear: integer(),
+  units: text().notNull().default("imperial"), // metric | imperial — display/input only, storage stays metric
   visibility: text().notNull().default("public"),
   shareMacroGoals: boolean().notNull().default(false),
   onboardedAt: timestamp({ withTimezone: true }),

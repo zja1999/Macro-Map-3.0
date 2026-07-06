@@ -2,6 +2,7 @@
 
 import { useActionState, useMemo, useState } from "react";
 import { createWorkout, logWorkout } from "@/actions/workouts";
+import { lbToKg, type UnitsPref } from "@/lib/units";
 import { inputCls, btnPrimary, btnGhost } from "./ui";
 
 export type ExerciseOption = { id: string; name: string; isBodyweight: boolean };
@@ -146,26 +147,32 @@ export function WorkoutLogger({
   exerciseOptions,
   workoutId,
   prefill,
+  units,
 }: {
   exerciseOptions: ExerciseOption[];
   workoutId?: string;
   prefill?: LoggerRow[];
+  units: UnitsPref;
 }) {
   const [rows, setRows] = useState<LoggerRow[]>(
     prefill?.length ? prefill : [{ exerciseName: "", sets: [{ reps: "", weightKg: "" }] }],
   );
   const [state, action, pending] = useActionState(logWorkout, undefined);
   const byName = useMemo(() => new Map(exerciseOptions.map((e) => [e.name.toLowerCase(), e])), [exerciseOptions]);
+  const weightUnit = units === "imperial" ? "lb" : "kg";
 
   const entries = rows
     .map((r) => {
       const ex = byName.get(r.exerciseName.trim().toLowerCase());
       if (!ex) return null;
       const sets = r.sets
-        .map((s) => ({
-          reps: parseInt(s.reps) || 0,
-          weightKg: s.weightKg === "" ? null : parseFloat(s.weightKg) || 0,
-        }))
+        .map((s) => {
+          const raw = s.weightKg === "" ? null : parseFloat(s.weightKg) || 0;
+          // field is always labeled/entered in the user's unit — convert to
+          // canonical kg here, once, before it reaches the server action
+          const weightKg = raw == null ? null : units === "imperial" ? lbToKg(raw) : raw;
+          return { reps: parseInt(s.reps) || 0, weightKg };
+        })
         .filter((s) => s.reps > 0);
       return sets.length ? { exerciseId: ex.id, sets } : null;
     })
@@ -216,11 +223,11 @@ export function WorkoutLogger({
                     onChange={(e) =>
                       update(i, (r) => ({ ...r, sets: r.sets.map((x, k) => (k === si ? { ...x, weightKg: e.target.value } : x)) }))
                     }
-                    placeholder={ex?.isBodyweight ? "BW" : "kg"}
+                    placeholder={ex?.isBodyweight ? "BW" : weightUnit}
                     step="0.5"
                     min={0}
                     className={`${inputCls} w-24 py-1.5 text-center`}
-                    aria-label="Weight (kg)"
+                    aria-label={`Weight (${weightUnit})`}
                   />
                   <span className="text-ink-faint">×</span>
                   <input

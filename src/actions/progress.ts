@@ -7,17 +7,21 @@ import { z } from "zod";
 import { db } from "@/db/client";
 import { habitLogs, habits, mediaAttachments, photos, progressEntries } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
+import { weightToKg, lengthToCm } from "@/lib/units";
 
 const dateRe = /^\d{4}-\d{2}-\d{2}$/;
 
+// raw values are in whichever unit the `units` field says — converted to
+// canonical kg/cm below, before anything reaches the DB (docs: lib/units.ts)
 const entrySchema = z.object({
   entryDate: z.string().regex(dateRe),
-  weightKg: z.coerce.number().min(20).max(400).optional(),
+  units: z.enum(["metric", "imperial"]).default("metric"),
+  weight: z.coerce.number().min(4).max(880).optional(),
   bodyFatPct: z.coerce.number().min(1).max(75).optional(),
-  waistCm: z.coerce.number().min(30).max(250).optional(),
-  chestCm: z.coerce.number().min(30).max(250).optional(),
-  hipsCm: z.coerce.number().min(30).max(250).optional(),
-  armsCm: z.coerce.number().min(10).max(80).optional(),
+  waist: z.coerce.number().min(4).max(250).optional(),
+  chest: z.coerce.number().min(4).max(250).optional(),
+  hips: z.coerce.number().min(4).max(250).optional(),
+  arms: z.coerce.number().min(4).max(250).optional(),
   note: z.string().max(300).optional(),
 });
 
@@ -32,8 +36,17 @@ export async function saveProgressEntry(
   const parsed = entrySchema.safeParse(raw);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const d = parsed.data;
-  if (d.weightKg == null && d.bodyFatPct == null && d.waistCm == null && d.chestCm == null && d.hipsCm == null && d.armsCm == null) {
+  if (d.weight == null && d.bodyFatPct == null && d.waist == null && d.chest == null && d.hips == null && d.arms == null) {
     return { error: "Enter at least one measurement" };
+  }
+  const weightKg = d.weight != null ? weightToKg(d.weight, d.units) : undefined;
+  const waistCm = d.waist != null ? lengthToCm(d.waist, d.units) : undefined;
+  const chestCm = d.chest != null ? lengthToCm(d.chest, d.units) : undefined;
+  const hipsCm = d.hips != null ? lengthToCm(d.hips, d.units) : undefined;
+  const armsCm = d.arms != null ? lengthToCm(d.arms, d.units) : undefined;
+  if (weightKg != null && (weightKg < 20 || weightKg > 400)) return { error: "Weight out of range" };
+  if ([waistCm, chestCm, hipsCm, armsCm].some((v) => v != null && (v < 10 || v > 250))) {
+    return { error: "Measurement out of range" };
   }
 
   // one entry per day: update today's row if it exists
@@ -46,17 +59,27 @@ export async function saveProgressEntry(
     await db
       .update(progressEntries)
       .set({
-        weightKg: d.weightKg ?? existing.weightKg,
+        weightKg: weightKg ?? existing.weightKg,
         bodyFatPct: d.bodyFatPct ?? existing.bodyFatPct,
-        waistCm: d.waistCm ?? existing.waistCm,
-        chestCm: d.chestCm ?? existing.chestCm,
-        hipsCm: d.hipsCm ?? existing.hipsCm,
-        armsCm: d.armsCm ?? existing.armsCm,
+        waistCm: waistCm ?? existing.waistCm,
+        chestCm: chestCm ?? existing.chestCm,
+        hipsCm: hipsCm ?? existing.hipsCm,
+        armsCm: armsCm ?? existing.armsCm,
         note: d.note ?? existing.note,
       })
       .where(eq(progressEntries.id, existing.id));
   } else {
-    await db.insert(progressEntries).values({ userId: user.id, ...d });
+    await db.insert(progressEntries).values({
+      userId: user.id,
+      entryDate: d.entryDate,
+      weightKg,
+      bodyFatPct: d.bodyFatPct,
+      waistCm,
+      chestCm,
+      hipsCm,
+      armsCm,
+      note: d.note,
+    });
   }
   revalidatePath("/progress");
   return {};

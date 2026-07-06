@@ -14,6 +14,7 @@ const schema = z.object({
   sex: z.enum(["male", "female"]),
   heightCm: z.coerce.number().min(100).max(250),
   weightKg: z.coerce.number().min(30).max(300),
+  units: z.enum(["metric", "imperial"]).default("imperial"),
   age: z.coerce.number().min(13).max(100),
   activityLevel: z.enum(["sedentary", "light", "moderate", "very", "extra"]),
   dietaryStyle: z.string().max(40).optional(),
@@ -61,6 +62,7 @@ export async function completeOnboarding(
       sex: d.sex,
       heightCm: d.heightCm,
       weightKg: d.weightKg,
+      units: d.units,
       birthYear: new Date().getFullYear() - d.age,
       activityLevel: d.activityLevel,
       dietaryStyle: d.dietaryStyle || null,
@@ -98,6 +100,7 @@ const profileSchema = z.object({
   bio: z.string().max(280).optional(),
   dietaryStyle: z.string().max(40).optional(),
   shareMacroGoals: z.coerce.boolean().optional(),
+  units: z.enum(["metric", "imperial"]).optional(),
 });
 
 export async function updateProfile(
@@ -115,6 +118,7 @@ export async function updateProfile(
       bio: parsed.data.bio || null,
       dietaryStyle: parsed.data.dietaryStyle || null,
       shareMacroGoals: parsed.data.shareMacroGoals ?? false,
+      ...(parsed.data.units ? { units: parsed.data.units } : {}),
     })
     .where(eq(profiles.userId, user.id));
   return { ok: true };

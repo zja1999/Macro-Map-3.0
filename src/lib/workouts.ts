@@ -11,6 +11,7 @@ import {
   workouts,
   type WorkoutLogEntries,
 } from "@/db/schema";
+import { formatWeight, type UnitsPref } from "@/lib/units";
 
 export type Exercise = typeof exercises.$inferSelect;
 export type Workout = typeof workouts.$inferSelect;
@@ -78,9 +79,9 @@ export async function detectPrs(userId: string, entries: WorkoutLogEntries): Pro
   return hits;
 }
 
-export function prLabel(hit: { metric: string; value: number }): string {
-  if (hit.metric === "e1rm") return `${hit.value} kg est. 1RM`;
-  if (hit.metric === "volume") return `${Math.round(hit.value)} kg total volume`;
+export function prLabel(hit: { metric: string; value: number }, units: UnitsPref): string {
+  if (hit.metric === "e1rm") return `${formatWeight(hit.value, units)} est. 1RM`;
+  if (hit.metric === "volume") return `${formatWeight(hit.value, units, 0)} total volume`;
   return `${hit.value} reps`;
 }
 

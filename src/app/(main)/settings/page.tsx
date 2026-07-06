@@ -25,6 +25,7 @@ export default async function SettingsPage({
           bio: user.profile.bio ?? "",
           dietaryStyle: user.profile.dietaryStyle ?? "",
           shareMacroGoals: user.profile.shareMacroGoals,
+          units: user.profile.units as "metric" | "imperial",
         }}
         targets={{
           calories: user.targets?.calories ?? 2000,

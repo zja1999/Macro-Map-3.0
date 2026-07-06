@@ -179,8 +179,9 @@ export async function logWorkout(
   });
 
   // PRs surface as an offered share, never an automatic post (docs/08 §5.4)
+  const units = user.profile.units as "metric" | "imperial";
   const prParam = hits.length
-    ? `&prs=${encodeURIComponent(hits.map((h) => `${h.exerciseName}: ${prLabel(h)}`).join(" · "))}`
+    ? `&prs=${encodeURIComponent(hits.map((h) => `${h.exerciseName}: ${prLabel(h, units)}`).join(" · "))}`
     : "";
   redirect(`/workouts?logged=${logId}${prParam}`);
 }
