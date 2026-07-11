@@ -29,6 +29,14 @@ export default function LoginPage() {
             Forgot your password?
           </Link>
         </p>
+        <div className="flex items-center gap-3 py-1 text-xs text-ink-faint" aria-hidden="true">
+          <span className="h-px flex-1 bg-edge" />
+          or
+          <span className="h-px flex-1 bg-edge" />
+        </div>
+        <Link href="/api/auth/google/start" className={`${btnGhost} w-full`}>
+          Continue with Google
+        </Link>
         <p className="text-center text-xs text-ink-faint">
           New here?{" "}
           <Link href="/register" className="text-accent hover:underline">

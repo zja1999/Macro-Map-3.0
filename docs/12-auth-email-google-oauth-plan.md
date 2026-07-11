@@ -3,6 +3,16 @@
 This plan keeps the existing `sessions` table as the single logged-in session layer. Email/password,
 verified email, and Google OAuth all end by calling `createSession(userId)`.
 
+## Current Status (2026-07-10)
+
+- Email verification and password-reset flows are implemented. Production delivery uses Resend when
+  `RESEND_API_KEY` and `RESEND_FROM_EMAIL` are configured; local development logs links instead.
+- Google OAuth routes and auth-screen entry points are implemented. They require the
+  `oauth_accounts` database table plus `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and
+  `NEXT_PUBLIC_APP_URL` in the deployed environment.
+- Google identity links only trust Google accounts whose email is verified. Existing password accounts
+  are linked only when their local email has already been verified.
+
 ## Goals
 
 - Verify email ownership during account creation before granting full account trust.

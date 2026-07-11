@@ -35,6 +35,14 @@ export default function RegisterPage() {
       <button disabled={pending} className={`${btnPrimary} w-full`}>
         {pending ? "Creating…" : "Sign up"}
       </button>
+      <div className="flex items-center gap-3 py-1 text-xs text-ink-faint" aria-hidden="true">
+        <span className="h-px flex-1 bg-edge" />
+        or
+        <span className="h-px flex-1 bg-edge" />
+      </div>
+      <Link href="/api/auth/google/start" className={`${btnPrimary} w-full`}>
+        Continue with Google
+      </Link>
       <p className="text-center text-xs text-ink-faint">
         Already have an account?{" "}
         <Link href="/login" className="text-accent hover:underline">

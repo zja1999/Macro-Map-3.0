@@ -69,6 +69,25 @@ export const passwordResetTokens = pgTable(
   (t) => [index("password_reset_user_idx").on(t.userId, t.createdAt)],
 );
 
+// External identities are separate from users: the app continues to own
+// sessions, while providers only prove how a user authenticated.
+export const oauthAccounts = pgTable(
+  "oauth_accounts",
+  {
+    provider: text().notNull(),
+    providerAccountId: text().notNull(),
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    email: text(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.provider, t.providerAccountId] }),
+    index("oauth_accounts_user_idx").on(t.userId, t.provider),
+  ],
+);
+
 export const rateLimitEvents = pgTable(
   "rate_limit_events",
   {
