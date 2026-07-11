@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Bell, Flame } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
 import { isModerator } from "@/lib/permissions";
-import { getStreak, getUnreadNotificationCount } from "@/lib/queries";
-import { todayStr } from "@/lib/utils";
-import { MobileQuickActions, TabBar, SideNav } from "@/components/TabBar";
+import { getStreak, getUnreadNotificationCount, getFrequents } from "@/lib/queries";
+import { todayStr, slotForNow } from "@/lib/utils";
+import { TabBar, SideNav } from "@/components/TabBar";
+import type { LogSheetData } from "@/components/LogSheet";
 import { FeedbackButton } from "@/components/FeedbackButton";
 import { Avatar } from "@/components/ui";
 
@@ -13,10 +15,31 @@ export default async function MainLayout({ children }: { children: React.ReactNo
   // the rest), so render an anonymous shell instead of forcing a login.
   const user = await getCurrentUser();
   if (user && !user.profile.onboardedAt) redirect("/onboarding");
-  const [streak, unreadNotifications] = user
-    ? await Promise.all([getStreak(user.id, todayStr()), getUnreadNotificationCount(user.id)])
-    : [0, 0];
+  const [streak, unreadNotifications, frequents] = user
+    ? await Promise.all([
+        getStreak(user.id, todayStr()),
+        getUnreadNotificationCount(user.id),
+        getFrequents(user.id, 3),
+      ])
+    : [0, 0, []];
   const canModerate = !!user && isModerator(user);
+
+  // Serializable payload for the client-side Log sheet (SQL AVGs come back as
+  // strings from pg — coerce here, not in the component).
+  const logSheet: LogSheetData | undefined = user
+    ? {
+        trackingStyle: user.profile.trackingStyle,
+        today: todayStr(),
+        slot: slotForNow(),
+        frequents: frequents.map((f) => ({
+          name: f.name,
+          calories: Number(f.calories),
+          proteinG: Number(f.proteinG),
+          carbsG: Number(f.carbsG),
+          fatG: Number(f.fatG),
+        })),
+      }
+    : undefined;
 
   return (
     <div className="min-h-dvh pb-20 md:pb-8">
@@ -28,17 +51,20 @@ export default async function MainLayout({ children }: { children: React.ReactNo
           {user ? (
             <div className="flex items-center gap-4">
               <FeedbackButton />
-              <Link href="/notifications" className="relative text-sm font-semibold text-ink-dim hover:text-accent" aria-label="Notifications">
-                🔔
+              <Link href="/notifications" className="relative text-text-secondary transition hover:text-accent" aria-label="Notifications">
+                <Bell size={20} strokeWidth={1.8} />
                 {unreadNotifications > 0 && (
-                  <span className="absolute -right-2 -top-2 rounded-full bg-accent px-1.5 text-[10px] leading-4 text-black">
+                  <span className="absolute -right-1.5 -top-1.5 rounded-full bg-accent px-1.5 text-[10px] font-semibold leading-4 text-black">
                     {unreadNotifications > 9 ? "9+" : unreadNotifications}
                   </span>
                 )}
               </Link>
               {streak > 0 && (
-                <span className="text-sm font-semibold text-carbs" title={`${streak}-day logging streak`}>
-                  🔥 {streak}
+                <span
+                  className="flex items-center gap-0.5 text-sm font-bold tabular-nums text-carbs"
+                  title={`${streak}-day logging streak`}
+                >
+                  <Flame size={16} strokeWidth={2.2} fill="currentColor" /> {streak}
                 </span>
               )}
               <Link href={`/u/${user.profile.username}`} aria-label="Your profile">
@@ -57,12 +83,11 @@ export default async function MainLayout({ children }: { children: React.ReactNo
           )}
         </div>
       </header>
-      {user && <MobileQuickActions />}
       <div className="mx-auto flex max-w-5xl gap-8 px-4 pt-6">
         <SideNav canModerate={canModerate} authed={!!user} />
         <main className="min-w-0 flex-1">{children}</main>
       </div>
-      <TabBar canModerate={canModerate} authed={!!user} />
+      <TabBar authed={!!user} logSheet={logSheet} />
     </div>
   );
 }

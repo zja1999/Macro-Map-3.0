@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ChevronRight, Settings, Shield, ShoppingCart, type LucideIcon } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { isModerator } from "@/lib/permissions";
 import { getProfileByUsername, getFollowStats, getUserPosts, listRecipes, getFollowList } from "@/lib/queries";
@@ -10,6 +11,16 @@ import { Avatar, Badge, Card, UserChip, btnPrimary, btnGhost, EmptyState } from 
 import { PostCard } from "@/components/PostCard";
 import { RecipeCard } from "@/components/RecipeCard";
 import { ReportButton } from "@/components/ReportButton";
+
+function UtilityRow({ href, icon: Icon, label }: { href: string; icon: LucideIcon; label: string }) {
+  return (
+    <Link href={href} className="flex items-center gap-3 px-4 py-3 text-sm font-medium transition hover:bg-surface-3">
+      <Icon size={18} strokeWidth={1.8} className="text-text-secondary" />
+      {label}
+      <ChevronRight size={15} className="ml-auto text-text-tertiary" />
+    </Link>
+  );
+}
 
 export default async function ProfilePage({
   params,
@@ -96,6 +107,16 @@ export default async function ProfilePage({
           </div>
         )}
       </Card>
+
+      {/* You-tab utility surfaces (plan §2.1): destinations without tab-bar
+          slots get their mobile path here. */}
+      {isMe && (
+        <Card className="divide-y divide-border">
+          <UtilityRow href="/groceries" icon={ShoppingCart} label="Groceries" />
+          <UtilityRow href="/settings" icon={Settings} label="Settings" />
+          {canModerate && <UtilityRow href="/admin" icon={Shield} label="Admin" />}
+        </Card>
+      )}
 
       <div className="flex gap-1 rounded-lg border border-edge bg-card p-1">
         {[

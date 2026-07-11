@@ -3,18 +3,39 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import {
+  BarChart3,
+  ChefHat,
+  ChevronRight,
+  Compass,
+  Dumbbell,
+  Home,
+  LineChart,
+  MapPin,
+  Package,
+  Shield,
+  ShoppingCart,
+  Trophy,
+  User,
+  Users,
+  UtensilsCrossed,
+  Salad,
+  type LucideIcon,
+} from "lucide-react";
+import { LogSheet, type LogSheetData } from "@/components/LogSheet";
 
-type NavItem = { href: string; label: string; icon: string; primary?: boolean };
+type NavItem = { href: string; label: string; icon: LucideIcon };
 
-const tabs: NavItem[] = [
-  { href: "/", label: "Feed", icon: "🏠" },
-  { href: "/discover", label: "Discover", icon: "🔍" },
-  { href: "/track/add", label: "Log", icon: "＋", primary: true },
-  { href: "/track", label: "Track", icon: "📊" },
-  { href: "/me", label: "Profile", icon: "👤" },
+// Center slot is the LogSheet trigger, not a tab — logging is an action, not a
+// destination (plan §2.2). Admin lives under You + SideNav, never in the bar.
+const tabsLeft: NavItem[] = [
+  { href: "/", label: "Home", icon: Home },
+  { href: "/discover", label: "Discover", icon: Compass },
 ];
-
-const adminLink: NavItem = { href: "/admin", label: "Admin", icon: "Admin" };
+const tabsRight: NavItem[] = [
+  { href: "/track", label: "Track", icon: BarChart3 },
+  { href: "/me", label: "You", icon: User },
+];
 
 function isActivePath(pathname: string, href: string) {
   if (href === "/") return pathname === "/";
@@ -22,74 +43,51 @@ function isActivePath(pathname: string, href: string) {
 }
 
 const publicTabs: NavItem[] = [
-  { href: "/recipes", label: "Recipes", icon: "🍳" },
-  { href: "/workouts", label: "Workouts", icon: "🏋️" },
-  { href: "/restaurants", label: "Food", icon: "🍔" },
-  { href: "/login", label: "Log in", icon: "👤" },
+  { href: "/recipes", label: "Recipes", icon: ChefHat },
+  { href: "/workouts", label: "Workouts", icon: Dumbbell },
+  { href: "/restaurants", label: "Food", icon: MapPin },
+  { href: "/login", label: "Log in", icon: User },
 ];
 
-export function TabBar({ canModerate = false, authed = true }: { canModerate?: boolean; authed?: boolean }) {
-  const pathname = usePathname();
-  const visibleTabs = !authed ? publicTabs : canModerate ? [...tabs.slice(0, 4), adminLink, tabs[4]] : tabs;
+function Tab({ item, active }: { item: NavItem; active: boolean }) {
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-edge bg-surface/95 backdrop-blur md:hidden">
+    <Link
+      href={item.href}
+      className={`flex flex-col items-center gap-0.5 px-3 py-2 text-[10px] font-medium ${
+        active ? "text-accent" : "text-text-tertiary"
+      }`}
+    >
+      <item.icon size={22} strokeWidth={active ? 2.4 : 1.8} />
+      {item.label}
+    </Link>
+  );
+}
+
+export function TabBar({ authed = true, logSheet }: { authed?: boolean; logSheet?: LogSheetData }) {
+  const pathname = usePathname();
+  return (
+    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface-1/95 pb-safe backdrop-blur md:hidden">
       <div className="mx-auto flex max-w-lg items-stretch justify-around">
-        {visibleTabs.map((t) => {
-          const active = isActivePath(pathname, t.href);
-          if (t.primary) {
-            return (
-              <Link key={t.href} href={t.href} className="flex items-center px-3">
-                <span className="flex h-11 w-11 -translate-y-3 items-center justify-center rounded-full bg-accent text-xl font-bold text-black shadow-lg shadow-accent/30">
-                  {t.icon}
-                </span>
-              </Link>
-            );
-          }
-          return (
-            <Link
-              key={t.href}
-              href={t.href}
-              className={`flex flex-col items-center gap-0.5 px-3 py-2 text-[10px] font-medium ${
-                active ? "text-accent" : "text-ink-faint"
-              }`}
-            >
-              <span className="text-lg leading-none">{t.icon}</span>
-              {t.label}
-            </Link>
-          );
-        })}
+        {!authed ? (
+          publicTabs.map((t) => <Tab key={t.href} item={t} active={isActivePath(pathname, t.href)} />)
+        ) : (
+          <>
+            {tabsLeft.map((t) => (
+              <Tab key={t.href} item={t} active={isActivePath(pathname, t.href)} />
+            ))}
+            {logSheet && <LogSheet data={logSheet} />}
+            {tabsRight.map((t) => (
+              <Tab key={t.href} item={t} active={isActivePath(pathname, t.href)} />
+            ))}
+          </>
+        )}
       </div>
     </nav>
   );
 }
 
-export function MobileQuickActions() {
-  const actions = [
-    { href: "/track/add", label: "Meal" },
-    { href: "/progress", label: "Weight" },
-    { href: "/workouts/log", label: "Workout" },
-    { href: "/restaurants", label: "Restaurants" },
-  ];
-
-  return (
-    <div className="border-b border-edge bg-bg md:hidden">
-      <div className="mx-auto flex max-w-lg gap-2 overflow-x-auto px-4 py-2">
-        {actions.map((action) => (
-          <Link
-            key={action.href}
-            href={action.href}
-            className="shrink-0 rounded-full border border-edge bg-card px-3 py-1.5 text-xs font-semibold text-ink-dim"
-          >
-            {action.label}
-          </Link>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-type SideNavLeaf = { href: string; label: string; icon: string };
-type SideNavGroup = { label: string; icon: string; children: SideNavLeaf[] };
+type SideNavLeaf = { href: string; label: string; icon: LucideIcon };
+type SideNavGroup = { label: string; icon: LucideIcon; children: SideNavLeaf[] };
 type SideNavItem = SideNavLeaf | SideNavGroup;
 
 const isGroup = (i: SideNavItem): i is SideNavGroup => "children" in i;
@@ -97,50 +95,50 @@ const isGroup = (i: SideNavItem): i is SideNavGroup => "children" in i;
 // Grouped so the rail reads by intent instead of a flat 12-item wall: eating
 // (Food), logging + trends (Track), and social (Community) each collapse.
 const NAV: SideNavItem[] = [
-  { href: "/", label: "Home", icon: "🏠" },
-  { href: "/discover", label: "Discover", icon: "🔍" },
+  { href: "/", label: "Home", icon: Home },
+  { href: "/discover", label: "Discover", icon: Compass },
   {
     label: "Track",
-    icon: "📊",
+    icon: BarChart3,
     children: [
-      { href: "/track", label: "Food diary", icon: "🍽️" },
-      { href: "/progress", label: "Progress", icon: "📈" },
+      { href: "/track", label: "Food diary", icon: UtensilsCrossed },
+      { href: "/progress", label: "Progress", icon: LineChart },
     ],
   },
   {
     label: "Food",
-    icon: "🥗",
+    icon: Salad,
     children: [
-      { href: "/recipes", label: "Recipes", icon: "🍳" },
-      { href: "/meal-prep", label: "Meal prep", icon: "🥡" },
-      { href: "/restaurants", label: "Restaurants", icon: "🍔" },
-      { href: "/groceries", label: "Groceries", icon: "🛒" },
+      { href: "/recipes", label: "Recipes", icon: ChefHat },
+      { href: "/meal-prep", label: "Meal prep", icon: Package },
+      { href: "/restaurants", label: "Restaurants", icon: MapPin },
+      { href: "/groceries", label: "Groceries", icon: ShoppingCart },
     ],
   },
-  { href: "/workouts", label: "Workouts", icon: "🏋️" },
+  { href: "/workouts", label: "Workouts", icon: Dumbbell },
   {
     label: "Community",
-    icon: "👥",
+    icon: Users,
     children: [
-      { href: "/groups", label: "Groups", icon: "🤝" },
-      { href: "/challenges", label: "Challenges", icon: "🏆" },
+      { href: "/groups", label: "Groups", icon: Users },
+      { href: "/challenges", label: "Challenges", icon: Trophy },
     ],
   },
-  { href: "/me", label: "Profile", icon: "👤" },
+  { href: "/me", label: "Profile", icon: User },
 ];
 
 // what logged-out visitors can browse (mirrors middleware's PUBLIC_PREFIXES)
 const PUBLIC_NAV: SideNavLeaf[] = [
-  { href: "/recipes", label: "Recipes", icon: "🍳" },
-  { href: "/workouts", label: "Workouts", icon: "🏋️" },
-  { href: "/restaurants", label: "Restaurants", icon: "🍔" },
-  { href: "/meal-prep", label: "Meal prep", icon: "🥡" },
-  { href: "/discover", label: "Discover", icon: "🔍" },
+  { href: "/recipes", label: "Recipes", icon: ChefHat },
+  { href: "/workouts", label: "Workouts", icon: Dumbbell },
+  { href: "/restaurants", label: "Restaurants", icon: MapPin },
+  { href: "/meal-prep", label: "Meal prep", icon: Package },
+  { href: "/discover", label: "Discover", icon: Compass },
 ];
 
 const leafCls = (active: boolean) =>
   `flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition ${
-    active ? "bg-card text-accent" : "text-ink-dim hover:bg-card hover:text-ink"
+    active ? "bg-surface-2 text-accent" : "text-text-secondary hover:bg-surface-2 hover:text-text"
   }`;
 
 export function SideNav({ canModerate = false, authed = true }: { canModerate?: boolean; authed?: boolean }) {
@@ -152,7 +150,7 @@ export function SideNav({ canModerate = false, authed = true }: { canModerate?: 
       <nav className="sticky top-16 hidden w-52 shrink-0 flex-col gap-0.5 md:flex">
         {PUBLIC_NAV.map((l) => (
           <Link key={l.href} href={l.href} className={leafCls(isActivePath(pathname, l.href))}>
-            <span className="text-base">{l.icon}</span>
+            <l.icon size={18} strokeWidth={1.8} />
             {l.label}
           </Link>
         ))}
@@ -166,7 +164,7 @@ export function SideNav({ canModerate = false, authed = true }: { canModerate?: 
     );
   }
 
-  const items: SideNavItem[] = canModerate ? [...NAV, { href: "/admin", label: "Admin", icon: "🛡" }] : NAV;
+  const items: SideNavItem[] = canModerate ? [...NAV, { href: "/admin", label: "Admin", icon: Shield }] : NAV;
 
   return (
     <nav className="sticky top-16 hidden w-52 shrink-0 flex-col gap-0.5 md:flex">
@@ -174,7 +172,7 @@ export function SideNav({ canModerate = false, authed = true }: { canModerate?: 
         if (!isGroup(item)) {
           return (
             <Link key={item.href} href={item.href} className={leafCls(isActivePath(pathname, item.href))}>
-              <span className="text-base">{item.icon}</span>
+              <item.icon size={18} strokeWidth={1.8} />
               {item.label}
             </Link>
           );
@@ -188,18 +186,21 @@ export function SideNav({ canModerate = false, authed = true }: { canModerate?: 
               onClick={() => setOverrides((o) => ({ ...o, [item.label]: !open }))}
               aria-expanded={open}
               className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition ${
-                hasActive && !open ? "text-accent" : "text-ink-dim hover:bg-card hover:text-ink"
+                hasActive && !open ? "text-accent" : "text-text-secondary hover:bg-surface-2 hover:text-text"
               }`}
             >
-              <span className="text-base">{item.icon}</span>
+              <item.icon size={18} strokeWidth={1.8} />
               {item.label}
-              <span className={`ml-auto text-[10px] transition-transform ${open ? "rotate-90" : ""}`}>›</span>
+              <ChevronRight
+                size={14}
+                className={`ml-auto transition-transform ${open ? "rotate-90" : ""}`}
+              />
             </button>
             {open && (
-              <div className="ml-3 flex flex-col gap-0.5 border-l border-edge pl-2">
+              <div className="ml-3 flex flex-col gap-0.5 border-l border-border pl-2">
                 {item.children.map((c) => (
                   <Link key={c.href} href={c.href} className={leafCls(isActivePath(pathname, c.href))}>
-                    <span className="text-sm">{c.icon}</span>
+                    <c.icon size={16} strokeWidth={1.8} />
                     {c.label}
                   </Link>
                 ))}
