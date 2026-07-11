@@ -2,17 +2,24 @@ import { test, expect } from "@playwright/test";
 import { login } from "./helpers";
 
 // Critical flow #1 (docs/08): search a food, log it, see it in the diary — then clean up.
+// Logging from search is a multi-add flow: the page stays on /track/add with a
+// running tally; "Done" (or direct navigation) lands on the diary.
 test("log a food from search and see it on the tracker", async ({ page }) => {
   await login(page);
 
   await page.goto("/track/add?slot=snack");
   await page.fill('input[name="q"]', "Shrimp");
-  await page.getByRole("button", { name: "Search" }).click();
+  await page.press('input[name="q"]', "Enter");
 
   const resultCard = page.locator("div.rounded-xl", { hasText: "Shrimp, cooked" }).first();
   await resultCard.getByRole("button", { name: "Log", exact: true }).click();
 
-  // logging redirects to the diary; the snapshot row should be there
+  // multi-add: still on the add page; the confirmation toast appears
+  await expect(page.getByText(/Added Shrimp, cooked/).first()).toBeVisible({ timeout: 15_000 });
+  await expect(page).toHaveURL(/\/track\/add/);
+
+  // Done → diary shows the logged row
+  await page.getByRole("link", { name: "Done" }).first().click();
   await expect(page).toHaveURL(/\/track\?date=/, { timeout: 15_000 });
   const entry = page.getByText("Shrimp, cooked").first();
   await expect(entry).toBeVisible();

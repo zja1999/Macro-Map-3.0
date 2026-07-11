@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { toggleReaction } from "@/actions/social";
-import { timeAgo, REACTION_KINDS } from "@/lib/utils";
+import { timeAgo } from "@/lib/utils";
 import type { FeedPost } from "@/lib/queries";
 import { Card, UserChip, Badge } from "./ui";
+import { ReactionBar } from "./ReactionBar";
 import { RecipeCard } from "./RecipeCard";
 import { ModerationControls } from "./ModerationControls";
 import { GroupPostModeration } from "./GroupPostModeration";
@@ -36,13 +36,6 @@ export function PostCard({
   openable?: boolean;
 }) {
   const { post, author, recipe, myReaction } = item;
-  const reactionSummary = item.reactionSummary
-    .map((summary) => ({
-      ...summary,
-      meta: REACTION_KINDS.find((r) => r.kind === summary.kind),
-    }))
-    .filter((summary) => summary.count > 0)
-    .sort((a, b) => REACTION_KINDS.findIndex((r) => r.kind === a.kind) - REACTION_KINDS.findIndex((r) => r.kind === b.kind));
   const showRemovedNote = post.isRemoved && (canModerate || !!groupModeration);
   return (
     <Card className="space-y-3 p-4">
@@ -82,31 +75,11 @@ export function PostCard({
       ) : null}
 
       <div className="flex items-center justify-between border-t border-edge pt-2">
-        <div className="flex items-center gap-0.5">
-          {REACTION_KINDS.map((r) => (
-            <form key={r.kind} action={toggleReaction}>
-              <input type="hidden" name="postId" value={post.id} />
-              <input type="hidden" name="kind" value={r.kind} />
-              <button
-                title={r.label}
-                className={`rounded-md px-1.5 py-1 text-sm transition hover:bg-surface ${
-                  myReaction === r.kind ? "bg-accent/15 ring-1 ring-accent/40" : "opacity-60 hover:opacity-100"
-                }`}
-              >
-                {r.emoji}
-              </button>
-            </form>
-          ))}
-          {reactionSummary.length > 0 && (
-            <div className="ml-2 flex items-center gap-1">
-              {reactionSummary.map((r) => (
-                <span key={r.kind} title={r.meta?.label ?? r.kind} className="rounded-full bg-surface px-1.5 py-0.5 text-[11px] tabular-nums text-ink-dim">
-                  {r.meta?.emoji ?? "•"} {r.count}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
+        <ReactionBar
+          postId={post.id}
+          myReaction={myReaction}
+          summary={item.reactionSummary.map(({ kind, count }) => ({ kind, count }))}
+        />
         <div className="flex items-center gap-3">
           {openable && (
             <Link href={`/posts/${post.id}`} className="text-xs font-medium text-ink-faint hover:text-accent">

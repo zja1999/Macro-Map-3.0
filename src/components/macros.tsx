@@ -1,6 +1,12 @@
+"use client";
+
+import { motion } from "motion/react";
 import { Badge } from "./ui";
 import { macroSourceLabel } from "@/lib/utils";
+import { DRAW } from "@/lib/motion";
 
+/** The one ring (plan §3.5): animated draw-in, over-target renders a second
+ * lap in danger color on top of the completed first lap. */
 export function MacroRing({
   consumed,
   target,
@@ -10,32 +16,53 @@ export function MacroRing({
   target: number;
   size?: number;
 }) {
-  const r = size / 2 - 8;
+  const stroke = size >= 140 ? 11 : 9;
+  const r = size / 2 - stroke;
   const c = 2 * Math.PI * r;
-  const pct = Math.min(1, target > 0 ? consumed / target : 0);
+  const ratio = target > 0 ? consumed / target : 0;
+  const pct = Math.min(1, ratio);
+  const overPct = Math.min(1, Math.max(0, ratio - 1));
   const over = consumed > target;
   const remaining = Math.round(target - consumed);
+  const hero = size >= 140;
   return (
-    <div className="relative" style={{ width: size, height: size }}>
+    <div className="relative shrink-0" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--color-edge)" strokeWidth={9} />
-        <circle
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--color-border)" strokeWidth={stroke} />
+        <motion.circle
           cx={size / 2}
           cy={size / 2}
           r={r}
           fill="none"
-          stroke={over ? "var(--color-fat)" : "var(--color-accent)"}
-          strokeWidth={9}
+          stroke="var(--color-accent)"
+          strokeWidth={stroke}
           strokeLinecap="round"
           strokeDasharray={c}
-          strokeDashoffset={c * (1 - pct)}
+          initial={{ strokeDashoffset: c }}
+          animate={{ strokeDashoffset: c * (1 - pct) }}
+          transition={DRAW}
         />
+        {over && (
+          <motion.circle
+            cx={size / 2}
+            cy={size / 2}
+            r={r}
+            fill="none"
+            stroke="var(--color-danger)"
+            strokeWidth={stroke}
+            strokeLinecap="round"
+            strokeDasharray={c}
+            initial={{ strokeDashoffset: c }}
+            animate={{ strokeDashoffset: c * (1 - overPct) }}
+            transition={{ ...DRAW, delay: 0.3 }}
+          />
+        )}
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <div className={`text-xl font-bold ${over ? "text-fat" : ""}`}>{Math.abs(remaining)}</div>
-        <div className="text-[10px] uppercase tracking-wide text-ink-faint">
-          {over ? "kcal over" : "kcal left"}
+        <div className={`${hero ? "text-display" : "text-xl font-bold"} ${over ? "text-danger" : ""}`}>
+          {Math.abs(remaining)}
         </div>
+        <div className="text-micro text-text-tertiary">{over ? "kcal over" : "kcal left"}</div>
       </div>
     </div>
   );
@@ -53,16 +80,23 @@ export function MacroBar({
   color: string;
 }) {
   const pct = Math.min(100, target > 0 ? (consumed / target) * 100 : 0);
+  const over = target > 0 && consumed > target;
   return (
     <div className="flex-1">
       <div className="mb-1 flex items-baseline justify-between">
-        <span className="text-[11px] font-medium text-ink-dim">{label}</span>
-        <span className="text-[11px] tabular-nums text-ink-faint">
-          {Math.round(consumed)}<span className="text-ink-faint">/{target}g</span>
+        <span className="text-[11px] font-medium text-text-secondary">{label}</span>
+        <span className={`text-[11px] tabular-nums ${over ? "font-semibold text-danger" : "text-text-tertiary"}`}>
+          {Math.round(consumed)}<span className="text-text-tertiary">/{target}g</span>
         </span>
       </div>
-      <div className="h-1.5 overflow-hidden rounded-full bg-edge">
-        <div className="h-full rounded-full" style={{ width: `${pct}%`, background: color }} />
+      <div className="h-1.5 overflow-hidden rounded-full bg-border">
+        <motion.div
+          className="h-full rounded-full"
+          style={{ background: over ? "var(--color-danger)" : color }}
+          initial={{ width: 0 }}
+          animate={{ width: `${pct}%` }}
+          transition={DRAW}
+        />
       </div>
     </div>
   );
@@ -81,7 +115,7 @@ export function MacroPills({
 }) {
   return (
     <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-medium tabular-nums">
-      <span className="rounded-md bg-surface px-1.5 py-0.5 text-ink">{Math.round(calories)} kcal</span>
+      <span className="rounded-md bg-surface-1 px-1.5 py-0.5 text-text">{Math.round(calories)} kcal</span>
       <span className="rounded-md bg-protein/10 px-1.5 py-0.5 text-protein">{Math.round(proteinG)}P</span>
       <span className="rounded-md bg-carbs/10 px-1.5 py-0.5 text-carbs">{Math.round(carbsG)}C</span>
       <span className="rounded-md bg-fat/10 px-1.5 py-0.5 text-fat">{Math.round(fatG)}F</span>

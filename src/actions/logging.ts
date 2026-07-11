@@ -13,6 +13,17 @@ import { round1, shiftDate } from "@/lib/utils";
 const dateRe = /^\d{4}-\d{2}-\d{2}$/;
 const slotEnum = z.enum(["breakfast", "lunch", "dinner", "snack"]);
 
+/** Multi-add mode (plan §4.1): forms on /track/add pass stay=1 so logging keeps
+ * the user in the add flow — revalidate both surfaces instead of redirecting. */
+function finishLog(formData: FormData, logDate: string): void {
+  revalidatePath("/track");
+  if (formData.get("stay") === "1") {
+    revalidatePath("/track/add");
+    return;
+  }
+  redirect(`/track?date=${logDate}`);
+}
+
 const logFoodSchema = z.object({
   foodId: z.string().uuid(),
   logDate: z.string().regex(dateRe),
@@ -41,8 +52,7 @@ export async function logFood(formData: FormData) {
     fatG: round1(food.fatG * d.servings),
     ...nutrientSnapshot(food, d.servings),
   });
-  revalidatePath("/track");
-  redirect(`/track?date=${d.logDate}`);
+  finishLog(formData, d.logDate);
 }
 
 const logRecipeSchema = z.object({
@@ -80,8 +90,7 @@ export async function logRecipe(formData: FormData) {
       .set({ logCount: sql`${recipes.logCount} + 1` })
       .where(eq(recipes.id, recipe.id));
   });
-  revalidatePath("/track");
-  redirect(`/track?date=${d.logDate}`);
+  finishLog(formData, d.logDate);
 }
 
 const quickAddSchema = z.object({
@@ -109,8 +118,84 @@ export async function quickAdd(formData: FormData) {
     carbsG: d.carbsG,
     fatG: d.fatG,
   });
+  finishLog(formData, d.logDate);
+}
+
+/** Snapshot of a diary row, returned by deleteLogQuiet and accepted back by
+ * restoreLog — powers swipe-to-delete with undo (plan §3.6). */
+export type LogSnapshot = {
+  logDate: string;
+  mealSlot: "breakfast" | "lunch" | "dinner" | "snack";
+  foodId: string | null;
+  recipeId: string | null;
+  name: string;
+  servings: number;
+  calories: number;
+  proteinG: number;
+  carbsG: number;
+  fatG: number;
+  nutrients: Record<string, number | null>;
+};
+
+export async function deleteLogQuiet(id: string): Promise<LogSnapshot | null> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  const parsedId = z.string().uuid().parse(id);
+  const [row] = await db
+    .delete(foodLogs)
+    .where(and(eq(foodLogs.id, parsedId), eq(foodLogs.userId, user.id)))
+    .returning();
   revalidatePath("/track");
-  redirect(`/track?date=${d.logDate}`);
+  if (!row) return null;
+  return {
+    logDate: row.logDate,
+    mealSlot: row.mealSlot as LogSnapshot["mealSlot"],
+    foodId: row.foodId,
+    recipeId: row.recipeId,
+    name: row.name,
+    servings: row.servings,
+    calories: row.calories,
+    proteinG: row.proteinG,
+    carbsG: row.carbsG,
+    fatG: row.fatG,
+    nutrients: Object.fromEntries(NUTRIENT_DEFS.map(({ key }) => [key, row[key]])),
+  };
+}
+
+const snapshotSchema = z.object({
+  logDate: z.string().regex(dateRe),
+  mealSlot: slotEnum,
+  foodId: z.string().uuid().nullable(),
+  recipeId: z.string().uuid().nullable(),
+  name: z.string().min(1).max(200),
+  servings: z.number().min(0.1).max(50),
+  calories: z.number().min(0).max(20000),
+  proteinG: z.number().min(0).max(2000),
+  carbsG: z.number().min(0).max(4000),
+  fatG: z.number().min(0).max(2000),
+  nutrients: z.record(z.number().nullable()),
+});
+
+export async function restoreLog(snapshot: LogSnapshot): Promise<void> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  const d = snapshotSchema.parse(snapshot);
+  const validKeys = new Set(NUTRIENT_DEFS.map(({ key }) => key as string));
+  await db.insert(foodLogs).values({
+    userId: user.id,
+    logDate: d.logDate,
+    mealSlot: d.mealSlot,
+    foodId: d.foodId,
+    recipeId: d.recipeId,
+    name: d.name,
+    servings: d.servings,
+    calories: d.calories,
+    proteinG: d.proteinG,
+    carbsG: d.carbsG,
+    fatG: d.fatG,
+    ...Object.fromEntries(Object.entries(d.nutrients).filter(([k]) => validKeys.has(k))),
+  });
+  revalidatePath("/track");
 }
 
 export async function deleteLog(formData: FormData) {
