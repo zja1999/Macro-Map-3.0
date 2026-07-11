@@ -5,10 +5,10 @@ import { redirect } from "next/navigation";
 import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db/client";
-import { challengeParticipants, challenges, groupMembers, groups, moderationActions, notifications, posts, profiles } from "@/db/schema";
+import { challengeParticipants, challenges, groupMembers, groups, moderationActions, posts, profiles } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
+import { createNotifications } from "@/lib/notify";
 import { isModerator } from "@/lib/permissions";
-import { isMissingTableError } from "@/lib/dbErrors";
 import { getGroupAuthority } from "@/lib/groups";
 import { CHALLENGE_METRICS } from "@/lib/challenges";
 import { todayStr } from "@/lib/utils";
@@ -232,19 +232,15 @@ export async function inviteGroupMember(
     await tx.update(groups).set({ memberCount: sql`${groups.memberCount} + 1` }).where(eq(groups.id, d.groupId));
   });
 
-  try {
-    await db.insert(notifications).values({
-      userId: target.userId,
-      actorId: user.id,
-      kind: "group_invite",
-      subjectType: "group",
-      subjectId: d.groupId,
-      message: `${user.profile.displayName} added you to ${group.name}`,
-      href: `/groups/${group.slug}`,
-    });
-  } catch (error) {
-    if (!isMissingTableError(error, "notifications")) throw error;
-  }
+  await createNotifications({
+    userId: target.userId,
+    actorId: user.id,
+    kind: "group_invite",
+    subjectType: "group",
+    subjectId: d.groupId,
+    message: `${user.profile.displayName} added you to ${group.name}`,
+    href: `/groups/${group.slug}`,
+  });
 
   revalidatePath(`/groups/${d.slug}`);
   return { ok: true };

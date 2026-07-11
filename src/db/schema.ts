@@ -591,6 +591,23 @@ export const notifications = pgTable(
   ],
 );
 
+// Push registration tokens (FCM), one row per app install. The token is the PK so a
+// re-register upserts, and it moves to whichever user is signed in on that device.
+// Pruned lazily when FCM reports the token as unregistered (src/lib/push.ts).
+export const deviceTokens = pgTable(
+  "device_tokens",
+  {
+    token: text().primaryKey(),
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    platform: text().notNull(), // android | ios | web
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    lastSeenAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("device_tokens_user_idx").on(t.userId)],
+);
+
 // One row per fast; endedAt null while active (docs/10 §3)
 export const fastingWindows = pgTable(
   "fasting_windows",

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ChevronRight, Flame, Utensils } from "lucide-react";
 import { MacroRing, MacroBar } from "./macros";
+import { ReviewNudge } from "./ReviewNudge";
 
 type Macros = { calories: number; protein: number; carbs: number; fat: number };
 type Targets = { calories: number; proteinG: number; carbsG: number; fatG: number } | null;
@@ -24,8 +25,12 @@ export function DashboardHero({
   streak: number;
   mealsLogged: number;
 }) {
+  // Positive moment for the store-review nudge: every 7th day of an active streak.
+  const streakMilestone = streak >= 7 && streak % 7 === 0 ? `streak-${streak}` : null;
+
   return (
     <div className="space-y-3">
+      <ReviewNudge moment={streakMilestone} />
       <h1 className="text-2xl font-black tracking-tight">Welcome back, {name.split(" ")[0]}</h1>
 
       <Link

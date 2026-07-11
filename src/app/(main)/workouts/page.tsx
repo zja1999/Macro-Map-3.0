@@ -4,6 +4,7 @@ import { listWorkouts, getSavedWorkouts, getRecentWorkoutLogs, getMyPrs, prLabel
 import { sharePr } from "@/actions/workouts";
 import { timeAgo } from "@/lib/utils";
 import { Card, EmptyState, btnPrimary, btnGhost } from "@/components/ui";
+import { ReviewNudge } from "@/components/ReviewNudge";
 
 export const metadata = { title: "Workouts" };
 
@@ -42,6 +43,8 @@ export default async function WorkoutsPage({
           </div>
         )}
       </div>
+
+      {sp.prs && <ReviewNudge moment={`pr-${sp.prs}`} />}
 
       {sp.logged && (
         <Card className={`p-3 ${sp.prs ? "border-accent/50 bg-accent/10" : ""}`}>

@@ -2,7 +2,8 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { isNative } from "@/lib/native";
+import { isNative, getPlatform } from "@/lib/native";
+import { registerDeviceToken } from "@/actions/push";
 
 /**
  * Native-shell bootstrap (overhaul plan Phase 3). Mounted once in the root layout;
@@ -54,6 +55,33 @@ export function NativeInit() {
         }
       });
       cleanups.push(() => open.remove());
+
+      // Push notifications (Phase 4). Best-effort and fully optional: if the plugin
+      // isn't in the native build yet, or the user denies permission, we just skip —
+      // the app never depends on push. When granted, the FCM token is sent to the
+      // server (registerDeviceToken) and taps deep-link via the payload's `href`.
+      try {
+        const { PushNotifications } = await import("@capacitor/push-notifications");
+        if (cancelled) return;
+
+        const perm = await PushNotifications.requestPermissions();
+        if (perm.receive === "granted") {
+          const reg = await PushNotifications.addListener("registration", (token) => {
+            registerDeviceToken({ token: token.value, platform: getPlatform() }).catch(() => {});
+          });
+          cleanups.push(() => reg.remove());
+
+          const tapped = await PushNotifications.addListener("pushNotificationActionPerformed", (action) => {
+            const href = action.notification.data?.href;
+            if (typeof href === "string" && href.startsWith("/")) router.push(href);
+          });
+          cleanups.push(() => tapped.remove());
+
+          await PushNotifications.register();
+        }
+      } catch {
+        /* push plugin absent or unavailable — silently continue */
+      }
     })();
 
     return () => {

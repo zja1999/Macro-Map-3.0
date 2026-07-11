@@ -5,24 +5,11 @@ import { redirect } from "next/navigation";
 import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db/client";
-import { follows, groupMembers, posts, comments, reactions, recipes, notifications } from "@/db/schema";
+import { follows, groupMembers, posts, comments, reactions, recipes } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
-import { isMissingTableError } from "@/lib/dbErrors";
+import { createNotifications } from "@/lib/notify";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { REACTION_KINDS } from "@/lib/utils";
-
-type NotificationInsert = typeof notifications.$inferInsert;
-
-async function tryInsertNotifications(values: NotificationInsert | NotificationInsert[]) {
-  const rows = Array.isArray(values) ? values : [values];
-  if (!rows.length) return;
-  try {
-    await db.insert(notifications).values(rows);
-  } catch (error) {
-    if (isMissingTableError(error, "notifications")) return;
-    throw error;
-  }
-}
 
 export async function toggleFollow(formData: FormData) {
   const user = await getCurrentUser();
@@ -36,7 +23,7 @@ export async function toggleFollow(formData: FormData) {
   if (existing) await db.delete(follows).where(where);
   else {
     await db.insert(follows).values({ followerId: user.id, followeeId });
-    await tryInsertNotifications({
+    await createNotifications({
       userId: followeeId,
       actorId: user.id,
       kind: "follow",
@@ -111,7 +98,7 @@ export async function createPost(
     }
     return [];
   });
-  await tryInsertNotifications(groupNotification);
+  await createNotifications(groupNotification);
   revalidatePath(parsed.data.groupSlug ? `/groups/${parsed.data.groupSlug}` : "/");
   revalidatePath("/notifications");
   return {};
@@ -179,7 +166,7 @@ export async function toggleReaction(formData: FormData) {
     }
   });
   if (shouldNotify) {
-    await tryInsertNotifications({
+    await createNotifications({
       userId: targetPost.authorId,
       actorId: user.id,
       kind: "reaction",
@@ -221,7 +208,7 @@ export async function addComment(formData: FormData) {
     }
   });
   if (target.authorId !== user.id) {
-    await tryInsertNotifications({
+    await createNotifications({
       userId: target.authorId,
       actorId: user.id,
       kind: "comment",

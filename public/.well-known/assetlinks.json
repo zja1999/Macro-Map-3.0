@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.macroverse.app",
+      "sha256_cert_fingerprints": [
+        "6A:8E:36:AB:F2:6B:AF:1A:C0:56:79:0C:BD:CD:62:D3:D3:12:31:7D:A1:7B:58:CB:6F:18:50:04:1A:31:D3:AC"
+      ]
+    }
+  }
+]

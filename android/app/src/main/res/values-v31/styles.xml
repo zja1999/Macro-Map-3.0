@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!--
+      Android 12+ (API 31) drives the launch splash through the system SplashScreen
+      API, which ignores android:background (used by the pre-31 theme in values/).
+      Set the branded dark background + our ring mark here so the very first frame
+      matches the app instead of the light system default, then hand off to the app
+      theme. Verified on the API 35 emulator (Phase 4).
+    -->
+    <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
+        <item name="android:windowSplashScreenBackground">@color/splashBackground</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
+    </style>
+
+</resources>

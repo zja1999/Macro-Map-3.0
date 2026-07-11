@@ -1,6 +1,7 @@
 import { requireUser } from "@/lib/auth";
 import { SettingsForms } from "@/components/SettingsForms";
 import { AvatarUpload } from "@/components/AvatarUpload";
+import { DeleteAccountSection } from "@/components/DeleteAccountSection";
 import { Card, btnGhost } from "@/components/ui";
 import Link from "next/link";
 
@@ -47,6 +48,9 @@ export default async function SettingsPage() {
           isManual: user.targets?.isManual ?? false,
         }}
       />
+      <Card className="border-danger/30 p-4">
+        <DeleteAccountSection />
+      </Card>
     </div>
   );
 }
