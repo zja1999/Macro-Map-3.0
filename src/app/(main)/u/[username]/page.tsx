@@ -53,16 +53,16 @@ export default async function ProfilePage({
   return (
     <div className="mx-auto max-w-xl space-y-5">
       <Card className="space-y-4 p-5">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-3">
+        <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
             <Avatar name={profile.displayName} size={56} src={profile.avatarUrl} />
-            <div>
-              <h1 className="text-lg font-bold leading-tight">{profile.displayName}</h1>
-              <div className="text-xs text-ink-faint">@{profile.username}</div>
+            <div className="min-w-0">
+              <h1 className="truncate text-lg font-bold leading-tight">{profile.displayName}</h1>
+              <div className="truncate text-xs text-ink-faint">@{profile.username}</div>
             </div>
           </div>
           {isMe ? (
-            <div className="flex gap-2">
+            <div className="flex shrink-0 gap-2">
               <Link href="/settings" className={btnGhost}>
                 Edit
               </Link>
@@ -81,7 +81,7 @@ export default async function ProfilePage({
           )}
         </div>
 
-        {profile.bio && <p className="text-sm text-ink-dim">{profile.bio}</p>}
+        {profile.bio && <p className="text-sm [overflow-wrap:anywhere] text-ink-dim">{profile.bio}</p>}
 
         <div className="flex flex-wrap gap-1.5">
           {profile.goal && <Badge tone="accent">{profile.goal.replace("_", " ")}</Badge>}
@@ -118,7 +118,7 @@ export default async function ProfilePage({
         </Card>
       )}
 
-      <div className="flex gap-1 rounded-lg border border-edge bg-card p-1">
+      <div className="flex gap-1 overflow-x-auto rounded-lg border border-edge bg-card p-1">
         {[
           { key: "posts", label: "Posts" },
           { key: "recipes", label: "Recipes" },
@@ -129,7 +129,7 @@ export default async function ProfilePage({
           <Link
             key={t.key}
             href={`/u/${profile.username}${t.key === "posts" ? "" : `?tab=${t.key}`}`}
-            className={`flex-1 rounded-md px-3 py-1.5 text-center text-sm font-medium ${
+            className={`min-w-fit flex-1 rounded-md px-3 py-1.5 text-center text-sm font-medium ${
               activeTab === t.key ? "bg-accent text-black" : "text-ink-dim"
             }`}
           >

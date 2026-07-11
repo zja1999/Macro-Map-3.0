@@ -25,9 +25,14 @@ export function RecipeCard({
       className="block overflow-hidden rounded-xl border border-edge bg-card transition hover:border-accent/40 hover:bg-card-hover"
     >
       {!compact && (
-        <div className={`flex h-24 items-end bg-gradient-to-br ${hue} to-card p-3`}>
-          <span className="text-3xl">🍽️</span>
-        </div>
+        recipe.coverImageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={recipe.coverImageUrl} alt="" className="aspect-video w-full object-cover" />
+        ) : (
+          <div className={`flex h-20 items-end bg-gradient-to-br ${hue} to-card p-3`}>
+            <span className="text-lg">🍽️</span>
+          </div>
+        )
       )}
       <div className="space-y-2 p-3">
         <div className="flex items-start justify-between gap-2">

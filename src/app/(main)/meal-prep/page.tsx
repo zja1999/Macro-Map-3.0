@@ -74,7 +74,12 @@ export default async function MealPrepPage({
       ) : (
         <div className="space-y-2">
           {rows.map(({ plan, username, displayName }) => (
-            <Card key={plan.id} className="p-3">
+            <Card key={plan.id} className="overflow-hidden">
+              {plan.coverImageUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={plan.coverImageUrl} alt="" className="aspect-[3/1] w-full object-cover" />
+              )}
+              <div className="p-3">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <Link href={`/meal-prep/${plan.id}`} className="text-sm font-medium hover:text-accent">
@@ -96,6 +101,7 @@ export default async function MealPrepPage({
                   <div className="font-bold text-accent">▲ {plan.upvotes - plan.downvotes}</div>
                   {plan.saveCount > 0 && <div className="mt-0.5">🔖 {plan.saveCount}</div>}
                 </div>
+              </div>
               </div>
             </Card>
           ))}

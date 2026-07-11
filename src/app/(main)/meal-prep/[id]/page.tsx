@@ -51,8 +51,12 @@ export default async function MealPrepDetailPage({ params }: { params: Promise<{
   return (
     <div className="mx-auto max-w-xl space-y-5">
       <div className="space-y-3">
+        {plan.coverImageUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={plan.coverImageUrl} alt="" className="aspect-video w-full rounded-xl object-cover" />
+        )}
         <div className="flex items-start justify-between gap-3">
-          <h1 className="text-xl font-bold leading-tight">{plan.title}</h1>
+          <h1 className="min-w-0 [overflow-wrap:anywhere] text-xl font-bold leading-tight">{plan.title}</h1>
           <div className="flex shrink-0 items-center gap-1">
             <form action={votePlan}>
               <input type="hidden" name="planId" value={plan.id} />
@@ -92,7 +96,7 @@ export default async function MealPrepDetailPage({ params }: { params: Promise<{
           </div>
         </div>
         <UserChip username={username} displayName={displayName} sub="plan author" />
-        {plan.description && <p className="text-sm text-ink-dim">{plan.description}</p>}
+        {plan.description && <p className="text-sm [overflow-wrap:anywhere] text-ink-dim">{plan.description}</p>}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-faint">
           {plan.daysCovered && <span>📅 {plan.daysCovered} days</span>}
           <span>🍱 {plan.totalServings} servings</span>

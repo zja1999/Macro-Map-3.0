@@ -38,8 +38,8 @@ export function PostCard({
   const { post, author, recipe, myReaction } = item;
   const showRemovedNote = post.isRemoved && (canModerate || !!groupModeration);
   return (
-    <Card className="space-y-3 p-4">
-      <div className="flex items-center justify-between">
+    <Card className="min-w-0 space-y-3 overflow-hidden p-4">
+      <div className="flex min-w-0 items-center justify-between gap-2">
         <UserChip username={author.username} displayName={author.displayName} sub={timeAgo(post.createdAt)} avatarUrl={author.avatarUrl} />
         {TYPE_BADGES[post.type] && <Badge>{TYPE_BADGES[post.type]}</Badge>}
       </div>
@@ -52,11 +52,11 @@ export function PostCard({
 
       {post.body &&
         (openable ? (
-          <Link href={`/posts/${post.id}`} className="block whitespace-pre-wrap text-sm leading-relaxed text-ink hover:text-accent">
+          <Link href={`/posts/${post.id}`} className="block min-w-0 whitespace-pre-wrap [overflow-wrap:anywhere] text-sm leading-relaxed text-ink hover:text-accent">
             {post.body}
           </Link>
         ) : (
-          <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink">{post.body}</p>
+          <p className="min-w-0 whitespace-pre-wrap [overflow-wrap:anywhere] text-sm leading-relaxed text-ink">{post.body}</p>
         ))}
 
       {recipe && (
@@ -80,12 +80,7 @@ export function PostCard({
           myReaction={myReaction}
           summary={item.reactionSummary.map(({ kind, count }) => ({ kind, count }))}
         />
-        <div className="flex items-center gap-3">
-          {openable && (
-            <Link href={`/posts/${post.id}`} className="text-xs font-medium text-ink-faint hover:text-accent">
-              Open post →
-            </Link>
-          )}
+        <div className="flex shrink-0 items-center gap-3">
           <Link href={`/posts/${post.id}`} className="text-xs font-medium text-ink-faint hover:text-accent">
             💬 {post.commentCount > 0 ? post.commentCount : "Comment"}
           </Link>

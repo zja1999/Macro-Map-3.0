@@ -4,6 +4,7 @@ import { useActionState, useMemo, useState } from "react";
 import { submitRecipe } from "@/actions/recipes";
 import { RECIPE_TAGS, round1 } from "@/lib/utils";
 import { inputCls, btnPrimary, btnGhost } from "./ui";
+import { CoverPhotoInput } from "./CoverPhotoInput";
 
 export type FoodOption = {
   id: string;
@@ -89,6 +90,7 @@ export function RecipeForm({ foodOptions }: { foodOptions: FoodOption[] }) {
 
       <section className="space-y-3">
         <h2 className="text-sm font-semibold text-ink-dim">Basics</h2>
+        <CoverPhotoInput />
         <input name="name" required minLength={3} maxLength={80} placeholder="Recipe name" className={inputCls} />
         <textarea name="description" maxLength={500} rows={2} placeholder="Short description (optional)" className={`${inputCls} resize-none`} />
         <div className="grid grid-cols-2 gap-3">

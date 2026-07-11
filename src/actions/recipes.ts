@@ -32,6 +32,7 @@ const ingredientSchema = z.object({
 
 const submitSchema = z.object({
   name: z.string().min(3).max(80),
+  coverImageUrl: z.string().startsWith("data:image/jpeg;base64,").max(900_000).optional(),
   description: z.string().max(500).optional(),
   instructions: z.string().min(10).max(5000),
   servings: z.coerce.number().min(1).max(50),
@@ -148,6 +149,7 @@ export async function submitRecipe(
       .values({
         authorId: user.id,
         name: payload.name,
+        coverImageUrl: payload.coverImageUrl || null,
         description: payload.description || null,
         instructions: payload.instructions,
         servings: payload.servings,

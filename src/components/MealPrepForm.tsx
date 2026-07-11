@@ -4,6 +4,7 @@ import { useActionState, useMemo, useState } from "react";
 import { createMealPrepPlan } from "@/actions/mealPreps";
 import { round1 } from "@/lib/utils";
 import { inputCls, btnPrimary, btnGhost } from "./ui";
+import { CoverPhotoInput } from "./CoverPhotoInput";
 
 export type RecipeOption = {
   id: string;
@@ -45,6 +46,7 @@ export function MealPrepForm({ recipeOptions }: { recipeOptions: RecipeOption[] 
     <form action={action} className="space-y-4">
       <input type="hidden" name="items" value={JSON.stringify(items)} />
 
+      <CoverPhotoInput />
       <input name="title" required minLength={3} maxLength={80} placeholder="Plan name (e.g. Cutting Week — 5 days)" className={inputCls} />
       <textarea name="description" maxLength={500} rows={2} placeholder="Who is this for? (optional)" className={`${inputCls} resize-none`} />
       <div className="grid grid-cols-2 gap-2">

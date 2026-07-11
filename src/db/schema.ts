@@ -368,6 +368,7 @@ export const recipes = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     name: text().notNull(),
+    coverImageUrl: text(),
     description: text(),
     instructions: text().notNull(),
     servings: real().notNull().default(1),
@@ -1037,6 +1038,7 @@ export const mealPrepPlans = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     title: text().notNull(),
+    coverImageUrl: text(),
     description: text(),
     daysCovered: smallint(),
     totalServings: smallint().notNull().default(1),

@@ -11,6 +11,7 @@ import { round1 } from "@/lib/utils";
 
 const createSchema = z.object({
   title: z.string().min(3).max(80),
+  coverImageUrl: z.string().startsWith("data:image/jpeg;base64,").max(900_000).optional(),
   description: z.string().max(500).optional(),
   daysCovered: z.coerce.number().min(1).max(14).optional(),
   storageNotes: z.string().max(300).optional(),
@@ -32,6 +33,7 @@ export async function createMealPrepPlan(
   try {
     d = createSchema.parse({
       title: formData.get("title"),
+      coverImageUrl: formData.get("coverImageUrl") || undefined,
       description: formData.get("description") || undefined,
       daysCovered: formData.get("daysCovered") || undefined,
       storageNotes: formData.get("storageNotes") || undefined,
@@ -67,6 +69,7 @@ export async function createMealPrepPlan(
       .values({
         authorId: user.id,
         title: d.title,
+        coverImageUrl: d.coverImageUrl ?? null,
         description: d.description ?? null,
         daysCovered: d.daysCovered ?? null,
         totalServings: Math.round(totalServings),

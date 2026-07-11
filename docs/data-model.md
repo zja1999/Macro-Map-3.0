@@ -64,7 +64,7 @@ Polymorphic tables do not have database FKs to subjects. Deleting a subject must
 | `foods` | Shared searchable nutrition catalog | Optional barcode; source and verified flags; macro and sparse FDA-label micronutrient fields. |
 | `food_logs` | User diary entries | Snapshot name, servings, macros, and micronutrients at log time; optional source IDs are provenance only. Never recalculate history. |
 | `water_logs` | Daily water total | Composite PK user/date; stored in milliliters. |
-| `recipes` | Community recipe definition | Per-serving denormalized nutrition, provenance/confidence, tags, ranking counters, publication status. |
+| `recipes` | Community recipe definition | Per-serving denormalized nutrition, optional compact cover image, provenance/confidence, tags, ranking counters, publication status. |
 | `recipe_ingredients` | Ordered ingredient lines | May link a shared food or private personal ingredient; raw text is retained; grams enable calculation. |
 | `recipe_reviews` | Tried/rating state | One row per recipe/user; rating nullable for “tried” without rating. |
 | `personal_ingredients` | Private repeat-use ingredients | Owned by user; unverified; canonical serving grams and macros. |
@@ -116,7 +116,7 @@ Workout structure is a planned document. Log entries are discriminated strength,
 |---|---|---|
 | `grocery_lists` | User-owned list container | Current UI creates/uses a default list. |
 | `grocery_items` | Manual or recipe-derived list rows | Purchase state, optional quantity/section/cost and source recipe. |
-| `meal_prep_plans` | Shareable multi-recipe plans | Denormalized per-serving macro/cost/prep totals and interaction counters. |
+| `meal_prep_plans` | Shareable multi-recipe plans | Optional compact cover image plus denormalized per-serving macro/cost/prep totals and interaction counters. |
 | `meal_prep_items` | Ordered recipes in a plan | Composite PK plan/position; servings controls contribution. |
 
 ## Groups, challenges, and moderation

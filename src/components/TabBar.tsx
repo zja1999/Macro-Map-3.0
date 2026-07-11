@@ -39,6 +39,7 @@ const tabsRight: NavItem[] = [
 
 function isActivePath(pathname: string, href: string) {
   if (href === "/") return pathname === "/";
+  if (href === "/me") return pathname === "/me" || pathname.startsWith("/u/");
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 

@@ -43,6 +43,8 @@ Admin nutrition import accepts CSV or XLSX, capped at 2 MB, through `src/lib/tab
 
 Recipes store per-serving macros and can derive them from fully linked ingredient grams. Ingredient rows retain raw text and may reference either a shared food or the author's private `personal_ingredients`. If inputs cannot support a complete calculation, creator-entered macros remain possible with lower confidence/provenance.
 
+Recipe and meal-prep creation can capture or choose a cover photo. The browser crops and compresses it to a compact 16:9 JPEG data URL stored with the content row; this is intentionally separate from the incomplete general-purpose media storage pipeline.
+
 Interaction primitives are shared:
 
 - votes update up/down counters;

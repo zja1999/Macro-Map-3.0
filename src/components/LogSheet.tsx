@@ -56,7 +56,7 @@ export function LogSheet({ data }: { data: LogSheetData }) {
     { href: "/restaurants", label: "Restaurant", sub: "Menu items near you", icon: MapPin },
     { href: "/workouts/log", label: "Workout", sub: "Log a session", icon: Dumbbell },
     habitStyle
-      ? { href: "/progress", label: "Habits", sub: "Check in for today", icon: ListChecks }
+      ? { href: "/progress/habits", label: "Habits", sub: "Check in for today", icon: ListChecks }
       : { href: "/progress", label: "Weigh-in", sub: "Record today's weight", icon: Scale },
   ];
 
@@ -66,7 +66,7 @@ export function LogSheet({ data }: { data: LogSheetData }) {
       ? { href: "/track/add", label: "Quick calories", sub: "", icon: Zap }
       : habitStyle
         ? { href: "/progress", label: "Weigh-in", sub: "", icon: Scale }
-        : { href: "/progress", label: "Habit check-in", sub: "", icon: ListChecks },
+        : { href: "/progress/habits", label: "Habit check-in", sub: "", icon: ListChecks },
   ];
 
   return (

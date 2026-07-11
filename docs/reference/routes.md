@@ -32,6 +32,7 @@ Access labels:
 | `/track?date=YYYY-MM-DD` | User | `src/app/(main)/track/page.tsx` | Diary, macro/micronutrient totals, water, fasting |
 | `/track/add` | User | `src/app/(main)/track/add/page.tsx` | Search/frequents/saved/quick/barcode/restaurant logging |
 | `/progress` | User | `src/app/(main)/progress/page.tsx` | Measurements/photos/habits/sleep/health dashboard |
+| `/progress/habits` | User | `src/app/(main)/progress/habits/page.tsx` | Focused daily habit check-in and habit management |
 | `/me` | User | `src/app/(main)/me/page.tsx` | Redirect/entry to current user's profile content |
 | `/notifications` | User | `src/app/(main)/notifications/page.tsx` | In-app notification inbox/read actions |
 

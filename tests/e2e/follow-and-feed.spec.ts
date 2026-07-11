@@ -1,15 +1,13 @@
 import { test, expect } from "@playwright/test";
 import { login } from "./helpers";
 
-// Critical flow: the social loop — following feed shows followed
-// creators' posts, posting works, reactions stick.
+// Critical flow: the social loop — following feed shows followed creators'
+// posts, posting works, and the compact reaction picker persists a choice.
 test("following feed shows followed creators and accepts a post", async ({ page }) => {
   await login(page);
 
-  // demo follows the three seeded creators; the following feed must have their posts
   await expect(page.getByText("Coach Dan").first()).toBeVisible();
 
-  // post an update
   const body = `E2E check-in ${Date.now()} — hit protein again today.`;
   await page.fill('textarea[name="body"]', body);
   await page.getByRole("button", { name: "Post", exact: true }).click();
@@ -19,9 +17,14 @@ test("following feed shows followed creators and accepts a post", async ({ page 
 test("reacting to a post updates the reaction state", async ({ page }) => {
   await login(page);
 
-  await page.getByRole("button", { name: "❤️" }).first().click();
-  // server action revalidates; an active reaction renders with the accent ring
-  await expect(page.locator("button.ring-accent\\/40").first()).toBeVisible({ timeout: 10_000 });
+  const trigger = page.getByRole("button", { name: /reaction\. Hold for more reactions\./ }).first();
+  const initialLabel = await trigger.getAttribute("aria-label");
+  await trigger.click();
+  await expect(
+    page.getByRole("button", {
+      name: initialLabel?.startsWith("React.") ? /Like reaction/ : /^React\. Hold for more reactions\.$/,
+    }).first(),
+  ).toBeVisible({ timeout: 10_000 });
 });
 
 test("profile page follow state and posts render", async ({ page }) => {

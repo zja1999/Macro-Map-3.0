@@ -66,8 +66,12 @@ export default async function RecipePage({ params }: { params: Promise<{ id: str
       ))}
       {/* header */}
       <div className="space-y-3">
+        {recipe.coverImageUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={recipe.coverImageUrl} alt="" className="aspect-video w-full rounded-xl object-cover" />
+        )}
         <div className="flex items-start justify-between gap-3">
-          <h1 className="text-xl font-bold leading-tight">{recipe.name}</h1>
+          <h1 className="min-w-0 [overflow-wrap:anywhere] text-xl font-bold leading-tight">{recipe.name}</h1>
           <div className="flex shrink-0 items-center gap-1">
             <form action={voteRecipe}>
               <input type="hidden" name="recipeId" value={recipe.id} />
@@ -103,7 +107,7 @@ export default async function RecipePage({ params }: { params: Promise<{ id: str
             <button className={btnGhost}>{saved ? "🔖 Saved" : "🔖 Save"}</button>
           </form>
         </div>
-        {recipe.description && <p className="text-sm text-ink-dim">{recipe.description}</p>}
+        {recipe.description && <p className="text-sm [overflow-wrap:anywhere] text-ink-dim">{recipe.description}</p>}
         <div className="flex flex-wrap gap-1">
           {recipe.tags.map((t) => (
             <Link key={t} href={`/recipes?tag=${t}`} className="rounded-full bg-surface px-2 py-0.5 text-[11px] text-ink-faint hover:text-accent">
