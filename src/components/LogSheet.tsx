@@ -61,7 +61,7 @@ export function LogSheet({ data }: { data: LogSheetData }) {
   ];
 
   const secondary: GridAction[] = [
-    { href: "/progress", label: "Progress photo", sub: "", icon: Camera },
+    { href: "/progress/photos", label: "Progress photo", sub: "", icon: Camera },
     data.trackingStyle === "calorie_only"
       ? { href: "/track/add", label: "Quick calories", sub: "", icon: Zap }
       : habitStyle

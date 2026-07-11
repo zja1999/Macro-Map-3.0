@@ -33,6 +33,7 @@ Access labels:
 | `/track/add` | User | `src/app/(main)/track/add/page.tsx` | Search/frequents/saved/quick/barcode/restaurant logging |
 | `/progress` | User | `src/app/(main)/progress/page.tsx` | Measurements/photos/habits/sleep/health dashboard |
 | `/progress/habits` | User | `src/app/(main)/progress/habits/page.tsx` | Focused daily habit check-in and habit management |
+| `/progress/photos` | User | `src/app/(main)/progress/photos/page.tsx` | Focused private progress-photo attachment and history |
 | `/me` | User | `src/app/(main)/me/page.tsx` | Redirect/entry to current user's profile content |
 | `/notifications` | User | `src/app/(main)/notifications/page.tsx` | In-app notification inbox/read actions |
 
