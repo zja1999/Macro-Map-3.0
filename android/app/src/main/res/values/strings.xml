@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">MacroVerse</string>
+    <string name="title_activity_main">MacroVerse</string>
+    <string name="package_name">com.macroverse.app</string>
+    <string name="custom_url_scheme">com.macroverse.app</string>
+</resources>

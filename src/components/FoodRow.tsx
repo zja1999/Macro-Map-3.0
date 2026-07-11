@@ -6,6 +6,7 @@ import { logFood } from "@/actions/logging";
 import { Sheet } from "@/components/overlays";
 import { MacroPills } from "@/components/macros";
 import { toast } from "@/components/toast";
+import { haptic } from "@/lib/haptic";
 import { MEAL_SLOTS, round1 } from "@/lib/utils";
 
 export type FoodRowData = {
@@ -36,6 +37,7 @@ export function FoodRow({ food, date, slot }: { food: FoodRowData; date: string;
   const submit = async (formData: FormData) => {
     try {
       await logFood(formData);
+      haptic("success");
       setOpen(false);
       logged(Number(formData.get("servings")));
     } catch {
@@ -132,6 +134,7 @@ export function FoodRow({ food, date, slot }: { food: FoodRowData; date: string;
         action={async (fd) => {
           try {
             await logFood(fd);
+            haptic("success");
             logged(1);
           } catch {
             toast("Couldn't add that — try again", { tone: "error" });
