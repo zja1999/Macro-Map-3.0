@@ -1,14 +1,58 @@
 import Link from "next/link";
-import { initials } from "@/lib/utils";
+import { Construction } from "lucide-react";
+import { cva, type VariantProps } from "class-variance-authority";
+import { cn, initials } from "@/lib/utils";
 
+export const buttonVariants = cva(
+  "inline-flex items-center justify-center gap-1.5 rounded-lg font-semibold transition active:scale-[0.97] disabled:opacity-50 disabled:active:scale-100",
+  {
+    variants: {
+      variant: {
+        primary: "bg-accent text-black hover:brightness-110",
+        ghost: "border border-border bg-surface-2 font-medium text-text hover:bg-surface-3",
+        soft: "bg-accent/10 text-accent hover:bg-accent/20",
+        danger: "bg-danger/10 text-danger hover:bg-danger/20",
+      },
+      size: {
+        sm: "px-3 py-1.5 text-xs",
+        md: "px-4 py-2 text-sm",
+        lg: "w-full px-4 py-3 text-base",
+      },
+    },
+    defaultVariants: { variant: "primary", size: "md" },
+  }
+);
+
+type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & VariantProps<typeof buttonVariants>;
+
+export function Button({ className, variant, size, ...props }: ButtonProps) {
+  return <button className={cn(buttonVariants({ variant, size }), className)} {...props} />;
+}
+
+export function Input({ className, ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
+  return <input className={cn(inputCls, className)} {...props} />;
+}
+
+export const chipVariants = cva(
+  "inline-flex shrink-0 items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-semibold transition",
+  {
+    variants: {
+      selected: {
+        true: "border-accent bg-accent/15 text-accent",
+        false: "border-border bg-surface-2 text-text-secondary hover:text-text",
+      },
+    },
+    defaultVariants: { selected: false },
+  }
+);
+
+/** Legacy class strings (pre-cva). Prefer <Button>/<Input> in new code. */
 export const inputCls =
-  "w-full rounded-lg border border-edge bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-accent focus:outline-none";
+  "w-full rounded-lg border border-border bg-surface-1 px-3 py-2 text-sm text-text placeholder:text-text-tertiary focus:border-accent focus:outline-none";
 
-export const btnPrimary =
-  "inline-flex items-center justify-center gap-1.5 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-black transition hover:brightness-110 disabled:opacity-50";
+export const btnPrimary = buttonVariants({ variant: "primary", size: "md" });
 
-export const btnGhost =
-  "inline-flex items-center justify-center gap-1.5 rounded-lg border border-edge bg-card px-4 py-2 text-sm font-medium text-ink transition hover:bg-card-hover disabled:opacity-50";
+export const btnGhost = buttonVariants({ variant: "ghost", size: "md" });
 
 export function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return <div className={`rounded-xl border border-edge bg-card ${className}`}>{children}</div>;
@@ -93,7 +137,7 @@ export function EmptyState({ title, hint, action }: { title: string; hint?: stri
 export function ComingSoon({ title, phase }: { title: string; phase: string }) {
   return (
     <div className="mx-auto flex max-w-md flex-col items-center gap-3 py-24 text-center">
-      <div className="text-4xl">🚧</div>
+      <Construction size={40} strokeWidth={1.5} className="text-accent" />
       <h1 className="text-xl font-bold">{title}</h1>
       <p className="text-sm text-ink-dim">
         This vertical ships in <span className="font-semibold text-accent">{phase}</span> of the build plan. The data
