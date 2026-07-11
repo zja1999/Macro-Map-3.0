@@ -25,6 +25,11 @@ export default function LoginPage() {
           {pending ? "Signing in…" : "Sign in"}
         </button>
         <p className="text-center text-xs text-ink-faint">
+          <Link href="/forgot-password" className="text-accent hover:underline">
+            Forgot your password?
+          </Link>
+        </p>
+        <p className="text-center text-xs text-ink-faint">
           New here?{" "}
           <Link href="/register" className="text-accent hover:underline">
             Create an account

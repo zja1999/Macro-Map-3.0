@@ -22,7 +22,7 @@ export const users = pgTable("users", {
   id: uuid().primaryKey().defaultRandom(),
   email: text().notNull().unique(),
   emailVerifiedAt: timestamp({ withTimezone: true }),
-  passwordHash: text().notNull(),
+  passwordHash: text(),
   role: text().notNull().default("user"), // user | moderator | admin
   reputation: integer().notNull().default(0),
   isGuest: boolean().notNull().default(false), // anonymous session; claimed via settings (docs/08 §1a)
@@ -38,6 +38,36 @@ export const sessions = pgTable("sessions", {
     .references(() => users.id, { onDelete: "cascade" }),
   expiresAt: timestamp({ withTimezone: true }).notNull(),
 });
+
+export const emailVerificationTokens = pgTable(
+  "email_verification_tokens",
+  {
+    tokenHash: text().primaryKey(),
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    email: text().notNull(),
+    expiresAt: timestamp({ withTimezone: true }).notNull(),
+    usedAt: timestamp({ withTimezone: true }),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("email_verification_user_idx").on(t.userId, t.createdAt)],
+);
+
+export const passwordResetTokens = pgTable(
+  "password_reset_tokens",
+  {
+    tokenHash: text().primaryKey(),
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    email: text().notNull(),
+    expiresAt: timestamp({ withTimezone: true }).notNull(),
+    usedAt: timestamp({ withTimezone: true }),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("password_reset_user_idx").on(t.userId, t.createdAt)],
+);
 
 export const rateLimitEvents = pgTable(
   "rate_limit_events",

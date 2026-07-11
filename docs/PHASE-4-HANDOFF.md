@@ -145,6 +145,73 @@ iOS items get built as code/config now and finished on a Mac later. Store MVP = 
 4. Notification copy/cadence sign-off (tone risk).
 5. Mac + Apple Developer account — gates ALL iOS work; sequence accordingly.
 
+### 4a. 2026-07-10 update — Play release work is parked
+
+Zach started the Play Console path, but Google is currently verifying his identity. Until that clears,
+do **not** spend more time trying to finish the store-release track.
+
+What is done locally:
+- Neon prod schema was pushed and `device_tokens` exists.
+- Firebase Android config was added locally at `android/app/google-services.json` and that file is ignored
+  by git.
+- Android Google Services Gradle wiring was cleaned up and `assembleDebug` passed, including
+  `processDebugGoogleServices`.
+- `users.emailVerifiedAt` was added back to `src/db/schema.ts` so Drizzle preserves the existing
+  `users.email_verified_at` column in Neon.
+
+Park these until Play identity verification completes:
+- Real Android device / Play internal-testing install.
+- Release keystore + signed release AAB.
+- Play listing, screenshots, Data Safety, and privacy-policy URL.
+- Release SHA-256 in `public/.well-known/assetlinks.json` (the file is not present in this checkout yet,
+  despite older status notes saying it existed).
+- Final end-to-end push test through a store/internal-testing install.
+
+Reasonable next work while waiting: auth hardening from `docs/12-auth-email-google-oauth-plan.md`,
+starting with email verification and password reset, then Google OAuth.
+
+### 4b. 2026-07-10 update — auth hardening started while Play is parked
+
+Latest code-only work completed in this checkout:
+- Added auth token tables to `src/db/schema.ts`:
+  - `email_verification_tokens`
+  - `password_reset_tokens`
+  - `users.passwordHash` is now nullable so future Google-only accounts can exist without a local password.
+- Registration in `src/actions/auth.ts` now creates an unverified account, stores only a SHA-256 hash of
+  the email verification token, sends/logs a verification link, and redirects to `/verify-email/sent`.
+- Email/password login now handles nullable password hashes and blocks newly-created unverified accounts
+  when they have a pending verification token. Legacy users without a token are not stranded.
+- Added password reset actions and pages:
+  - `/forgot-password`
+  - `/reset-password?token=...`
+- Added verification route and resend form:
+  - `/verify-email?token=...`
+  - `/verify-email/sent`
+- Added provider-neutral helpers:
+  - `src/lib/authTokens.ts`
+  - `src/lib/authEmail.ts`
+    - In local/dev, this prints verification/reset links to the server console.
+    - In production, no real provider is wired yet; pick Resend/Postmark/etc. before expecting email delivery.
+- Middleware now keeps `/forgot-password`, `/reset-password`, and `/verify-email` public.
+
+Verification run:
+- `& 'C:\Program Files\nodejs\node.exe' node_modules/typescript/bin/tsc --noEmit` passed.
+
+Important next steps for the next model:
+1. Run `npm run db:push` against the intended DB before testing the new auth flow. This adds the new token
+   tables and applies the nullable `users.password_hash` change.
+2. Start the local dev server and manually test:
+   - register -> console verification link -> `/verify-email` -> onboarding
+   - unverified login is blocked before verification
+   - resend verification logs a new link
+   - forgot password -> console reset link -> set new password -> session created
+3. Add a real email provider abstraction implementation once Zach chooses one. Until then, production can
+   create tokens but will not deliver email.
+4. After email verification/password reset is stable, continue `docs/12-auth-email-google-oauth-plan.md`
+   with Google OAuth routes and account linking. Store no Google access token unless needed later.
+
+Do not resume Play release work until Zach says Google Play identity verification is cleared.
+
 ## 5. Lessons from Phase 3 (don't relearn these)
 - Remote-URL runs the **deployed** bundle — deploy before testing native+web features; make native code
   tolerate an older remote (see §0, the splash bug).

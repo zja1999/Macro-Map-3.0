@@ -2,11 +2,13 @@
 
 import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
-import { eq } from "drizzle-orm";
+import { and, eq, gt, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db/client";
-import { users, profiles } from "@/db/schema";
+import { emailVerificationTokens, passwordResetTokens, profiles, users } from "@/db/schema";
 import { createSession, destroySession } from "@/lib/auth";
+import { sendAuthEmail } from "@/lib/authEmail";
+import { newPublicToken, tokenHash } from "@/lib/authTokens";
 import { checkRequestRateLimit, requestFingerprint } from "@/lib/rateLimit";
 
 const registerSchema = z.object({
@@ -47,11 +49,20 @@ export async function register(
     .limit(1);
   if (nameTaken[0]) return { error: "That username is taken" };
 
+  const token = newPublicToken();
   const passwordHash = await bcrypt.hash(password, 10);
-  const [user] = await db.insert(users).values({ email, passwordHash }).returning();
-  await db.insert(profiles).values({ userId: user.id, username, displayName });
-  await createSession(user.id);
-  redirect("/onboarding");
+  await db.transaction(async (tx) => {
+    const [user] = await tx.insert(users).values({ email, passwordHash, emailVerifiedAt: null }).returning();
+    await tx.insert(profiles).values({ userId: user.id, username, displayName });
+    await tx.insert(emailVerificationTokens).values({
+      tokenHash: tokenHash(token),
+      userId: user.id,
+      email,
+      expiresAt: new Date(Date.now() + 30 * 60_000),
+    });
+  });
+  await sendAuthEmail({ to: email, kind: "verify", token });
+  redirect(`/verify-email/sent?email=${encodeURIComponent(email)}`);
 }
 
 const loginSchema = z.object({
@@ -84,11 +95,21 @@ export async function login(
   if (emailLimitError) return { error: emailLimitError };
 
   const [user] = await db.select().from(users).where(eq(users.email, parsed.data.email)).limit(1);
-  if (!user || !(await bcrypt.compare(parsed.data.password, user.passwordHash))) {
+  if (!user || !user.passwordHash || !(await bcrypt.compare(parsed.data.password, user.passwordHash))) {
     return { error: "Invalid email or password" };
   }
   if (user.bannedAt) {
     return { error: "This account has been suspended." };
+  }
+  if (!user.emailVerifiedAt) {
+    const pending = await db
+      .select({ tokenHash: emailVerificationTokens.tokenHash })
+      .from(emailVerificationTokens)
+      .where(and(eq(emailVerificationTokens.userId, user.id), isNull(emailVerificationTokens.usedAt)))
+      .limit(1);
+    if (pending[0]) {
+      return { error: "Check your email to verify this account before signing in." };
+    }
   }
   await createSession(user.id);
   redirect("/");
@@ -97,6 +118,105 @@ export async function login(
 export async function logout() {
   await destroySession();
   redirect("/login");
+}
+
+export async function resendVerification(
+  _prev: { error?: string; ok?: string } | undefined,
+  formData: FormData,
+): Promise<{ error?: string; ok?: string }> {
+  const email = z.string().email().transform((s) => s.toLowerCase().trim()).safeParse(formData.get("email"));
+  if (!email.success) return { error: "Enter your email address" };
+  const limitError = await checkRequestRateLimit({
+    kind: "resend_verification",
+    identifier: await requestFingerprint(email.data),
+    limit: 5,
+    windowMs: 60 * 60_000,
+    label: "verification emails",
+  });
+  if (limitError) return { error: limitError };
+
+  const [user] = await db.select().from(users).where(eq(users.email, email.data)).limit(1);
+  if (!user || user.emailVerifiedAt) return { ok: "If that account needs verification, a new link is on the way." };
+
+  const token = newPublicToken();
+  await db.insert(emailVerificationTokens).values({
+    tokenHash: tokenHash(token),
+    userId: user.id,
+    email: user.email,
+    expiresAt: new Date(Date.now() + 30 * 60_000),
+  });
+  await sendAuthEmail({ to: user.email, kind: "verify", token });
+  return { ok: "If that account needs verification, a new link is on the way." };
+}
+
+export async function requestPasswordReset(
+  _prev: { error?: string; ok?: string } | undefined,
+  formData: FormData,
+): Promise<{ error?: string; ok?: string }> {
+  const email = z.string().email().transform((s) => s.toLowerCase().trim()).safeParse(formData.get("email"));
+  if (!email.success) return { error: "Enter your email address" };
+  const limitError = await checkRequestRateLimit({
+    kind: "password_reset_request",
+    identifier: await requestFingerprint(email.data),
+    limit: 5,
+    windowMs: 60 * 60_000,
+    label: "password reset emails",
+  });
+  if (limitError) return { error: limitError };
+
+  const [user] = await db.select().from(users).where(eq(users.email, email.data)).limit(1);
+  if (user?.passwordHash) {
+    const token = newPublicToken();
+    await db.insert(passwordResetTokens).values({
+      tokenHash: tokenHash(token),
+      userId: user.id,
+      email: user.email,
+      expiresAt: new Date(Date.now() + 30 * 60_000),
+    });
+    await sendAuthEmail({ to: user.email, kind: "reset", token });
+  }
+
+  return { ok: "If an account exists for that email, a reset link is on the way." };
+}
+
+const resetPasswordSchema = z.object({
+  token: z.string().min(32),
+  password: z.string().min(8, "At least 8 characters"),
+});
+
+export async function resetPassword(
+  _prev: { error?: string } | undefined,
+  formData: FormData,
+): Promise<{ error?: string }> {
+  const parsed = resetPasswordSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const limitError = await checkRequestRateLimit({
+    kind: "password_reset_submit",
+    identifier: await requestFingerprint(parsed.data.token.slice(0, 16)),
+    limit: 10,
+    windowMs: 60 * 60_000,
+    label: "password reset attempts",
+  });
+  if (limitError) return { error: limitError };
+
+  const hash = tokenHash(parsed.data.token);
+  const passwordHash = await bcrypt.hash(parsed.data.password, 10);
+  const now = new Date();
+  const result = await db.transaction(async (tx) => {
+    const [row] = await tx
+      .select()
+      .from(passwordResetTokens)
+      .where(and(eq(passwordResetTokens.tokenHash, hash), isNull(passwordResetTokens.usedAt), gt(passwordResetTokens.expiresAt, now)))
+      .limit(1);
+    if (!row) return null;
+    await tx.update(passwordResetTokens).set({ usedAt: now }).where(eq(passwordResetTokens.tokenHash, hash));
+    await tx.update(users).set({ passwordHash }).where(eq(users.id, row.userId));
+    return row.userId;
+  });
+  if (!result) return { error: "That reset link is invalid or expired." };
+
+  await createSession(result);
+  redirect("/");
 }
 // Guest/anonymous accounts were removed — logged-out visitors browse public
 // content directly (see middleware.ts) and register a real account to interact.
