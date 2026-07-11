@@ -91,7 +91,7 @@ export default async function ProgressPage() {
   const stepTotal = dailyMetrics.reduce((sum, row) => sum + (row.steps ?? 0), 0);
   const energyTotal = dailyMetrics.reduce((sum, row) => sum + (row.activeEnergyKcal ?? 0), 0);
 
-  // No-scale mode (docs/07 §4): weight prompts, charts, and measurements are
+  // No-scale mode: weight prompts, charts, and measurements are
   // suppressed globally — habits and adherence carry the page instead.
   const noScale = user.profile.trackingStyle === "no_scale";
 
@@ -156,7 +156,7 @@ export default async function ProgressPage() {
         </Card>
       )}
 
-      {/* habits (docs/08 §1b) — each with its own streak + inline edit toggle */}
+      {/* habits — each with its own streak + inline edit toggle */}
       <HabitsSection habits={habitList} today={today} loggedDays={loggedDays} />
 
       <Card className="p-4">
@@ -186,7 +186,7 @@ export default async function ProgressPage() {
         )}
       </Card>
 
-      {/* sleep (docs/10 §4) — manual tier; synced sleep lands in the same rows later */}
+      {/* sleep — manual tier; synced sleep lands in the same rows later */}
       <Card className="p-4">
         <div className="mb-3 flex items-baseline justify-between">
           <h2 className="text-sm font-semibold">😴 Sleep</h2>

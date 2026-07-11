@@ -38,7 +38,7 @@ export default async function PostPage({ params }: { params: Promise<{ id: strin
     .where(and(eq(contentWarnings.subjectType, "post"), eq(contentWarnings.subjectId, id)));
   const reactionSummaryByPost = await getReactionSummaries([id]);
 
-  // moderated content: author sees a notice, everyone else gets a 404 (docs/07 §2)
+  // moderated content: author sees a notice, everyone else gets a 404
   const canModerate = isModerator(user);
   if (row.bannedAt && !canModerate) notFound();
   if (row.post.isRemoved && row.post.authorId !== user.id && !canModerate) notFound();

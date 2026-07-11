@@ -8,7 +8,7 @@ import { MacroPills } from "@/components/macros";
 
 export const metadata = { title: "Meal prep" };
 
-// Boards are saved filter+sort presets over one ranked ordering — not separate systems (docs/06 §6)
+// Boards are filter+sort presets over one ranked ordering, not separate systems.
 const BOARDS = [
   { key: "top", label: "🔥 Top rated" },
   { key: "budget", label: "💸 Best budget" },

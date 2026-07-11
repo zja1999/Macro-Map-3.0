@@ -1,6 +1,6 @@
 import { round1 } from "./utils";
 
-/* Extended-nutrition label set (docs/10 §1). Null everywhere means "no data" —
+/* Extended-nutrition label set. Null everywhere means "no data" —
  * never zero-filled, so day totals can say how many items lacked data. */
 
 export const NUTRIENT_DEFS = [

@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { login } from "./helpers";
 
-// Critical flow #3 (docs/08): the social loop — following feed shows followed
+// Critical flow: the social loop — following feed shows followed
 // creators' posts, posting works, reactions stick.
 test("following feed shows followed creators and accepts a post", async ({ page }) => {
   await login(page);

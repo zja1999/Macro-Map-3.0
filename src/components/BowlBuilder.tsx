@@ -1,6 +1,6 @@
 "use client";
 
-/* "Build a bowl" configurator (docs/06 §7a): stepper through option groups with a
+/* "Build a bowl" configurator: stepper through option groups with a
  * live macro tally pinned at the bottom, checked against today's remaining targets.
  * Tap twice for a double portion where the group allows it. */
 import { useActionState, useMemo, useState } from "react";

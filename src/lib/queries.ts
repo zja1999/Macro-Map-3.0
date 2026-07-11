@@ -192,7 +192,7 @@ export async function getGroupFeed(
   return rows.map((r) => ({
     post: r.post,
     author: { username: r.username, displayName: r.displayName, goal: r.goal, avatarUrl: r.avatarUrl },
-    recipe: null, // group posts are text posts in MVP (docs/05 §4: tag-filtered tabs come later)
+    recipe: null, // group posts are text posts in the current product
     myReaction: myReactionByPost.get(r.post.id) ?? null,
     reactionSummary: reactionSummaryByPost.get(r.post.id) ?? [],
   }));
@@ -321,7 +321,7 @@ export async function getStreak(userId: string, fromDate: string): Promise<numbe
   return streakFromDates(new Set(rows.map((r) => r.logDate)), fromDate);
 }
 
-/** What's left of today's targets — the input to restaurant fit ranking (docs/06 §7b). */
+/** What's left of today's targets — the input to restaurant fit ranking. */
 export async function getRemainingMacros(
   userId: string,
   targets: { calories: number; proteinG: number } | null,
@@ -343,7 +343,7 @@ export async function getRemainingMacros(
   };
 }
 
-/** Non-curated computed frequents (docs/08 §1b): GROUP BY over recent logs, no new table. */
+/** Non-curated computed frequents: GROUP BY over recent logs, no new table. */
 export async function getFrequents(userId: string, limit = 6) {
   const cutoff = shiftDate(todayStr(), -30);
   return db

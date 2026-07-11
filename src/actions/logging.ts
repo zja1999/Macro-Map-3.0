@@ -84,7 +84,7 @@ export async function logRecipe(formData: FormData) {
       fatG: round1(recipe.fatG * d.servings),
       ...nutrientSnapshot(recipe, d.servings),
     });
-    // logging community content is the strongest quality signal (docs/06 §5)
+    // logging community content is the strongest quality signal
     await tx
       .update(recipes)
       .set({ logCount: sql`${recipes.logCount} + 1` })

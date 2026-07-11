@@ -8,7 +8,7 @@ import { foods } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
 import { round1 } from "@/lib/utils";
 
-/* Barcode → food via Open Food Facts (docs/10 §2). Free + keyless; an imported
+/* Barcode → food via Open Food Facts. Free + keyless; an imported
  * food is a normal unverified `foods` row (source='off_import') that the
  * community can correct like any user submission. */
 

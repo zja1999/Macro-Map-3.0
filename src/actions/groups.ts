@@ -148,7 +148,7 @@ export async function transferGroupOwnership(formData: FormData) {
   if (byModerator) revalidatePath("/admin/audit");
 }
 
-// ─── in-group moderation — owner + group moderators (docs/05 §4) ──────────────
+// ─── in-group moderation — owner + group moderators ──────────────────────────
 // Group owners and the moderators they appoint police their own group: they can
 // remove/restore/delete posts and remove or promote members. Platform mods can do
 // all of this too. These powers are scoped to the group — they never touch content
@@ -192,7 +192,7 @@ const inviteSchema = z.object({
   username: z.string().min(1).max(40),
 });
 
-/** Owner/managers add a member to their group by username (docs/05 §4). We add
+/** Owner/managers add a member to their group by username. We add
  * them directly and drop a notification, rather than run a separate accept flow. */
 export async function inviteGroupMember(
   _prev: { error?: string; ok?: boolean } | undefined,

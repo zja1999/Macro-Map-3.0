@@ -25,8 +25,8 @@ export const users = pgTable("users", {
   passwordHash: text(),
   role: text().notNull().default("user"), // user | moderator | admin
   reputation: integer().notNull().default(0),
-  isGuest: boolean().notNull().default(false), // anonymous session; claimed via settings (docs/08 §1a)
-  bannedAt: timestamp({ withTimezone: true }), // set = suspended: can't log in, content hidden (docs/07)
+  isGuest: boolean().notNull().default(false), // legacy compatibility; current UX does not create guest users
+  bannedAt: timestamp({ withTimezone: true }), // set = suspended: can't log in, content hidden
   bannedReason: text(),
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });
@@ -279,7 +279,7 @@ export const mediaAttachments = pgTable(
   (t) => [index("media_subject_idx").on(t.subjectType, t.subjectId)],
 );
 
-// FDA-label micronutrients (docs/10 §1) — sparse by design: null means "no data",
+// FDA-label micronutrients — sparse by design: null means "no data",
 // same contract as fiberG/sodiumMg. Fresh builders per table (drizzle builders are stateful).
 const microColumns = () => ({
   sugarG: real(),
@@ -309,7 +309,7 @@ export const foods = pgTable(
     fiberG: real(),
     sodiumMg: real(),
     ...microColumns(),
-    barcode: text(), // EAN/UPC digits for scan lookup (docs/10 §2)
+    barcode: text(), // EAN/UPC digits for scan lookup
     source: text().notNull().default("seed"), // seed | user | admin | off_import
     verified: boolean().notNull().default(false),
   },
@@ -412,7 +412,7 @@ export const recipeIngredients = pgTable(
       .notNull()
       .references(() => recipes.id, { onDelete: "cascade" }),
     foodId: uuid().references(() => foods.id),
-    personalIngredientId: uuid().references(() => personalIngredients.id), // alternative link (docs/08 §1b)
+    personalIngredientId: uuid().references(() => personalIngredients.id), // alternative private-ingredient link
     rawText: text().notNull(),
     grams: real(),
     position: smallint().notNull().default(0),
@@ -436,7 +436,7 @@ export const recipeReviews = pgTable(
   (t) => [primaryKey({ columns: [t.recipeId, t.userId] })],
 );
 
-// Private, freeform, unverified — speeds up repeat recipe-building (docs/08 §1b).
+// Private, freeform, unverified — speeds up repeat recipe-building.
 // Additive to `foods`: still yields ingredient_calculated provenance, just not community-visible.
 export const personalIngredients = pgTable(
   "personal_ingredients",
@@ -457,7 +457,7 @@ export const personalIngredients = pgTable(
   (t) => [index("personal_ingredients_user_idx").on(t.userId, t.name)],
 );
 
-// ─── restaurants (docs/06 §7) ────────────────────────────────────────────────
+// ─── restaurants ─────────────────────────────────────────────────────────────
 
 export const chains = pgTable("chains", {
   id: uuid().primaryKey().defaultRandom(),
@@ -492,7 +492,7 @@ export const menuItems = pgTable(
     name: text().notNull(),
     category: text(), // Entrees | Sides | Drinks | …
     kind: text().notNull().default("fixed"), // fixed | buildable
-    comboGroup: text(), // entree|side pairing tag for combo recommendations (docs/06 §7c)
+    comboGroup: text(), // entree|side pairing tag for combo recommendations
     // for kind='buildable' these are the default build; real macros come from options
     calories: real().notNull(),
     proteinG: real().notNull(),
@@ -658,7 +658,7 @@ export const deviceTokens = pgTable(
   (t) => [index("device_tokens_user_idx").on(t.userId)],
 );
 
-// One row per fast; endedAt null while active (docs/10 §3)
+// One row per fast; endedAt null while active.
 export const fastingWindows = pgTable(
   "fasting_windows",
   {
@@ -674,7 +674,7 @@ export const fastingWindows = pgTable(
 );
 
 // One row per night, keyed by wake-up date; times as local "HH:MM" strings so no
-// timezone round-trip is needed — durationMin is the number analytics use (docs/10 §4)
+// timezone round-trip is needed — durationMin is the number analytics use.
 export const sleepLogs = pgTable(
   "sleep_logs",
   {
@@ -688,7 +688,7 @@ export const sleepLogs = pgTable(
     quality: smallint(), // 1-5, optional
     externalProvider: text(),
     externalId: text(),
-    source: text().notNull().default("manual"), // manual | fitbit | whoop | … (docs/10 §5)
+    source: text().notNull().default("manual"), // manual | fitbit | whoop | …
   },
   (t) => [primaryKey({ columns: [t.userId, t.sleepDate] })],
 );
@@ -817,7 +817,7 @@ export const nutritionImportBatches = pgTable("nutrition_import_batches", {
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });
 
-// ─── workouts (docs/03 §WORKOUTS) ────────────────────────────────────────────
+// ─── workouts ────────────────────────────────────────────────────────────────
 
 export const exercises = pgTable("exercises", {
   id: uuid().primaryKey().defaultRandom(),
@@ -829,7 +829,7 @@ export const exercises = pgTable("exercises", {
 });
 
 // structure/entries as JSONB: set rows are write-once, read-whole documents;
-// personal_records extracts the queryable bits (docs/03 key choices)
+// personal_records extracts the queryable bits.
 export type WorkoutKind = "strength" | "cardio" | "mobility" | "mixed";
 export type ActivityType =
   | "strength"
@@ -1027,7 +1027,7 @@ export const groceryItems = pgTable(
   (t) => [index("grocery_items_list_idx").on(t.listId, t.purchased)],
 );
 
-// ─── meal prep plans (docs/06 §6) ────────────────────────────────────────────
+// ─── meal prep plans ─────────────────────────────────────────────────────────
 
 export const mealPrepPlans = pgTable(
   "meal_prep_plans",
@@ -1073,7 +1073,7 @@ export const mealPrepItems = pgTable(
   (t) => [primaryKey({ columns: [t.planId, t.position] })],
 );
 
-// ─── groups & challenges (docs/05 §4–5) ──────────────────────────────────────
+// ─── groups & challenges ─────────────────────────────────────────────────────
 
 export const groups = pgTable("groups", {
   id: uuid().primaryKey().defaultRandom(),
@@ -1104,7 +1104,7 @@ export const groupMembers = pgTable(
 );
 
 // A challenge = metric + target + window (+ optional group). Behavior-based only —
-// never weight-loss-amount (docs/07 §4). Auto-scored metrics compute from existing logs.
+// never weight-loss-amount. Auto-scored metrics compute from existing logs.
 export const challenges = pgTable(
   "challenges",
   {
@@ -1142,7 +1142,7 @@ export const challengeParticipants = pgTable(
   (t) => [primaryKey({ columns: [t.challengeId, t.userId] })],
 );
 
-// ─── moderation (docs/07) ────────────────────────────────────────────────────
+// ─── moderation ──────────────────────────────────────────────────────────────
 
 export const reports = pgTable(
   "reports",

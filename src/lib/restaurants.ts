@@ -1,5 +1,5 @@
 /* Restaurant domain logic: nearby chains, the "Around me" cross-chain ranked list
- * (docs/06 §7b), buildable-item build computation (§7a), combo pairing (§7c),
+ * fit ranking, buildable-item computation, combo pairing,
  * and the macro-fit score everything ranks by. Pure functions exported for reuse. */
 import { and, desc, eq, gte, inArray, lte } from "drizzle-orm";
 import { db } from "@/db/client";
@@ -31,7 +31,7 @@ export function haversineKm(lat1: number, lng1: number, lat2: number, lng2: numb
   return 6371 * 2 * Math.asin(Math.sqrt(a));
 }
 
-/** Free/keyless Nominatim geocoding (docs/08 §1c). Returns null on miss or network failure. */
+/** Free/keyless Nominatim geocoding. Returns null on miss or network failure. */
 export async function geocode(q: string): Promise<{ lat: number; lng: number; label: string } | null> {
   try {
     const res = await fetch(
@@ -88,7 +88,7 @@ export function groupByChain(locations: NearbyLocation[]): Map<string, NearbyLoc
   return byChain;
 }
 
-// ─── macro-fit scoring (docs/06 §7b step 3) ─────────────────────────────────
+// ─── macro-fit scoring ───────────────────────────────────────────────────────
 
 export type Remaining = { calories: number; proteinG: number; logged: boolean };
 type Macros = { calories: number; proteinG: number; sodiumMg?: number | null };
@@ -126,7 +126,7 @@ export function fitLabel(m: Macros, remaining: Remaining | null): string | null 
   return over <= 250 ? `${over} kcal over your remaining budget` : null;
 }
 
-// ─── buildable items: computed builds (docs/06 §7a) ─────────────────────────
+// ─── buildable items: computed builds ────────────────────────────────────────
 
 export type Build = {
   label: string;
@@ -195,7 +195,7 @@ export async function getOptionGroups(menuItemId: string): Promise<OptionGroup[]
   return groups.map((g) => ({ ...g, options: options.filter((o) => o.groupId === g.id) }));
 }
 
-// ─── the "Around me" concatenated cross-chain list (docs/06 §7b) ─────────────
+// ─── the "Around me" concatenated cross-chain list ──────────────────────────
 
 export type AroundMeRow = {
   key: string;
@@ -300,7 +300,7 @@ export async function getAroundMe(opts: {
     }
   }
 
-  // combo pairing (docs/06 §7c): entree + best side where the pairing is known.
+  // combo pairing: entree + best side where the pairing is known.
   // Surfaced only when the pair scores at least as well as the entree alone.
   const entrees = items.filter((i) => i.comboGroup === "entree");
   const sidesByChain = new Map<string, MenuItem[]>();

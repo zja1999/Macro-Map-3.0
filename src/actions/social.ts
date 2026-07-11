@@ -41,7 +41,7 @@ export async function toggleFollow(formData: FormData) {
 const postSchema = z.object({
   body: z.string().min(1).max(2000),
   type: z.enum(["general", "tip", "question", "progress", "personal_record"]).default("general"),
-  groupId: z.string().uuid().optional(), // group feed post (docs/05 §4)
+  groupId: z.string().uuid().optional(), // group feed post
   groupSlug: z.string().max(60).optional(),
 });
 

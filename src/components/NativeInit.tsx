@@ -6,7 +6,7 @@ import { isNative, getPlatform } from "@/lib/native";
 import { registerDeviceToken } from "@/actions/push";
 
 /**
- * Native-shell bootstrap (overhaul plan Phase 3). Mounted once in the root layout;
+ * Native-shell bootstrap. Mounted once in the root layout;
  * a no-op in a plain browser. Sets up the chrome and platform behaviours a wrapped
  * app is expected to have:
  *   - dark status bar that matches the app background (no white system bar)
@@ -56,7 +56,7 @@ export function NativeInit() {
       });
       cleanups.push(() => open.remove());
 
-      // Push notifications (Phase 4). Best-effort and fully optional: if the plugin
+      // Push notifications are best-effort and fully optional: if the plugin
       // isn't in the native build yet, or the user denies permission, we just skip —
       // the app never depends on push. When granted, the FCM token is sent to the
       // server (registerDeviceToken) and taps deep-link via the payload's `href`.

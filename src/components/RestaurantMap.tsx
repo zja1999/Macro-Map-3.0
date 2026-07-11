@@ -1,6 +1,6 @@
 "use client";
 
-/* Leaflet + OpenStreetMap tiles — free and keyless (docs/08 §1c).
+/* Leaflet + OpenStreetMap tiles — free and keyless.
  * Leaflet is loaded dynamically because it touches `window` at import time. */
 import { useEffect, useRef } from "react";
 import "leaflet/dist/leaflet.css";

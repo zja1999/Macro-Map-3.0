@@ -6,7 +6,7 @@ import { sendPushToUser } from "@/lib/push";
 export type NotificationInsert = typeof notifications.$inferInsert;
 
 /**
- * The one place a notification is born (overhaul plan Phase 4 §3a). Writes the in-app
+ * The one place a notification is born. Writes the in-app
  * `notifications` row(s) AND fans out a push to each recipient's devices, so the two
  * stay in lockstep — every call site that used to insert directly now goes through here.
  *

@@ -1,4 +1,4 @@
-/* Bundled seed-food snapshot (docs/08 §1d): if the database is unreachable, food
+/* Bundled seed-food snapshot: if the database is unreachable, food
  * search degrades to this static list instead of a hard error. Macros per 100 g. */
 
 export type FallbackFood = {

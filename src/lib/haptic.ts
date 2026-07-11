@@ -1,7 +1,7 @@
 import { Capacitor } from "@capacitor/core";
 
 /**
- * One haptic entry point for the whole app (overhaul plan §3 Motion). Fires the
+ * One haptic entry point for the whole app. Fires the
  * native Taptic/vibration motor inside the Capacitor shell, falls back to the Web
  * Vibration API in a browser (Android Chrome supports it; iOS Safari ignores it),
  * and no-ops everywhere else. Always fire-and-forget — never block UI on it, and

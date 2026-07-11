@@ -7,7 +7,7 @@ import { db } from "@/db/client";
 import { challenges, comments, groups, moderationActions, posts, reactions, reports, sessions, users } from "@/db/schema";
 import { assertAdmin, canManageUser } from "@/lib/permissions";
 
-/* Admin-only user management (docs/07). Every action is audit-logged to
+/* Admin-only user management (see docs/security.md). Every action is audit-logged to
  * moderation_actions with subjectType 'user'. Guard rules live in canManageUser:
  * you can never act on yourself or on someone of equal/higher rank. */
 

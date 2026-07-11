@@ -86,7 +86,7 @@ export default async function TrackPage({
         </div>
       </Card>
 
-      {/* more nutrients (docs/10 §1) — collapsed so the 80/20 screen stays clean */}
+      {/* more nutrients — collapsed so the primary screen stays clean */}
       {logs.length > 0 && (
         <Card className="p-0">
           <details className="group">
@@ -130,7 +130,7 @@ export default async function TrackPage({
         </Card>
       )}
 
-      {/* fasting timer (docs/10 §3) — only rendered for today, where start/end make sense */}
+      {/* fasting timer — only rendered for today, where start/end make sense */}
       {date === todayStr() && <FastingCard active={fasting.active} lastCompleted={fasting.lastCompleted} />}
 
       {/* meals */}

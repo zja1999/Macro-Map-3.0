@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { login } from "./helpers";
 
-// Critical flow #1 (docs/08): search a food, log it, see it in the diary — then clean up.
+// Critical flow: search a food, log it, see it in the diary — then clean up.
 // Logging from search is a multi-add flow: the page stays on /track/add with a
 // running tally; "Done" (or direct navigation) lands on the diary.
 test("log a food from search and see it on the tracker", async ({ page }) => {

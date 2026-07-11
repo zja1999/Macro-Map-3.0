@@ -13,7 +13,7 @@ import { MealSlotSelect } from "@/components/MealSlotSelect";
 
 export const metadata = { title: "Restaurants" };
 
-// Demo dataset is seeded around downtown Austin, TX (docs/08 §1c — Overpass import later)
+// Demo restaurant locations are seeded around downtown Austin, TX.
 const DEFAULT = { lat: 30.2672, lng: -97.7431, label: "Downtown Austin (demo area)" };
 
 type SP = {

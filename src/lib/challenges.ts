@@ -1,6 +1,5 @@
-/* Challenge auto-scoring (docs/05 §5): metrics compute from existing logs on view —
- * the nightly-cron version is a later optimization, not a different design. All
- * metrics are behavior-based; weight-loss-amount challenges don't exist (docs/07 §4). */
+/* Challenge auto-scoring computes from existing logs on view; a nightly job would
+ * only be an optimization. See docs/domains/community-and-trust.md. */
 import { and, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import {

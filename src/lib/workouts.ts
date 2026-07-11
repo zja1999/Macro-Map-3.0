@@ -346,7 +346,7 @@ export async function listWorkouts(opts: {
   return rows;
 }
 
-/** Community workouts authored by a user, for their profile (docs/06 §8). */
+/** Community workouts authored by a user, for their profile. */
 export async function getUserWorkouts(authorId: string, limit = 30): Promise<WorkoutListRow[]> {
   return db
     .select({ workout: workouts, username: profiles.username, displayName: profiles.displayName })

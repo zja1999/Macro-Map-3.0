@@ -1,4 +1,4 @@
-/* Per-user sliding-window rate limits (docs/07 §5) — Postgres counts over the
+/* Persistent sliding-window rate limits (see docs/security.md) — Postgres counts over the
  * last 24h, no extra infrastructure. New accounts (<10 reputation) get half. */
 import { createHash } from "crypto";
 import { headers } from "next/headers";

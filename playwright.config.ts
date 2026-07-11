@@ -1,6 +1,6 @@
 import { defineConfig } from "@playwright/test";
 
-// E2E on the critical flows (docs/08 dev phase 7). Uses the installed Chrome
+// E2E on the critical flows (see docs/testing.md). Uses the installed Chrome
 // (channel) — no browser download needed. PGlite allows ONE process on the data
 // dir, so tests reuse a running dev server rather than spawning their own;
 // start one with `npm run dev` first (or let webServer do it if none is up).

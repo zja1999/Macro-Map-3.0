@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { login, CREATOR } from "./helpers";
 
-// Critical flow #2 (docs/08): submit a recipe with linked ingredients and get
+// Critical flow: submit a recipe with linked ingredients and get
 // machine-calculated macros + ingredient_calculated provenance.
 test("submit a fully-linked recipe and land on its detail page", async ({ page }) => {
   await login(page, CREATOR);

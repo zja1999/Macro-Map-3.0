@@ -15,7 +15,7 @@ import { round1, RECIPE_TAGS } from "@/lib/utils";
 const ingredientSchema = z.object({
   rawText: z.string().min(1).max(120),
   foodId: z.string().uuid().nullable(),
-  personalIngredientId: z.string().uuid().nullable().default(null), // user's private library (docs/08 §1b)
+  personalIngredientId: z.string().uuid().nullable().default(null), // user's private library
   grams: z.number().min(0).max(5000).nullable(),
   // macros entered inline for an unmatched ingredient — becomes a personal_ingredients row
   newPersonal: z

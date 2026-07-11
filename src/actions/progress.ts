@@ -216,7 +216,7 @@ export async function archiveHabit(formData: FormData) {
   revalidatePath("/progress");
 }
 
-/** Seeds the default habit set (docs/08 §1b) lazily on first Progress visit. */
+/** Seeds the default habit set lazily on first Progress visit. */
 export async function ensureDefaultHabits(userId: string) {
   const defaults = [
     { name: "Hit protein goal", emoji: "🍗" },

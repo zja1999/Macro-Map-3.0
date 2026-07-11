@@ -11,6 +11,7 @@
     "db:seed:reference": "tsx scripts/seed.ts --reference-only",
     "db:setup": "npm run db:push && npm run db:seed",
     "make-admin": "tsx scripts/make-admin.ts",
+    "test:security": "tsx --test tests/security/**/*.test.ts",
     "test:e2e": "playwright test"
   },
   "dependencies": {

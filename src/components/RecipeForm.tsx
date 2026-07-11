@@ -13,7 +13,7 @@ export type FoodOption = {
   proteinG: number;
   carbsG: number;
   fatG: number;
-  personal?: boolean; // from the user's private ingredient library (docs/08 §1b)
+  personal?: boolean; // from the user's private ingredient library
 };
 
 type Per100 = { calories: string; proteinG: string; carbsG: string; fatG: string };

@@ -1,7 +1,7 @@
 import { isNative } from "@/lib/native";
 
 /**
- * In-app store-review nudge (overhaul plan Phase 4 §3d). Asks the OS to show its
+ * In-app store-review nudge. Asks the OS to show its
  * native "rate this app" dialog after a genuinely positive moment (a streak
  * milestone or a workout PR), and never nags:
  *   - each distinct moment is counted at most once (dedupe by key, across restarts),

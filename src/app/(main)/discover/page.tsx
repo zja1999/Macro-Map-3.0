@@ -32,7 +32,7 @@ export default async function DiscoverPage() {
     user ? getSuggestedUsers(user.id, 6) : Promise.resolve([]),
   ]);
 
-  // "Fits your remaining macros" would filter by today's remaining targets — Phase 2 of the tracker.
+  // A future "Fits your remaining macros" shelf can filter by today's remaining targets.
   return (
     <div className="space-y-8">
       <h1 className="text-lg font-bold">Discover</h1>

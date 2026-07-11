@@ -1,5 +1,5 @@
 # Single-container deploy (Railway / Fly.io / Render / any Docker host).
-# Vercel doesn't use this file. See docs/AGENT-HANDOFF.md.
+# Vercel doesn't use this file. See docs/operations.md.
 # Runtime needs DATABASE_URL set — the image has no embedded database.
 FROM node:22-alpine AS build
 WORKDIR /app

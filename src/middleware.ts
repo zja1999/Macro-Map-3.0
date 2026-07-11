@@ -4,7 +4,7 @@ import type { NextRequest } from "next/server";
 // Logged-out visitors can browse public content; everything else needs an account.
 // This is the single gate — no more guest accounts. Interactions on public pages
 // (save, vote, comment, log) still bounce to /login via their server actions.
-const PUBLIC_PREFIXES = ["/recipes", "/workouts", "/restaurants", "/meal-prep", "/discover"];
+const PUBLIC_PREFIXES = ["/recipes", "/workouts", "/restaurants", "/meal-prep", "/discover", "/privacy"];
 
 // …but these authenticated actions live under a public prefix, so carve them back out.
 const PROTECTED_EXCEPTIONS = ["/recipes/new", "/workouts/new", "/workouts/log", "/meal-prep/new"];

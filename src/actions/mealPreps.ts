@@ -41,7 +41,7 @@ export async function createMealPrepPlan(
     return { error: "Add a title and at least one recipe." };
   }
 
-  // plan-level macros/cost derive from member recipes (docs/06 §6)
+  // plan-level macros/cost derive from member recipes
   const recipeRows = await db
     .select()
     .from(recipes)
@@ -87,7 +87,7 @@ export async function createMealPrepPlan(
   redirect(`/meal-prep/${planId}`);
 }
 
-// same one-primitive vote/save machinery as recipes (docs/08 §5.1)
+// same one-primitive vote/save machinery as recipes
 
 export async function votePlan(formData: FormData) {
   const user = await getCurrentUser();

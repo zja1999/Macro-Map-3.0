@@ -98,7 +98,7 @@ export default async function ChallengeDetailPage({ params }: { params: Promise<
         </form>
       ) : null}
 
-      {/* leaderboard: username + progress only — never absolute intake (docs/05 §6) */}
+      {/* leaderboard: username + progress only — never absolute intake */}
       <Card className="p-4">
         <h2 className="mb-2 text-sm font-semibold">Leaderboard · {board.length} participant{board.length === 1 ? "" : "s"}</h2>
         <ul className="divide-y divide-edge">

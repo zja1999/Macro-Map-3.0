@@ -10,7 +10,7 @@ import { AdminNav } from "@/components/AdminNav";
 
 export const metadata = { title: "Admin · Reports" };
 
-// safety reasons jump the line (docs/07 §2.2)
+// safety reasons jump the line
 const SAFETY = ["ed_content", "unsafe_advice", "harassment", "body_shaming"];
 
 export default async function AdminReportsPage() {
@@ -134,7 +134,7 @@ export default async function AdminReportsPage() {
         </div>
       )}
 
-      {/* immutable audit log (docs/07 §1) */}
+      {/* immutable audit log */}
       {recentActions.length > 0 && (
         <Card className="p-4">
           <h2 className="mb-2 text-sm font-semibold">Audit log</h2>

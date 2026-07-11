@@ -23,7 +23,7 @@ const REASONS = [
   "other",
 ] as const;
 
-// safety reasons jump the queue and count toward auto-hide (docs/07 §2)
+// safety reasons jump the queue and count toward auto-hide
 const SAFETY_REASONS = ["ed_content", "unsafe_advice", "harassment", "body_shaming"];
 
 const reportSchema = z.object({
@@ -69,7 +69,7 @@ export async function submitReport(
   await db.insert(reports).values({ reporterId: user.id, ...d });
 
   // Auto-mitigation: ≥3 unique safety reports in 24h soft-hides pending review.
-  // inaccurate_macros never hides — it lowers confidence instead (docs/07 §2.3).
+  // inaccurate_macros never hides — it lowers confidence instead.
   if (SAFETY_REASONS.includes(d.reason) && d.subjectType === "post") {
     const [row] = await db
       .select({ n: sql<number>`COUNT(DISTINCT ${reports.reporterId})` })
@@ -143,7 +143,7 @@ export async function resolveReport(formData: FormData) {
           }
         }
       } else if (report.subjectType === "user") {
-        // "remove" a reported account = suspend it (docs/07 §2); their content
+        // "remove" a reported account = suspend it; their content
         // drops out of every feed while banned (queries filter on users.bannedAt)
         await tx
           .update(users)
@@ -179,7 +179,7 @@ export async function resolveReport(formData: FormData) {
   revalidatePath("/admin/reports");
 }
 
-// ─── proactive moderation — act on any content, no report required (docs/07) ──
+// ─── proactive moderation — act on any content, no report required ───────────
 
 const moderateSchema = z.object({
   subjectType: z.enum(["post", "recipe", "comment"]),
@@ -278,7 +278,7 @@ export async function moderateContent(formData: FormData) {
   if (d.subjectType === "recipe") revalidatePath(`/recipes/${d.subjectId}`);
 }
 
-// ─── group & challenge moderation — hard delete, mods+ only (docs/07) ─────────
+// ─── group & challenge moderation — hard delete, mods+ only ──────────────────
 // Both are creator-owned containers with no soft-hide state, so moderation is a
 // permanent delete. Cascades clean up children: a group takes its members,
 // group-scoped challenges, and their participants; a challenge takes its

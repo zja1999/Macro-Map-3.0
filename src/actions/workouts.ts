@@ -86,7 +86,7 @@ export async function createWorkout(
   redirect(`/workouts/${workout.id}`);
 }
 
-// ─── official templates — admin-managed starter shelf (docs/08 §5) ───────────
+// ─── official templates — admin-managed starter shelf ────────────────────────
 // Templates are workouts with isTemplate=true and no author. Only admins can
 // create, edit, or remove them; they live at /admin/templates.
 
@@ -160,7 +160,7 @@ export async function deleteOfficialTemplate(formData: FormData) {
   redirect("/admin/templates");
 }
 
-// ─── log a session (with PR detection — docs/08 §5 "milestones are detected") ─
+// ─── log a session with personal-record detection ────────────────────────────
 
 const nullableNumber = z.number().finite().nullable().optional();
 
@@ -305,7 +305,7 @@ export async function logWorkout(
       }
     }
 
-    // completing community content is a ranking + reputation signal (docs/06 §5, §8)
+    // completing community content is a ranking + reputation signal
     if (d.workoutId) {
       const [w] = await tx.select().from(workouts).where(eq(workouts.id, d.workoutId)).limit(1);
       if (w) {
@@ -324,7 +324,7 @@ export async function logWorkout(
     return log.id;
   });
 
-  // PRs surface as an offered share, never an automatic post (docs/08 §5.4)
+  // PRs surface as an offered share, never an automatic post
   const units = user.profile.units as "metric" | "imperial";
   const prParam = hits.length
     ? `&prs=${encodeURIComponent(hits.map((h) => `${h.exerciseName}: ${prLabel(h, units)}`).join(" · "))}`
@@ -341,7 +341,7 @@ export async function sharePr(formData: FormData) {
   redirect("/");
 }
 
-/** Upvote/downvote a community workout — mirrors recipe voting (docs/06 §5, §8):
+/** Upvote/downvote a community workout — mirrors recipe voting:
  * the score ranks it and the author earns reputation for upvotes. */
 export async function voteWorkout(formData: FormData) {
   const user = await getCurrentUser();

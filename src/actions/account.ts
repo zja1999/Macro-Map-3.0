@@ -8,7 +8,7 @@ import { getCurrentUser, destroySession } from "@/lib/auth";
 
 /**
  * Hard-delete the signed-in user and everything they own (Play/App Store account-
- * deletion requirement, overhaul plan Phase 4 §3b). Gated behind a typed "DELETE"
+ * deletion requirement; see docs/domains/identity-and-profiles.md). Gated behind a typed "DELETE"
  * confirmation from the settings sheet — the client never uses window.confirm.
  *
  * Almost every user-owned table cascades from `users` (profiles, sessions, entries,

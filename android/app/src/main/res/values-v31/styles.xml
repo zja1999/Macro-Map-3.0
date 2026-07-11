@@ -6,7 +6,7 @@
       API, which ignores android:background (used by the pre-31 theme in values/).
       Set the branded dark background + our ring mark here so the very first frame
       matches the app instead of the light system default, then hand off to the app
-      theme. Verified on the API 35 emulator (Phase 4).
+      theme. Verified on an API 35 emulator.
     -->
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
         <item name="android:windowSplashScreenBackground">@color/splashBackground</item>

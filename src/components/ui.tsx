@@ -140,8 +140,8 @@ export function ComingSoon({ title, phase }: { title: string; phase: string }) {
       <Construction size={40} strokeWidth={1.5} className="text-accent" />
       <h1 className="text-xl font-bold">{title}</h1>
       <p className="text-sm text-ink-dim">
-        This vertical ships in <span className="font-semibold text-accent">{phase}</span> of the build plan. The data
-        model and design are done — see <code className="text-xs">docs/</code>.
+        This vertical is planned for <span className="font-semibold text-accent">{phase}</span>. See the product status
+        documentation for current readiness.
       </p>
       <Link href="/" className={btnGhost}>
         Back to feed

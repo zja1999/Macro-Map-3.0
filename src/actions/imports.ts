@@ -9,7 +9,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { isAdmin } from "@/lib/permissions";
 import { parseTabularFile } from "@/lib/tabularFiles";
 
-/* Admin nutrition import (docs/08 1d): CSV/Excel upload -> required-field +
+/* Admin nutrition import: CSV/Excel upload -> required-field +
  * numeric-sanity checks, duplicate detection against the file AND existing rows,
  * and a changelog batch so a bad import is auditable. */
 

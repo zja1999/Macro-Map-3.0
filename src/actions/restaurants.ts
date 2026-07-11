@@ -184,7 +184,7 @@ export async function logGoToOrder(formData: FormData) {
       carbsG: order.carbsG,
       fatG: order.fatG,
     });
-    // logged go-to orders drive the "popular builds" ranking (docs/06 §7a)
+    // logged go-to orders drive the "popular builds" ranking
     await tx
       .update(goToOrders)
       .set({ logCount: sql`${goToOrders.logCount} + 1` })

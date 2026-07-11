@@ -20,7 +20,7 @@ export default async function NewWorkoutPage({
     activityType: e.activityType as ExerciseOption["activityType"],
   }));
 
-  // fork = pre-filled new workout with a byline back to the original (docs/06 §4)
+  // fork = pre-filled new workout with a byline back to the original
   let fork;
   let forkSource;
   if (forkId && /^[0-9a-f-]{36}$/.test(forkId)) {

@@ -5,7 +5,7 @@ import { deviceTokens } from "@/db/schema";
 import { isMissingTableError } from "@/lib/dbErrors";
 
 /**
- * Server-side FCM sender using the HTTP v1 API (overhaul plan Phase 4 §3a). Kept
+ * Server-side FCM sender using the HTTP v1 API. Kept
  * dependency-free — a service-account JWT is signed with Node crypto, exchanged for
  * an OAuth2 access token, and used to POST to the v1 `messages:send` endpoint.
  *

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser, requireUser, type CurrentUser } from "@/lib/auth";
 
-/* Role hierarchy (docs/07): user < moderator < admin. Admin is a strict superset —
+/* Role hierarchy (see docs/security.md): user < moderator < admin. Admin is a strict superset —
  * anything a moderator can do, an admin can too. Gate on the capability
  * (isModerator / isAdmin), never on an exact role string, so the hierarchy holds. */
 

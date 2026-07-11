@@ -17,7 +17,7 @@ const REASONS: [string, string][] = [
   ["other", "Other"],
 ];
 
-/** Everything is reportable with a structured reason (docs/07 §2). */
+/** Supported community subjects are reportable with a structured reason. */
 export function ReportButton({
   subjectType,
   subjectId,

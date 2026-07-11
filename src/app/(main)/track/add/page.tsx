@@ -29,7 +29,7 @@ export default async function AddFoodPage({
   const tab = sp.tab === "saved" ? "saved" : sp.tab === "quick" ? "quick" : "search";
   const q = (sp.q ?? "").slice(0, 60);
 
-  // fallback dataset (docs/08 §1d): DB outage degrades search to a bundled snapshot
+  // DB outage degrades search to a bundled fallback snapshot
   let results: (typeof foods.$inferSelect)[] = [];
   let fallbackResults: FallbackFood[] = [];
   let frequents: Awaited<ReturnType<typeof getFrequents>> = [];
@@ -127,7 +127,7 @@ export default async function AddFoodPage({
             <BarcodeScanButton date={date} slot={slot} />
           </form>
 
-          {/* frequents: non-curated quick-adds computed from recent logs (docs/08 §1b) */}
+          {/* frequents: non-curated quick-adds computed from recent logs */}
           {!q && frequents.length > 0 && (
             <div>
               <h2 className="text-micro mb-1.5 text-text-tertiary">Your frequents</h2>
@@ -258,7 +258,7 @@ export default async function AddFoodPage({
             </>
           )}
 
-          {/* go-to restaurant orders — one-tap re-log (docs/06 §7a) */}
+          {/* go-to restaurant orders — one-tap re-log */}
           {myOrders.length > 0 && (
             <>
               <h2 className="text-micro text-text-tertiary">Go-to orders</h2>

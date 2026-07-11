@@ -1,4 +1,4 @@
-/* MacroVerse service worker (docs/08 dev phase 7): PWA installability + an offline
+/* MacroVerse service worker (see docs/platform-and-integrations.md): PWA installability + an offline
  * shell for previously-loaded content. Strategy:
  *  - navigations: network-first, falling back to the cached copy of that page
  *  - static assets (/_next/static, icons): cache-first (immutable, hashed URLs)

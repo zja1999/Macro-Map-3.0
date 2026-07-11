@@ -2,7 +2,7 @@ import type { CapacitorConfig } from "@capacitor/cli";
 import { KeyboardResize } from "@capacitor/keyboard";
 
 /**
- * MacroVerse ships as a Capacitor "remote-URL" app (overhaul plan §1): the native
+ * MacroVerse ships as a Capacitor remote-URL app (see docs/platform-and-integrations.md): the native
  * shell is a thin frame whose webview loads the live Next.js site over HTTPS, so a
  * Vercel deploy updates the app instantly with no store review. We do NOT static-
  * export — RSC/Server Actions/middleware all run server-side and must.
@@ -37,7 +37,7 @@ const config: CapacitorConfig = {
     SplashScreen: {
       // Auto-hide on a timer so a slow/unreachable remote can never leave the
       // splash stuck. NativeInit also calls hide() for a faster dismiss once the
-      // deployed site carries Phase 3 code — whichever fires first wins.
+      // deployed site initializes NativeInit — whichever fires first wins.
       launchAutoHide: true,
       launchShowDuration: 2000,
       backgroundColor: "#0a0a0b",

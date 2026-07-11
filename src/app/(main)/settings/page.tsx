@@ -48,6 +48,23 @@ export default async function SettingsPage() {
           isManual: user.targets?.isManual ?? false,
         }}
       />
+      <Card className="space-y-3 p-4">
+        <div>
+          <h2 className="text-sm font-semibold">Your data and privacy</h2>
+          <p className="mt-1 text-xs text-ink-faint">
+            Download a JSON copy of data tied to your account. Passwords, sessions, provider credentials, device tokens,
+            internal storage keys, and other users&apos; private data are excluded.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <a href="/api/account/export" download className={btnGhost}>
+            Download my data
+          </a>
+          <Link href="/privacy" className={btnGhost}>
+            Read privacy policy
+          </Link>
+        </div>
+      </Card>
       <Card className="border-danger/30 p-4">
         <DeleteAccountSection />
       </Card>

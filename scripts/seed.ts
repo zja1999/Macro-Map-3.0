@@ -52,7 +52,7 @@ const {
 } = schema;
 
 // name, kcal, P, C, F, fiber, sugar, sat fat (g), sodium (mg) per 100 g
-// (vitamins/minerals stay null in seed — barcode imports carry them, docs/10 §1-2)
+// (vitamins/minerals stay null in seed — barcode imports may carry sparse values)
 const FOODS: [string, number, number, number, number, number, number, number, number][] = [
   ["Chicken breast, cooked", 165, 31, 0, 3.6, 0, 0, 1, 74],
   ["Chicken thigh, cooked", 209, 26, 0, 10.9, 0, 0, 3, 95],
@@ -1260,7 +1260,7 @@ async function main() {
   }
   console.log(`  ${PLANS.length} meal prep plans`);
 
-  // ─── groups, challenges, sample reports (Phase 6) ───────────────────────────
+  // ─── groups, challenges, sample reports ─────────────────────────────────────
   
 
   const GROUPS: { name: string; slug: string; kind: string; description: string; owner: string; members: string[]; posts: [author: string, body: string][] }[] = [
