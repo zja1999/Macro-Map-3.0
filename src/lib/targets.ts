@@ -1,5 +1,5 @@
 // Calorie/macro target calculation: Mifflin-St Jeor BMR × activity × goal delta.
-// Server-enforced calorie floor is a safety feature (see docs/07-moderation.md §4).
+// Server-enforced calorie floor is a safety feature.
 
 export const CALORIE_FLOOR = 1200;
 

@@ -2,7 +2,7 @@ import { defineConfig } from "drizzle-kit";
 
 // Local dev runs on PGlite (embedded Postgres, zero setup).
 // With DATABASE_URL set, drizzle-kit targets the hosted Postgres instead —
-// same schema file either way. See docs/09-deployment.md.
+// same schema file either way. See docs/AGENT-HANDOFF.md.
 export default defineConfig(
   process.env.DATABASE_URL
     ? {

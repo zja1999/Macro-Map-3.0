@@ -1,49 +1,40 @@
 # MacroVerse
 
-A community-driven macro tracking, recipe, meal prep, restaurant, and workout platform — MyFitnessPal's data layer with Strava's social graph and Reddit's content ranking, minus the AI prompt box. The community is the content engine: users discover, share, vote on, save, log, and discuss recipes, meal preps, restaurant orders, and workouts created by other users.
+MacroVerse is a community-driven macro tracking, recipe, restaurant, meal-prep, and workout platform. It is live at https://macroverse.vercel.app.
 
-**Status:** Stable production app at [macroverse.vercel.app](https://macroverse.vercel.app). All 8 dev phases (0–7) are built: auth (+ guest mode), onboarding, macro tracker, community recipes (+ personal ingredient library), social feed, profiles, restaurants ("Around me" map/list, build-a-bowl, go-to orders), progress dashboard + habits (+ no-scale mode), workouts (logger with PR detection, community workouts, templates), grocery lists, meal prep plans, groups, auto-scored challenges, the moderation stack (reports → admin queue → audit log, rate limits, content warnings), Playwright e2e on the critical flows, and PWA installability with an offline shell. Extended tracking from [docs/10](docs/10-health-integrations-and-tracking.md) is in: micronutrients with %DV on the diary, barcode scanning (camera or typed digits → Open Food Facts), a fasting timer, and manual sleep logging. Admin tools live at `/admin/reports` and `/admin/imports` (admin@macromap.app / password123). Full design in [`docs/`](docs/); deployment guide in [docs/09-deployment.md](docs/09-deployment.md).
+Current product state and engineering context are intentionally kept in three documents:
 
-## Run it
+- [Features Added](docs/FEATURES-ADDED.md): the implemented product surface.
+- [Next Steps](docs/NEXT-STEPS.md): the small, prioritized list of remaining work and external blockers.
+- [Agent Handoff](docs/AGENT-HANDOFF.md): technical context and operating constraints for future development work.
+
+## Run locally
 
 ```bash
 npm install
-npm run db:setup   # push schema + seed demo data (embedded Postgres via PGlite — no DB install needed)
-npm run dev        # http://localhost:3000
+npm run db:setup
+npm run dev
 ```
 
-Demo login: **demo@macromap.app** / **password123** (pre-onboarded, follows the seeded creators, has a logged diary). Or register a fresh account to walk the onboarding wizard.
+The local database is PGlite in `./.data/pglite`. It is gitignored and supports one process at a time. Stop the dev server before running a build or database command against the local database.
 
-Dev database lives in `./.data/pglite` (gitignored). To reset: delete `.data/` and rerun `npm run db:setup`. Setting `DATABASE_URL` switches to hosted Postgres automatically ([src/db/client.ts](src/db/client.ts), [docs/09-deployment.md](docs/09-deployment.md)).
+Demo login: `demo@macromap.app` / `password123`.
 
-To deploy: against `DATABASE_URL`, push the schema (`npm run db:push`) and bootstrap reference data (`npm run db:seed:reference` — foods, restaurants, exercises, workout templates; insert-only, no demo accounts), then register in the app and run `npm run make-admin -- you@example.com`. A `Dockerfile` is included for container hosts; Vercel needs no config beyond the env var. Full walkthrough in [docs/09-deployment.md](docs/09-deployment.md).
+## Production
 
-E2E tests (Playwright against the dev server — start `npm run dev` first, or let the config spawn one):
+Set `DATABASE_URL` to the hosted Postgres connection string, then run:
 
 ```bash
-npm run test:e2e
+npm run db:push
+npm run db:seed:reference
 ```
 
-Note: PGlite allows one process on the data dir — don't run `npm run build` while the dev server is up (it corrupts `.next`), and expect harmless WASM warnings during builds (parallel build workers touching PGlite; absent with `DATABASE_URL`).
+`db:seed:reference` is insert-only and loads foods, restaurant menus, exercises, and workout templates without adding demo accounts.
 
-## Design documents
+## Verification
 
-| Doc | Contents |
-|---|---|
-| [01-prd.md](docs/01-prd.md) | Product requirements: pitch, principles, personas, journeys, feature areas, non-goals, metrics, risks |
-| [02-architecture.md](docs/02-architecture.md) | Tech stack, service-layer architecture, versioned REST API, feed strategy, media pipeline, security/privacy, scaling path |
-| [03-database-schema.md](docs/03-database-schema.md) | Complete PostgreSQL schema (~45 tables) with rationale |
-| [04-screens.md](docs/04-screens.md) | Screen-by-screen UI plan for all 27 screens |
-| [05-social-graph-and-profiles.md](docs/05-social-graph-and-profiles.md) | Follow vs. friendship model, feed composition, post/interaction model, profile & privacy design, groups, challenges, accountability |
-| [06-recipes-voting-reputation.md](docs/06-recipes-voting-reputation.md) | Recipe lifecycle, macro provenance & confidence, corrections, forking, ranking formulas, restaurant system, reputation & badges |
-| [07-moderation.md](docs/07-moderation.md) | Roles, report pipeline, content policy, ED-sensitive design, rate limits, admin panel |
-| [08-mvp-roadmap-phases.md](docs/08-mvp-roadmap-phases.md) | MVP scope, roadmap, monetization, 6-phase build plan, full module/file layout, anti-bloat rules |
-| [09-deployment.md](docs/09-deployment.md) | Deploying the app + Postgres backend; adding Google/Apple OAuth |
-| [10-health-integrations-and-tracking.md](docs/10-health-integrations-and-tracking.md) | Planned: micronutrients, barcode scanning, fasting timer, sleep tracking, wearable/health-platform sync |
-| [11-health-integrations-handoff.md](docs/11-health-integrations-handoff.md) | Handoff for continuing health device/app integrations: implemented foundation, scaffolding, gaps, and next steps |
-
-## The three ideas everything hangs on
-
-1. **One social primitive** — votes, saves, reactions, comments, reports, and tags are single polymorphic systems shared by every content type. New content types are cheap; new systems are expensive.
-2. **Everything discoverable is loggable** — recipes, menu items, and meal preps all flow into one `food_logs` snapshot path. Discovery always ends in action.
-3. **Trust is structural** — every nutrition number carries provenance (verified / ingredient-calculated / creator-entered / corrected / estimated) and a confidence score that moves with community evidence.
+```bash
+node node_modules/typescript/bin/tsc --noEmit
+npm run build
+npm run test:e2e
+```

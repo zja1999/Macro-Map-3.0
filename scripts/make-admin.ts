@@ -1,4 +1,4 @@
-/* Promotes an existing user to admin (docs/09-deployment.md production checklist).
+/* Promotes an existing user to admin.
  * Register the account through the app first, then:
  *   local dev:  npm run make-admin -- you@example.com
  *   hosted:     DATABASE_URL="postgres://…" npm run make-admin -- you@example.com */

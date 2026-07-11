@@ -2,7 +2,7 @@
  * votes/saves/reviews, posts, follows, and a pre-onboarded demo account with logs.
  * Run: npm run db:seed  (idempotent-ish: wipes and recreates demo content)
  * Targets local PGlite by default; with DATABASE_URL set it seeds that Postgres instead
- * (docs/09-deployment.md). Hosted safety: the full demo seed WIPES every table, so with
+ * Hosted safety: the full demo seed WIPES every table, so with
  * DATABASE_URL it requires --force-demo. For production bootstrap use --reference-only:
  * foods, restaurants, exercises, workout templates — insert-only, skips non-empty tables. */
 import { mkdirSync } from "fs";

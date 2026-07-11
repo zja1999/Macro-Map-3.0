@@ -2,7 +2,7 @@ import * as schema from "./schema";
 
 // Two drivers, one schema — every query is Postgres-native either way:
 //  - DATABASE_URL set (production / staging): node-postgres pool against hosted Postgres
-//    (Neon, Supabase, Railway, RDS…). See docs/09-deployment.md.
+//    (Neon, Supabase, Railway, RDS…). See docs/AGENT-HANDOFF.md.
 //  - No DATABASE_URL (local dev): embedded PGlite persisted to ./.data/pglite, zero setup.
 
 // Both drivers expose the same PgDatabase query API; typing as one keeps
