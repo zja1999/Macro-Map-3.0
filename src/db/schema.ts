@@ -21,6 +21,7 @@ import {
 export const users = pgTable("users", {
   id: uuid().primaryKey().defaultRandom(),
   email: text().notNull().unique(),
+  emailVerifiedAt: timestamp({ withTimezone: true }),
   passwordHash: text().notNull(),
   role: text().notNull().default("user"), // user | moderator | admin
   reputation: integer().notNull().default(0),
