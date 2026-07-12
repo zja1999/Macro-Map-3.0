@@ -30,8 +30,17 @@ The switch applies to the app, Drizzle schema commands, seed scripts, and admin 
 | `FCM_PROJECT_ID` / `FCM_CLIENT_EMAIL` / `FCM_PRIVATE_KEY` | Push delivery | Push silently unavailable/best-effort |
 | `CAP_SERVER_URL` | Capacitor target override at config/build time | Loads production URL |
 | `NODE_ENV` | Cookie security, email mode, PWA registration, CSP development allowance | Managed by Next/npm |
+| `R2_ENDPOINT` | Private production progress-photo storage | Local/test uses `.data/media`; production fails media operations clearly |
+| `R2_BUCKET` | Private R2 bucket name | Same as above |
+| `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` | Bucket-scoped object read/write/delete credentials | Same as above |
 
 Never place server secrets in `NEXT_PUBLIC_*` variables.
+
+## Private media rollout
+
+Create a non-public R2 bucket and a bucket-scoped token limited to object read, write, and delete. Configure all four `R2_*` variables together; partial configuration is not accepted in production, and object URLs are never exposed to clients. Development and automated tests use `.data/media` when R2 is absent.
+
+Run `npm run media:audit` as a dry run before migration or deployment. It reports database rows with missing objects, objects without database rows, and legacy metadata-only rows; it never deletes them. Roll out in this order: configure the bucket/token, verify local upload/view/download/delete/comparison, audit and review legacy rows, configure production secrets, deploy, perform authenticated desktop/mobile smoke tests, and verify account deletion removes database rows and objects.
 
 ## Deploying web and schema
 

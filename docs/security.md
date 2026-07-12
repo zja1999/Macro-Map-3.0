@@ -39,6 +39,8 @@ Public route access does not imply mutation access. Middleware deliberately allo
 
 Profile visibility, post visibility, public/private go-to orders, route privacy, progress-photo privacy, and moderation removal state must be honored by every new read path. Avoid returning full table rows when a public projection is sufficient.
 
+Progress-photo object keys and R2 URLs stay server-only. Uploads are decoded and rewritten as non-animated WebP, which applies EXIF orientation while discarding EXIF/GPS metadata. Retrieval/download and deletion require a current app session and independently verify both `photos.user_id` and the attached `progress_entries.user_id`; responses are same-origin with private, no-store caching.
+
 ## Rate limiting
 
 Database-backed rate-limit events are keyed by a hashed identifier. `requestFingerprint()` combines forwarded IP information with optional user-supplied context. Current auth paths rate-limit registration, login by IP/fingerprint and email, resend verification, reset request, and reset submission. Comments also enforce a request limit.

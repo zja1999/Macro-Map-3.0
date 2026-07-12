@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db/client";
-import { habitLogs, habits, mediaAttachments, nutritionTargets, photos, profiles, progressEntries } from "@/db/schema";
+import { habitLogs, habits, nutritionTargets, profiles, progressEntries } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
 import { calculateTargetsFromProfile } from "@/lib/targets";
 import { weightToKg, lengthToCm } from "@/lib/units";
@@ -100,60 +100,6 @@ export async function saveProgressEntry(
 
   revalidatePath("/progress");
   return {};
-}
-
-const photoSchema = z.object({
-  entryDate: z.string().regex(dateRe),
-  storageKey: z.string().min(3).max(300),
-  mimeType: z.enum(["image/jpeg", "image/png", "image/webp"]).default("image/jpeg"),
-  width: z.coerce.number().int().min(1).max(10000).optional(),
-  height: z.coerce.number().int().min(1).max(10000).optional(),
-});
-
-export async function recordProgressPhoto(
-  _prev: { error?: string; ok?: boolean } | undefined,
-  formData: FormData,
-): Promise<{ error?: string; ok?: boolean }> {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
-  const parsed = photoSchema.safeParse(Object.fromEntries([...formData.entries()].filter(([, v]) => v !== "")));
-  if (!parsed.success) return { error: parsed.error.issues[0].message };
-  const d = parsed.data;
-
-  await db.transaction(async (tx) => {
-    const [existing] = await tx
-      .select()
-      .from(progressEntries)
-      .where(and(eq(progressEntries.userId, user.id), eq(progressEntries.entryDate, d.entryDate)))
-      .limit(1);
-    const entry =
-      existing ??
-      (
-        await tx
-          .insert(progressEntries)
-          .values({ userId: user.id, entryDate: d.entryDate })
-          .returning()
-      )[0];
-    const [photo] = await tx
-      .insert(photos)
-      .values({
-        userId: user.id,
-        storageKey: d.storageKey,
-        mimeType: d.mimeType,
-        purpose: "progress",
-        width: d.width ?? null,
-        height: d.height ?? null,
-        isPrivate: true,
-      })
-      .returning({ id: photos.id });
-    await tx.insert(mediaAttachments).values({
-      photoId: photo.id,
-      subjectType: "progress_entry",
-      subjectId: entry.id,
-    });
-  });
-  revalidatePath("/progress");
-  return { ok: true };
 }
 
 export async function toggleHabit(formData: FormData) {

@@ -13,7 +13,7 @@ This domain owns progress measurements/photos, habits/streaks, fasting, manual s
 
 Progress entries store optional weight, body fat, circumferences, note, and source. A user may record only the measurements relevant to their tracking style. All body measurements are metric at rest and converted at the form/display edge.
 
-Progress photos are currently metadata rows keyed by a supplied storage key through `recordProgressPhoto`; the schema supports private photos and attachments, but no complete binary upload/storage pipeline is represented by that action alone. Do not describe the feature as fully hosted media without adding and verifying that pipeline.
+Progress photos support up to four JPEG, PNG, or WebP sources per multipart upload. The server rotates from EXIF orientation, strips metadata/GPS, limits the longest edge to 1600 pixels, converts to WebP, and stores the private object in R2 (or `.data/media` outside production). `photos` owns storage metadata and `media_attachments` connects one or more photos to a dated `progress_entry`. The timeline groups by date and offers private two-date comparison; all viewing, downloading, and deletion goes through an authenticated, ownership-checked application route.
 
 Default habits are created lazily by `ensureDefaultHabits()`. Habit completion is a composite habit/date row; streaks are computed from dates rather than stored. Archive preserves history. Toggling must verify the habit belongs to the current user.
 

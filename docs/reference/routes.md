@@ -34,6 +34,9 @@ Access labels:
 | `/progress` | User | `src/app/(main)/progress/page.tsx` | Measurements/photos/habits/sleep/health dashboard |
 | `/progress/habits` | User | `src/app/(main)/progress/habits/page.tsx` | Focused daily habit check-in and habit management |
 | `/progress/photos` | User | `src/app/(main)/progress/photos/page.tsx` | Focused private progress-photo attachment and history |
+| `POST /api/progress/photos` | User API | `src/app/api/progress/photos/route.ts` | Validate, normalize, store, and attach up to four private progress photos |
+| `GET /api/progress/photos/[photoId]` | User API | `src/app/api/progress/photos/[photoId]/route.ts` | Ownership-checked view or `?download=1` download through the app |
+| `DELETE /api/progress/photos/[photoId]` | User API | `src/app/api/progress/photos/[photoId]/route.ts` | Ownership-checked object/metadata deletion and blank-entry cleanup |
 | `/me` | User | `src/app/(main)/me/page.tsx` | Redirect/entry to current user's profile content |
 | `/notifications` | User | `src/app/(main)/notifications/page.tsx` | In-app notification inbox/read actions |
 

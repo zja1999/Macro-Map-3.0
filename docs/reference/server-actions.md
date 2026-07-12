@@ -20,7 +20,7 @@ Auth/session helpers: `src/lib/auth.ts`, `authTokens.ts`, `authEmail.ts`, `googl
 | `src/actions/barcode.ts` | `lookupBarcode` | Normalize/resolve barcode nutrition lookup |
 | `src/actions/fasting.ts` | `startFast`, `endFast`, `discardFast` | Current-user fasting-window lifecycle |
 | `src/actions/sleep.ts` | `logSleep`, `deleteSleepLog` | Manual sleep upsert/delete by wake date |
-| `src/actions/progress.ts` | `saveProgressEntry`, `recordProgressPhoto`, `toggleHabit`, `addHabit`, `updateHabit`, `archiveHabit`, `ensureDefaultHabits` | Measurements/photo metadata/habit ownership and completion |
+| `src/actions/progress.ts` | `saveProgressEntry`, `toggleHabit`, `addHabit`, `updateHabit`, `archiveHabit`, `ensureDefaultHabits` | Measurements and habit ownership/completion; photo mutations use the authenticated API routes in the route catalog |
 
 Main reads: diary/progress functions in `src/lib/queries.ts`; nutrient and unit logic in `nutrients.ts` and `units.ts`.
 

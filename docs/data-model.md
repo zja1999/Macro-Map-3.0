@@ -50,8 +50,8 @@ Account deletion cascades through most user-owned rows. Tables with audit/commun
 | `reactions` | One reaction per user/subject | Composite PK; changing kind updates same logical reaction. |
 | `votes` | Up/down vote per subject | Composite PK; used by recipes, workouts, and meal-prep plans through subject type. |
 | `saves` | Saved subject per user | Composite PK; used across recipes, workouts, meal prep, restaurant items/orders. |
-| `photos` | Media metadata and privacy | No storage service is implemented by this table alone; progress UI currently records metadata keys. |
-| `media_attachments` | Photo-to-subject join | Polymorphic subject; indexed for subject reads. |
+| `photos` | Media metadata and privacy | Progress rows reference private R2/local objects with server-generated `progress/{userId}/{photoId}.webp` keys; raw keys are server-only. Object cleanup accompanies photo/account deletion. |
+| `media_attachments` | Photo-to-subject join | Polymorphic subject; progress attachments must resolve to a progress entry owned by the same user as the photo. Multiple photos may attach to one dated entry. |
 | `notifications` | In-app notification inbox | Optional actor, subject metadata, href, read timestamp. |
 | `device_tokens` | FCM installation tokens | Token PK; upsert moves a device token to the signed-in user; invalid tokens are pruned lazily. |
 

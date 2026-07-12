@@ -5,7 +5,8 @@ import { logSleep, deleteSleepLog } from "@/actions/sleep";
 import { todayStr, formatDateLabel } from "@/lib/utils";
 import { formatWeight, formatLength, kgToLb, type UnitsPref } from "@/lib/units";
 import { Card, EmptyState, inputCls } from "@/components/ui";
-import { ProgressPhotoForm, WeighInForm } from "@/components/ProgressForms";
+import { WeighInForm } from "@/components/ProgressForms";
+import Link from "next/link";
 import { HabitsSection } from "@/components/HabitsSection";
 
 export const metadata = { title: "Progress" };
@@ -252,17 +253,18 @@ export default async function ProgressPage() {
       <Card className="p-4">
         <div className="mb-3 flex items-baseline justify-between">
           <h2 className="text-sm font-semibold">Private photos</h2>
-          <span className="text-[10px] text-ink-faint">{photos.length} attached</span>
+          <Link href="/progress/photos" className="text-[10px] font-medium text-accent">View photo timeline</Link>
         </div>
-        <ProgressPhotoForm today={today} />
+        {photos.length === 0 && <p className="text-xs text-ink-faint">Add private photos in your photo timeline.</p>}
         {photos.length > 0 && (
           <ul className="mt-3 divide-y divide-edge">
-            {photos.map(({ photo, entryDate }) => (
+            {photos.flatMap((group) => group.photos.map((photo) => ({ ...photo, entryDate: group.entryDate }))).slice(0, 4).map((photo) => (
               <li key={photo.id} className="flex items-center justify-between gap-3 py-2 text-xs">
                 <div className="min-w-0">
-                  <div className="truncate font-medium">{photo.storageKey}</div>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={`/api/progress/photos/${photo.id}`} alt={`Progress on ${formatDateLabel(photo.entryDate)}`} className="h-16 w-16 rounded-lg object-cover" />
                   <div className="text-[10px] text-ink-faint">
-                    {formatDateLabel(entryDate)} · {photo.mimeType}
+                    {formatDateLabel(photo.entryDate)}
                     {photo.width && photo.height ? ` · ${photo.width}x${photo.height}` : ""}
                   </div>
                 </div>

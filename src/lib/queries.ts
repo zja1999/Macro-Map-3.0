@@ -377,14 +377,17 @@ export async function getProgressEntries(userId: string, limit = 120) {
 
 /** Consecutive-day walk-back over a set of logged dates — shared by logging + habit streaks. */
 export async function getProgressPhotos(userId: string, limit = 24) {
-  return db
-    .select({ photo: photos, entryDate: progressEntries.entryDate })
+  const rows = await db
+    .select({ id: photos.id, entryDate: progressEntries.entryDate, width: photos.width, height: photos.height,
+      weightKg: progressEntries.weightKg, bodyFatPct: progressEntries.bodyFatPct, waistCm: progressEntries.waistCm,
+      chestCm: progressEntries.chestCm, hipsCm: progressEntries.hipsCm, armsCm: progressEntries.armsCm, note: progressEntries.note })
     .from(mediaAttachments)
     .innerJoin(photos, eq(photos.id, mediaAttachments.photoId))
     .innerJoin(progressEntries, eq(progressEntries.id, mediaAttachments.subjectId))
     .where(
       and(
         eq(photos.userId, userId),
+        eq(progressEntries.userId, userId),
         eq(photos.purpose, "progress"),
         eq(photos.isPrivate, true),
         eq(mediaAttachments.subjectType, "progress_entry"),
@@ -392,6 +395,14 @@ export async function getProgressPhotos(userId: string, limit = 24) {
     )
     .orderBy(desc(progressEntries.entryDate), desc(photos.createdAt))
     .limit(limit);
+  const groups = new Map<string, { entryDate: string; hasMeasurements: boolean; photos: Array<{ id: string; width: number | null; height: number | null }> }>();
+  for (const row of rows) {
+    const group = groups.get(row.entryDate) ?? { entryDate: row.entryDate,
+      hasMeasurements: [row.weightKg, row.bodyFatPct, row.waistCm, row.chestCm, row.hipsCm, row.armsCm, row.note].some((v) => v != null && v !== ""), photos: [] };
+    group.photos.push({ id: row.id, width: row.width, height: row.height });
+    groups.set(row.entryDate, group);
+  }
+  return [...groups.values()];
 }
 
 export function streakFromDates(dates: Set<string>, fromDate: string): number {

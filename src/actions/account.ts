@@ -3,8 +3,9 @@
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
-import { users, groups, challenges, nutritionImportBatches } from "@/db/schema";
+import { users, groups, challenges, nutritionImportBatches, photos } from "@/db/schema";
 import { getCurrentUser, destroySession } from "@/lib/auth";
+import { getMediaStorage, isSafeStorageKey } from "@/lib/media/storage";
 
 /**
  * Hard-delete the signed-in user and everything they own (Play/App Store account-
@@ -32,6 +33,10 @@ export async function deleteAccount(
 
   const confirm = String(formData.get("confirm") ?? "").trim();
   if (confirm !== "DELETE") return { error: 'Type DELETE (all caps) to confirm.' };
+
+  const photoKeys = await db.select({ storageKey: photos.storageKey }).from(photos).where(eq(photos.userId, user.id));
+  const storage = getMediaStorage();
+  for (const { storageKey } of photoKeys) if (isSafeStorageKey(storageKey)) await storage.delete(storageKey);
 
   await db.transaction(async (tx) => {
     await tx.delete(nutritionImportBatches).where(eq(nutritionImportBatches.uploadedBy, user.id));

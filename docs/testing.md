@@ -9,6 +9,7 @@ The repository has four primary executable checks:
 | TypeScript | `node node_modules/typescript/bin/tsc --noEmit` | Types, imports, server/client API misuse visible to TS |
 | Production build | `npm run build` | Next route compilation, server/client boundaries, static generation/config integration |
 | Security policy | `npm run test:security` | Credential-free token and role-hierarchy invariants |
+| Media unit | `npm run test:media` | Local storage lifecycle, key generation, image rotation/resizing/WebP conversion, metadata stripping, invalid bytes |
 | End to end | `npm run test:e2e` | Critical browser journeys against a seeded database |
 
 The security policy suite uses Node's test runner through `tsx`. Broader pure domain logic is still mostly protected by type/build checks and indirect E2E coverage.
