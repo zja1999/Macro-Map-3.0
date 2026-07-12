@@ -111,6 +111,7 @@ iOS is not present as a native project. It requires macOS/Xcode and an Apple Dev
 
 - **Local database locked:** stop all Node/dev/build/test processes using PGlite, then retry one command at a time.
 - **Build attempts a database query:** server modules use a fail-fast database proxy during Next production-build analysis. Keep request-dependent routes dynamic; do not bypass the guard by opening PGlite directly from a page/module initializer.
+- **A deployed page reports `relation ... does not exist`:** the application deployment and schema target are out of sync. A local `npm run db:push` without `DATABASE_URL` updates only `.data/pglite`; it does not update the hosted database. From a controlled PowerShell session, set `$env:DATABASE_URL` to the hosted connection string, confirm it is present without printing it, and run `npm run db:push` from the same commit as the deployment. Never paste or commit the connection string.
 - **PGlite WASM warnings after build:** a current clean build should not initialize PGlite and should not emit `RuntimeError: unreachable` or `Aborted()`. Confirm `src/db/client.ts` is the only application driver entry point and `NEXT_PHASE` is not being overwritten.
 - **Installed Android app shows old web behavior:** confirm the web deployment; the shell does not bundle current `src`.
 - **OAuth callback fails:** check canonical URL, provider redirect URI, state cookie, secure-cookie context, schema, and provider credentials.

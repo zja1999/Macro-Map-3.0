@@ -4,23 +4,33 @@ import { groups, notificationBroadcasts, profiles } from "@/db/schema";
 import { sendAdminNotification, updateWelcomeNotification } from "@/actions/adminNotifications";
 import { requireAdmin } from "@/lib/permissions";
 import { getWelcomeNotificationSettings } from "@/lib/welcomeNotification";
+import { isMissingTableError } from "@/lib/dbErrors";
 import { timeAgo } from "@/lib/utils";
 import { AdminNav } from "@/components/AdminNav";
 import { Card, inputCls } from "@/components/ui";
 
 export const metadata = { title: "Admin - Notifications" };
 
+async function getBroadcastHistory() {
+  try {
+    return await db
+      .select({ broadcast: notificationBroadcasts, senderName: profiles.displayName })
+      .from(notificationBroadcasts)
+      .innerJoin(profiles, eq(profiles.userId, notificationBroadcasts.sentBy))
+      .orderBy(desc(notificationBroadcasts.createdAt))
+      .limit(20);
+  } catch (error) {
+    if (isMissingTableError(error, "notification_broadcasts")) return null;
+    throw error;
+  }
+}
+
 export default async function AdminNotificationsPage() {
   await requireAdmin();
   const [welcome, groupRows, history] = await Promise.all([
     getWelcomeNotificationSettings(),
     db.select({ id: groups.id, name: groups.name }).from(groups).orderBy(groups.name),
-    db
-      .select({ broadcast: notificationBroadcasts, senderName: profiles.displayName })
-      .from(notificationBroadcasts)
-      .innerJoin(profiles, eq(profiles.userId, notificationBroadcasts.sentBy))
-      .orderBy(desc(notificationBroadcasts.createdAt))
-      .limit(20),
+    getBroadcastHistory(),
   ]);
 
   return (
@@ -30,6 +40,14 @@ export default async function AdminNotificationsPage() {
         <p className="text-sm text-ink-dim">Configure the account welcome and send inbox/push messages to one user, a group, or the full site.</p>
       </div>
       <AdminNav isAdmin />
+
+      {history === null ? (
+        <Card className="space-y-2 border-carbs/40 bg-carbs/10 p-4">
+          <h2 className="font-semibold text-carbs">Hosted database update required</h2>
+          <p className="text-sm text-ink-dim">The notification tables are not present in the database used by this deployment. Run <code className="rounded bg-surface px-1.5 py-0.5 text-xs">npm run db:push</code> from the deployed commit with that database&apos;s <code className="rounded bg-surface px-1.5 py-0.5 text-xs">DATABASE_URL</code> set, then reload this page.</p>
+        </Card>
+      ) : (
+        <>
 
       <Card className="space-y-3 p-4">
         <h2 className="font-semibold">Account welcome</h2>
@@ -71,6 +89,8 @@ export default async function AdminNotificationsPage() {
           </Card>
         ))}
       </div>
+        </>
+      )}
     </div>
   );
 }

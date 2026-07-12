@@ -4,12 +4,27 @@ import { badges, userBadges } from "@/db/schema";
 import { assignBadge, createBadge, deleteBadge, revokeBadge, updateBadge } from "@/actions/adminBadges";
 import { BADGE_METRICS, type BadgeMetric } from "@/lib/badges";
 import { requireAdmin } from "@/lib/permissions";
+import { isMissingTableError } from "@/lib/dbErrors";
 import { AdminNav } from "@/components/AdminNav";
 import { BadgeIconInput } from "@/components/BadgeIconInput";
 import { BadgeIcon } from "@/components/UserBadges";
 import { Card, inputCls } from "@/components/ui";
 
 export const metadata = { title: "Admin - Badges" };
+
+async function getBadgeDefinitions() {
+  try {
+    return await db
+      .select({ badge: badges, awards: sql<number>`count(${userBadges.userId})` })
+      .from(badges)
+      .leftJoin(userBadges, eq(userBadges.badgeId, badges.id))
+      .groupBy(badges.id)
+      .orderBy(desc(badges.createdAt));
+  } catch (error) {
+    if (isMissingTableError(error, "badges") || isMissingTableError(error, "user_badges")) return null;
+    throw error;
+  }
+}
 
 function CriteriaFields({ metric, threshold }: { metric?: string | null; threshold?: number | null }) {
   return (
@@ -27,12 +42,7 @@ function CriteriaFields({ metric, threshold }: { metric?: string | null; thresho
 
 export default async function AdminBadgesPage() {
   await requireAdmin();
-  const definitions = await db
-    .select({ badge: badges, awards: sql<number>`count(${userBadges.userId})` })
-    .from(badges)
-    .leftJoin(userBadges, eq(userBadges.badgeId, badges.id))
-    .groupBy(badges.id)
-    .orderBy(desc(badges.createdAt));
+  const definitions = await getBadgeDefinitions();
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
@@ -41,6 +51,14 @@ export default async function AdminBadgesPage() {
         <p className="text-sm text-ink-dim">Create achievement badges, upload their icons, and choose automatic milestones or manual assignment.</p>
       </div>
       <AdminNav isAdmin />
+
+      {definitions === null ? (
+        <Card className="space-y-2 border-carbs/40 bg-carbs/10 p-4">
+          <h2 className="font-semibold text-carbs">Hosted database update required</h2>
+          <p className="text-sm text-ink-dim">The badge tables are not present in the database used by this deployment. Run <code className="rounded bg-surface px-1.5 py-0.5 text-xs">npm run db:push</code> from the deployed commit with that database&apos;s <code className="rounded bg-surface px-1.5 py-0.5 text-xs">DATABASE_URL</code> set, then reload this page.</p>
+        </Card>
+      ) : (
+        <>
 
       <Card className="space-y-3 p-4">
         <h2 className="font-semibold">Create badge</h2>
@@ -88,6 +106,8 @@ export default async function AdminBadgesPage() {
           </Card>
         ))}
       </div>
+        </>
+      )}
     </div>
   );
 }
