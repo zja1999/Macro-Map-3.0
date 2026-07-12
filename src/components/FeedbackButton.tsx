@@ -28,7 +28,7 @@ export function FeedbackButton() {
       {open && (
         <form
           action={action}
-          className="absolute right-0 top-10 z-50 w-[min(22rem,calc(100vw-2rem))] space-y-3 rounded-lg border border-edge bg-card p-3 shadow-xl"
+          className="fixed left-4 right-4 top-16 z-50 w-auto space-y-3 rounded-lg border border-edge bg-card p-3 shadow-xl sm:absolute sm:left-auto sm:right-0 sm:top-10 sm:w-[min(22rem,calc(100vw-2rem))]"
         >
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-sm font-semibold">Send feedback</h2>
