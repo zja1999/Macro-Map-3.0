@@ -2,8 +2,9 @@
 
 import { useActionState, useState } from "react";
 import { usePathname } from "next/navigation";
+import { MessageSquare } from "lucide-react";
 import { submitFeedback } from "@/actions/feedback";
-import { btnGhost, btnPrimary, inputCls } from "./ui";
+import { Button, btnPrimary, inputCls } from "./ui";
 
 export function FeedbackButton() {
   const [open, setOpen] = useState(false);
@@ -12,10 +13,18 @@ export function FeedbackButton() {
 
   return (
     <div className="relative">
-      <button type="button" onClick={() => setOpen((v) => !v)} className={`${btnGhost} px-2 py-1.5 text-xs sm:px-3`} aria-label="Send feedback">
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        onClick={() => setOpen((v) => !v)}
+        className="h-8 w-8 p-0 sm:w-auto sm:px-3"
+        aria-label="Send feedback"
+        aria-expanded={open}
+      >
         <span className="hidden sm:inline">Feedback</span>
-        <span className="sm:hidden">?</span>
-      </button>
+        <MessageSquare className="sm:hidden" size={17} strokeWidth={1.8} aria-hidden="true" />
+      </Button>
       {open && (
         <form
           action={action}

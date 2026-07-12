@@ -10,3 +10,6 @@ android/app/google-services.json
 # playwright
 /test-results/
 /playwright-report/
+
+.vercel
+.env*
