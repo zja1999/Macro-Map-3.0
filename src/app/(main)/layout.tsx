@@ -9,12 +9,14 @@ import { TabBar, SideNav } from "@/components/TabBar";
 import type { LogSheetData } from "@/components/LogSheet";
 import { FeedbackButton } from "@/components/FeedbackButton";
 import { Avatar } from "@/components/ui";
+import { syncAutomaticBadgesForUser } from "@/lib/badges";
 
 export default async function MainLayout({ children }: { children: React.ReactNode }) {
   // Logged-out visitors reach this layout only for public pages (middleware gates
   // the rest), so render an anonymous shell instead of forcing a login.
   const user = await getCurrentUser();
   if (user && !user.profile.onboardedAt) redirect("/onboarding");
+  if (user) await syncAutomaticBadgesForUser(user.id);
   const [streak, unreadNotifications, frequents] = user
     ? await Promise.all([
         getStreak(user.id, todayStr()),

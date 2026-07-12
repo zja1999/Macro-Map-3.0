@@ -40,7 +40,7 @@ export function PostCard({
   return (
     <Card className="min-w-0 space-y-3 overflow-hidden p-4">
       <div className="flex min-w-0 items-center justify-between gap-2">
-        <UserChip username={author.username} displayName={author.displayName} sub={timeAgo(post.createdAt)} avatarUrl={author.avatarUrl} />
+        <UserChip username={author.username} displayName={author.displayName} sub={timeAgo(post.createdAt)} avatarUrl={author.avatarUrl} badges={author.badges} />
         {TYPE_BADGES[post.type] && <Badge>{TYPE_BADGES[post.type]}</Badge>}
       </div>
 

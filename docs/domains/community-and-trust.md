@@ -5,7 +5,7 @@
 This domain owns the home/discovery feed, public profiles, follows, posts, reactions, comments, saves/votes shared by content domains, groups, challenges, notifications, reports, moderation, feedback, and admin user/content tools.
 
 - Routes: `/`, `/discover`, `/posts/[id]`, `/u/[username]`, `/groups/**`, `/challenges/**`, `/notifications`, `/admin/**`.
-- Actions: `social.ts`, `groups.ts`, `notifications.ts`, `moderation.ts`, `admin.ts`, `feedback.ts`.
+- Actions: `social.ts`, `groups.ts`, `notifications.ts`, `adminNotifications.ts`, `adminBadges.ts`, `moderation.ts`, `admin.ts`, `feedback.ts`.
 - Libraries: `queries.ts`, `groups.ts`, `challenges.ts`, `permissions.ts`, `notify.ts`, `push.ts`.
 
 ## Feed and interactions
@@ -49,7 +49,7 @@ Warning labels are polymorphic and allow multiple kinds per subject. They provid
 ## Global administration
 
 - Moderator pages: dashboard, report queue, audit log.
-- Admin-only pages: user role/ban/delete, nutrition imports, official workout templates.
+- Admin-only pages: user role/ban/delete, notification templates/broadcasts, badge definitions/assignments, nutrition imports, and official workout templates.
 - The role hierarchy is capability-based; admins inherit moderator access.
 - `canManageUser()` blocks self-management and equal/higher-rank management. Deletion requires a target at role `user`.
 
@@ -59,7 +59,15 @@ Feedback is separate from abuse reports. It records product comments and page co
 
 In-app notifications are durable rows with message/href/read state. The main layout preloads the unread count. Actions can mark individual or all rows read only for the current user. `createNotifications()` accepts one or many inserts and is the central durable-notification helper.
 
+Admins configure the welcome template in `/admin/notifications`. Both password registration and newly created Google accounts receive that template. Admin broadcasts can target one validated username/email, the members of one group, or all non-suspended users; each send records its audience and recipient count in `notification_broadcasts`. Admin- and system-authored notifications may have no profile actor, so inbox reads use a left join and render MacroVerse as the sender fallback.
+
 Avoid trusting freeform notification href/message from client input. Construct them server-side from validated subjects.
+
+## Achievement badges
+
+Badge definitions contain a name, description, customizable emoji or compact uploaded icon, active state, and either manual or automatic award rules. Supported automatic metrics are reputation, authored posts/comments, followers, distinct nutrition logging days, completed workouts, personal records, habit check-ins, and completed challenges. Awards in `user_badges` are persistent snapshots; meeting a milestone inserts an award once and later source-data changes do not revoke it.
+
+The authenticated main layout evaluates active automatic rules for the current user. This catches both new activity and new admin-created badge definitions on the user's next app navigation. Admins can also assign or revoke any badge for an individual username/email. Active earned badges render beside author names on posts, comments, and profile headers; image uploads are client-resized to a compact square data URL before storage.
 
 ## Safe change checklist
 

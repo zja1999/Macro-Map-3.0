@@ -25,9 +25,9 @@ flowchart LR
     A --> D["Account deletion cascades user data"]
 ```
 
-Registration creates the user and profile together so `getCurrentUser()` can rely on the join. The user is redirected to the verification-sent screen and does not receive a session until verification succeeds. Resend actions can mint another valid token; token rows carry independent used/expiry state.
+Registration creates the user and profile together so `getCurrentUser()` can rely on the join. It also creates the current admin-configured welcome notification. The user is redirected to the verification-sent screen and does not receive a session until verification succeeds. Resend actions can mint another valid token; token rows carry independent used/expiry state.
 
-Google sign-in links a provider account to an existing verified local email or creates the local identity/profile path defined in the callback. It then creates the same application session used by password login. Preserve this separation when adding providers.
+Google sign-in links a provider account to an existing verified local email or creates the local identity/profile path defined in the callback. A newly created Google account receives the same welcome notification as a password account. It then creates the same application session used by password login. Preserve this separation when adding providers.
 
 ## Sessions and bans
 

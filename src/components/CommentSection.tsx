@@ -7,6 +7,7 @@ import Link from "next/link";
 import { ModerationControls } from "./ModerationControls";
 import { ReportButton } from "./ReportButton";
 import { CommentForm } from "./CommentForm";
+import { UserBadges } from "./UserBadges";
 
 export async function CommentSection({
   subjectType,
@@ -23,7 +24,7 @@ export async function CommentSection({
         {rows.length} comment{rows.length === 1 ? "" : "s"}
       </h3>
       <div className="space-y-3">
-        {rows.map(({ comment, username, displayName, avatarUrl }) => (
+        {rows.map(({ comment, username, displayName, avatarUrl, badges }) => (
           <div key={comment.id} className="flex gap-2.5">
             <Link href={`/u/${username}`}>
               <Avatar name={displayName} size={30} src={avatarUrl} />
@@ -33,6 +34,7 @@ export async function CommentSection({
                 <Link href={`/u/${username}`} className="text-xs font-semibold hover:text-accent">
                   {displayName}
                 </Link>
+                <UserBadges badges={badges} size={16} />
                 <span className="text-[10px] text-ink-faint">{timeAgo(comment.createdAt)}</span>
               </div>
               <p className="mt-0.5 whitespace-pre-wrap text-sm text-ink-dim">{comment.body}</p>

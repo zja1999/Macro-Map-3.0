@@ -2,7 +2,7 @@
 
 This is the only time-sensitive status document. Stable behavior belongs in architecture/domain docs. Update this file when checks, external configuration, blockers, or priorities change.
 
-Last reconstructed from repository code: **2026-07-11**. External production/provider consoles were not inspected during that reconstruction.
+Last reconstructed from repository code: **2026-07-12**. External production/provider consoles were not inspected during that reconstruction.
 
 ## Status vocabulary
 
@@ -21,7 +21,7 @@ Last reconstructed from repository code: **2026-07-11**. External production/pro
 - Grocery lists and recipe/meal-plan expansion; community meal-prep plans.
 - Progress measurements, habits/streaks, progress-photo metadata, no-scale presentation, daily health metric display.
 - Community/official/freeform workouts across strength/cardio/mobility, logs, PR detection/sharing, votes/saves.
-- Feed, posts, reactions, comments, follows, profiles, groups/roles, behavior challenges, notifications.
+- Feed, posts, reactions, comments, follows, profiles, groups/roles, behavior challenges, configurable welcome/admin notifications, and achievement badges.
 - Reports, warnings, audit actions, bans/roles/user admin, nutrition imports, official template admin, and feedback.
 - PWA/offline shell and Capacitor Android remote-URL foundation with native initialization, haptics, deep links, scanner/review/push plugin wiring.
 
@@ -57,6 +57,8 @@ Last reconstructed from repository code: **2026-07-11**. External production/pro
 - Continuous health/wearable sync is deferred until token refresh, provider normalization breadth, webhook/subscription management, and user-facing controls are complete.
 
 ## Verification record
+
+On **2026-07-12**, the notification/badge change passed `npx tsc --noEmit`, `npm run test:security` (3/3), `git diff --check`, and `npm run build`; the production build generated all 46 static pages including `/admin/notifications` and `/admin/badges`. `npm run db:push` applied the four new local tables while no port-3000 process was using PGlite. Browser flows, production schema application, and external push delivery were not verified.
 
 During the **2026-07-11** launch-hardening sprint:
 

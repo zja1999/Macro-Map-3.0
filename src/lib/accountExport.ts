@@ -3,6 +3,7 @@ import { db } from "@/db/client";
 import {
   challengeParticipants,
   challenges,
+  badges,
   comments,
   contentWarnings,
   dailyHealthMetrics,
@@ -43,6 +44,7 @@ import {
   sleepLogs,
   sleepStageSamples,
   users,
+  userBadges,
   votes,
   waterLogs,
   workoutLogs,
@@ -58,7 +60,7 @@ import {
  * provider sync cursors/error payloads, and internal object-storage keys.
  */
 export async function buildAccountExport(userId: string) {
-  const [accountRows, profileRows, oauthRows, integrationRows, syncRunRows] = await Promise.all([
+  const [accountRows, profileRows, oauthRows, integrationRows, syncRunRows, earnedBadgeRows] = await Promise.all([
     db
       .select({
         id: users.id,
@@ -114,6 +116,11 @@ export async function buildAccountExport(userId: string) {
       })
       .from(integrationSyncRuns)
       .where(eq(integrationSyncRuns.userId, userId)),
+    db
+      .select({ award: userBadges, badge: badges })
+      .from(userBadges)
+      .innerJoin(badges, eq(badges.id, userBadges.badgeId))
+      .where(eq(userBadges.userId, userId)),
   ]);
 
   const account = accountRows[0];
@@ -280,6 +287,7 @@ export async function buildAccountExport(userId: string) {
       challengeHistory,
       submittedReports,
       feedback: ownFeedback,
+      badges: earnedBadgeRows,
     },
     integrations: { accounts: integrationRows, syncRuns: syncRunRows, externalSampleLinks: externalLinks },
     administration: { importHistory, moderationActions: staffActions, contentWarningsAdded: warningsAdded },

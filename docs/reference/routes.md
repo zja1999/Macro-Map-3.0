@@ -86,6 +86,8 @@ Access labels:
 | `/admin/reports` | Moderator | `src/app/(main)/admin/reports/page.tsx` | Moderation queue and resolutions |
 | `/admin/audit` | Moderator | `src/app/(main)/admin/audit/page.tsx` | Moderation audit log |
 | `/admin/users` | Admin | `src/app/(main)/admin/users/page.tsx` | Role, ban, and deletion controls |
+| `/admin/notifications` | Admin | `src/app/(main)/admin/notifications/page.tsx` | Welcome template, user/group/site sends, and broadcast history |
+| `/admin/badges` | Admin | `src/app/(main)/admin/badges/page.tsx` | Badge definitions, automatic criteria, icons, and manual awards |
 | `/admin/imports` | Admin | `src/app/(main)/admin/imports/page.tsx` | Nutrition CSV/XLSX imports and batch history |
 | `/admin/templates` | Admin | `src/app/(main)/admin/templates/page.tsx` | Official workout template shelf management |
 | `/admin/templates/new` | Admin | `src/app/(main)/admin/templates/new/page.tsx` | Create official template |

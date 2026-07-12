@@ -51,6 +51,8 @@ Main reads/logic: recipe functions in `src/lib/queries.ts`; restaurant math/quer
 | `src/actions/social.ts` | `toggleFollow`, `createPost`, `shareRecipeToFeed`, `deletePost`, `toggleReaction`, `addComment` | Social graph, feed posts, polymorphic reactions/comments and notifications |
 | `src/actions/groups.ts` | `createGroup`, `toggleGroupMembership`, `transferGroupOwnership`, `moderateGroupPost`, `inviteGroupMember`, `removeGroupMember`, `setGroupMemberRole`, `createChallenge`, `joinChallenge`, `leaveChallenge`, `checkinChallenge` | Group lifecycle/authority and challenge participation |
 | `src/actions/notifications.ts` | `markNotificationRead`, `markAllNotificationsRead` | Current-user inbox state |
+| `src/actions/adminNotifications.ts` | `updateWelcomeNotification`, `sendAdminNotification` | Admin welcome configuration and validated user/group/site notification delivery |
+| `src/actions/adminBadges.ts` | `createBadge`, `updateBadge`, `deleteBadge`, `assignBadge`, `revokeBadge` | Admin badge definitions, milestone rules, and individual award lifecycle |
 
 Main reads/logic: feed/profile/comments in `src/lib/queries.ts`; group authority in `src/lib/groups.ts`; metrics and leaderboards in `src/lib/challenges.ts`; durable notification insertion in `src/lib/notify.ts`.
 

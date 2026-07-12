@@ -628,7 +628,7 @@ export const notifications = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     actorId: uuid().references(() => users.id, { onDelete: "set null" }),
-    kind: text().notNull(), // follow | reaction | comment | group_post
+    kind: text().notNull(), // follow | reaction | comment | group_post | welcome | admin_message | badge_awarded
     subjectType: text(),
     subjectId: uuid(),
     message: text().notNull(),
@@ -639,6 +639,70 @@ export const notifications = pgTable(
   (t) => [
     index("notifications_user_idx").on(t.userId, t.createdAt),
     index("notifications_unread_idx").on(t.userId, t.readAt),
+  ],
+);
+
+// Small admin-owned configuration values. Welcome notification copy lives here so
+// both password and OAuth account creation use the same template.
+export const appSettings = pgTable("app_settings", {
+  key: text().primaryKey(),
+  value: text().notNull(),
+  updatedBy: uuid().references(() => users.id, { onDelete: "set null" }),
+  updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+});
+
+export const notificationBroadcasts = pgTable(
+  "notification_broadcasts",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    sentBy: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    targetType: text().notNull(), // user | group | site
+    targetId: uuid(),
+    title: text().notNull(),
+    message: text().notNull(),
+    href: text().notNull().default("/notifications"),
+    recipientCount: integer().notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("notification_broadcasts_created_idx").on(t.createdAt)],
+);
+
+export const badges = pgTable(
+  "badges",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    name: text().notNull(),
+    description: text().notNull(),
+    icon: text().notNull(), // emoji or compact image data URL
+    awardMode: text().notNull().default("manual"), // manual | automatic
+    metric: text(),
+    threshold: integer(),
+    isActive: boolean().notNull().default(true),
+    createdBy: uuid().references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("badges_active_idx").on(t.isActive, t.awardMode)],
+);
+
+export const userBadges = pgTable(
+  "user_badges",
+  {
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    badgeId: uuid()
+      .notNull()
+      .references(() => badges.id, { onDelete: "cascade" }),
+    awardedBy: uuid().references(() => users.id, { onDelete: "set null" }),
+    awardSource: text().notNull(), // manual | automatic
+    awardedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.badgeId] }),
+    index("user_badges_badge_idx").on(t.badgeId, t.awardedAt),
   ],
 );
 

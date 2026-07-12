@@ -53,6 +53,10 @@ Account deletion cascades through most user-owned rows. Tables with audit/commun
 | `photos` | Media metadata and privacy | Progress rows reference private R2/local objects with server-generated `progress/{userId}/{photoId}.webp` keys; raw keys are server-only. Object cleanup accompanies photo/account deletion. |
 | `media_attachments` | Photo-to-subject join | Polymorphic subject; progress attachments must resolve to a progress entry owned by the same user as the photo. Multiple photos may attach to one dated entry. |
 | `notifications` | In-app notification inbox | Optional actor, subject metadata, href, read timestamp. |
+| `app_settings` | Small admin-owned configuration values | Welcome notification enabled/title/message/href values use named keys and record the last updater/time. |
+| `notification_broadcasts` | Admin send history | Records validated user/group/site audience, copy, link, sender, and delivered recipient count. |
+| `badges` | Admin-defined achievement catalog | Emoji or compact image icon; manual or automatic metric/threshold; inactive definitions remain stored but hidden. |
+| `user_badges` | Persistent badge awards | Composite key user/badge prevents duplicates; source distinguishes automatic/manual and optional admin actor records assignment. |
 | `device_tokens` | FCM installation tokens | Token PK; upsert moves a device token to the signed-in user; invalid tokens are pruned lazily. |
 
 Polymorphic tables do not have database FKs to subjects. Deleting a subject must explicitly consider comments, reactions, votes, saves, attachments, reports, warnings, and notifications.

@@ -10,6 +10,7 @@ import { createSession, destroySession } from "@/lib/auth";
 import { sendAuthEmail } from "@/lib/authEmail";
 import { newPublicToken, tokenHash } from "@/lib/authTokens";
 import { checkRequestRateLimit, requestFingerprint } from "@/lib/rateLimit";
+import { createWelcomeNotification } from "@/lib/welcomeNotification";
 
 const registerSchema = z.object({
   email: z.string().email().transform((s) => s.toLowerCase().trim()),
@@ -51,7 +52,7 @@ export async function register(
 
   const token = newPublicToken();
   const passwordHash = await bcrypt.hash(password, 10);
-  await db.transaction(async (tx) => {
+  const userId = await db.transaction(async (tx) => {
     const [user] = await tx.insert(users).values({ email, passwordHash, emailVerifiedAt: null }).returning();
     await tx.insert(profiles).values({ userId: user.id, username, displayName });
     await tx.insert(emailVerificationTokens).values({
@@ -60,7 +61,9 @@ export async function register(
       email,
       expiresAt: new Date(Date.now() + 30 * 60_000),
     });
+    return user.id;
   });
+  await createWelcomeNotification(userId).catch(() => {});
   await sendAuthEmail({ to: email, kind: "verify", token });
   redirect(`/verify-email/sent?email=${encodeURIComponent(email)}`);
 }

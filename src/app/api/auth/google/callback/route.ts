@@ -5,6 +5,7 @@ import { db } from "@/db/client";
 import { oauthAccounts, profiles, users } from "@/db/schema";
 import { createSession } from "@/lib/auth";
 import { getGoogleConfig, getGoogleIdentity, GOOGLE_STATE_COOKIE } from "@/lib/googleAuth";
+import { createWelcomeNotification } from "@/lib/welcomeNotification";
 
 function redirectToLogin(request: NextRequest, error: string) {
   return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(error)}`, request.url));
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest) {
   const identity = await getGoogleIdentity(config, code);
   if (!identity || !identity.emailVerified) return redirectToLogin(request, "google_email_not_verified");
 
-  const userId = await db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     const [existingIdentity] = await tx
       .select({ userId: oauthAccounts.userId })
       .from(oauthAccounts)
@@ -41,7 +42,7 @@ export async function GET(request: NextRequest) {
         .from(users)
         .where(eq(users.id, existingIdentity.userId))
         .limit(1);
-      return existingUser && !existingUser.bannedAt ? existingUser.id : null;
+      return existingUser && !existingUser.bannedAt ? { userId: existingUser.id, created: false } : null;
     }
 
     const [existingUser] = await tx.select().from(users).where(eq(users.email, identity.email)).limit(1);
@@ -53,7 +54,7 @@ export async function GET(request: NextRequest) {
         userId: existingUser.id,
         email: identity.email,
       });
-      return existingUser.id;
+      return { userId: existingUser.id, created: false };
     }
 
     const [user] = await tx
@@ -71,11 +72,12 @@ export async function GET(request: NextRequest) {
       userId: user.id,
       email: identity.email,
     });
-    return user.id;
+    return { userId: user.id, created: true };
   });
 
-  if (!userId) return redirectToLogin(request, "google_account_unavailable");
-  await createSession(userId);
+  if (!result) return redirectToLogin(request, "google_account_unavailable");
+  if (result.created) await createWelcomeNotification(result.userId).catch(() => {});
+  await createSession(result.userId);
   const response = NextResponse.redirect(new URL("/onboarding", request.url));
   response.cookies.delete(GOOGLE_STATE_COOKIE);
   return response;

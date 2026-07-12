@@ -9,6 +9,7 @@ import { PostCard } from "@/components/PostCard";
 import { CommentSection } from "@/components/CommentSection";
 import { ReportButton } from "@/components/ReportButton";
 import { deletePost } from "@/actions/social";
+import { getUserBadges } from "@/lib/badges";
 
 export default async function PostPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
@@ -36,7 +37,7 @@ export default async function PostPage({ params }: { params: Promise<{ id: strin
     .select()
     .from(contentWarnings)
     .where(and(eq(contentWarnings.subjectType, "post"), eq(contentWarnings.subjectId, id)));
-  const reactionSummaryByPost = await getReactionSummaries([id]);
+  const [reactionSummaryByPost, authorBadges] = await Promise.all([getReactionSummaries([id]), getUserBadges(row.post.authorId)]);
 
   // moderated content: author sees a notice, everyone else gets a 404
   const canModerate = isModerator(user);
@@ -59,7 +60,7 @@ export default async function PostPage({ params }: { params: Promise<{ id: strin
       <PostCard
         item={{
           post: row.post,
-          author: { username: row.username, displayName: row.displayName, goal: row.goal, avatarUrl: row.avatarUrl },
+          author: { username: row.username, displayName: row.displayName, goal: row.goal, avatarUrl: row.avatarUrl, badges: authorBadges },
           recipe,
           myReaction: myReaction?.kind ?? null,
           reactionSummary: reactionSummaryByPost.get(id) ?? [],

@@ -11,6 +11,8 @@ import { Avatar, Badge, Card, UserChip, btnPrimary, btnGhost, EmptyState } from 
 import { PostCard } from "@/components/PostCard";
 import { RecipeCard } from "@/components/RecipeCard";
 import { ReportButton } from "@/components/ReportButton";
+import { getUserBadges } from "@/lib/badges";
+import { UserBadges } from "@/components/UserBadges";
 
 function UtilityRow({ href, icon: Icon, label }: { href: string; icon: LucideIcon; label: string }) {
   return (
@@ -38,7 +40,7 @@ export default async function ProfilePage({
   const { profile, reputation } = row;
   const isMe = profile.userId === viewer.id;
   const canModerate = isModerator(viewer);
-  const stats = await getFollowStats(profile.userId, viewer.id);
+  const [stats, earnedBadges] = await Promise.all([getFollowStats(profile.userId, viewer.id), getUserBadges(profile.userId)]);
   const activeTab =
     tab === "recipes" || tab === "workouts" || tab === "followers" || tab === "following" ? tab : "posts";
 
@@ -57,7 +59,7 @@ export default async function ProfilePage({
           <div className="flex min-w-0 items-center gap-3">
             <Avatar name={profile.displayName} size={56} src={profile.avatarUrl} />
             <div className="min-w-0">
-              <h1 className="truncate text-lg font-bold leading-tight">{profile.displayName}</h1>
+              <div className="flex min-w-0 items-center gap-2"><h1 className="truncate text-lg font-bold leading-tight">{profile.displayName}</h1><UserBadges badges={earnedBadges} limit={8} size={20} /></div>
               <div className="truncate text-xs text-ink-faint">@{profile.username}</div>
             </div>
           </div>

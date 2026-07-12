@@ -865,6 +865,7 @@ async function main() {
 
   // wipe (dev convenience — order matters for FKs)
   for (const t of [
+    "notification_broadcasts", "app_settings", "user_badges", "badges", "device_tokens", "notifications",
     "content_warnings", "moderation_actions", "reports",
     "challenge_participants", "challenges", "group_members", "groups",
     "media_attachments", "photos",

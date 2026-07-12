@@ -25,7 +25,7 @@ export default async function AdminPage() {
         <h1 className="text-lg font-bold">Admin panel</h1>
         <p className="text-sm text-ink-dim">
           {admin
-            ? "Admin access includes moderator tools, user management, nutrition imports, and the audit log."
+            ? "Admin access includes moderator tools, user management, notifications, achievement badges, nutrition imports, and the audit log."
             : "Moderator access includes reports, proactive content actions, and the audit log."}
         </p>
       </div>

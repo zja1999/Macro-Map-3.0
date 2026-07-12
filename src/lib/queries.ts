@@ -25,12 +25,13 @@ import {
 import { shiftDate, todayStr } from "./utils";
 import { isMissingTableError } from "./dbErrors";
 import type { Remaining } from "./restaurants";
+import { getBadgesForUsers, type DisplayBadge } from "./badges";
 
 // ─── feed ────────────────────────────────────────────────────────────────────
 
 export type FeedPost = {
   post: typeof posts.$inferSelect;
-  author: { username: string; displayName: string; goal: string | null; avatarUrl: string | null };
+  author: { username: string; displayName: string; goal: string | null; avatarUrl: string | null; badges: DisplayBadge[] };
   recipe: typeof recipes.$inferSelect | null;
   myReaction: string | null;
   reactionSummary: { kind: string; count: number }[];
@@ -111,10 +112,11 @@ export async function getFeed(viewerId: string, scope: "following" | "trending")
     : [];
   const myReactionByPost = new Map(myReactions.map((r) => [r.subjectId, r.kind]));
   const reactionSummaryByPost = await getReactionSummaries(postIds);
+  const badgesByUser = await getBadgesForUsers(rows.map((row) => row.post.authorId));
 
   return rows.map((r) => ({
     post: r.post,
-    author: { username: r.username, displayName: r.displayName, goal: r.goal, avatarUrl: r.avatarUrl },
+    author: { username: r.username, displayName: r.displayName, goal: r.goal, avatarUrl: r.avatarUrl, badges: badgesByUser.get(r.post.authorId) ?? [] },
     recipe: r.post.refId ? (recipeById.get(r.post.refId) ?? null) : null,
     myReaction: myReactionByPost.get(r.post.id) ?? null,
     reactionSummary: reactionSummaryByPost.get(r.post.id) ?? [],
@@ -152,10 +154,11 @@ export async function getUserPosts(viewerId: string, authorId: string): Promise<
     : [];
   const myReactionByPost = new Map(myReactions.map((r) => [r.subjectId, r.kind]));
   const reactionSummaryByPost = await getReactionSummaries(postIds);
+  const badgesByUser = await getBadgesForUsers(rows.map((row) => row.post.authorId));
 
   return rows.map((r) => ({
     post: r.post,
-    author: { username: r.username, displayName: r.displayName, goal: r.goal, avatarUrl: r.avatarUrl },
+    author: { username: r.username, displayName: r.displayName, goal: r.goal, avatarUrl: r.avatarUrl, badges: badgesByUser.get(r.post.authorId) ?? [] },
     recipe: r.post.refId ? (recipeById.get(r.post.refId) ?? null) : null,
     myReaction: myReactionByPost.get(r.post.id) ?? null,
     reactionSummary: reactionSummaryByPost.get(r.post.id) ?? [],
@@ -188,10 +191,11 @@ export async function getGroupFeed(
     : [];
   const myReactionByPost = new Map(myReactions.map((r) => [r.subjectId, r.kind]));
   const reactionSummaryByPost = await getReactionSummaries(postIds);
+  const badgesByUser = await getBadgesForUsers(rows.map((row) => row.post.authorId));
 
   return rows.map((r) => ({
     post: r.post,
-    author: { username: r.username, displayName: r.displayName, goal: r.goal, avatarUrl: r.avatarUrl },
+    author: { username: r.username, displayName: r.displayName, goal: r.goal, avatarUrl: r.avatarUrl, badges: badgesByUser.get(r.post.authorId) ?? [] },
     recipe: null, // group posts are text posts in the current product
     myReaction: myReactionByPost.get(r.post.id) ?? null,
     reactionSummary: reactionSummaryByPost.get(r.post.id) ?? [],
@@ -512,7 +516,7 @@ export async function getNotifications(userId: string, limit = 50) {
         actorDisplayName: profiles.displayName,
       })
       .from(notifications)
-      .innerJoin(profiles, eq(profiles.userId, notifications.actorId))
+      .leftJoin(profiles, eq(profiles.userId, notifications.actorId))
       .where(eq(notifications.userId, userId))
       .orderBy(desc(notifications.createdAt))
       .limit(limit);
@@ -523,13 +527,15 @@ export async function getNotifications(userId: string, limit = 50) {
 }
 
 export async function getComments(subjectType: "post" | "recipe", subjectId: string) {
-  return db
+  const rows = await db
     .select({ comment: comments, username: profiles.username, displayName: profiles.displayName, avatarUrl: profiles.avatarUrl })
     .from(comments)
     .innerJoin(profiles, eq(profiles.userId, comments.authorId))
     .innerJoin(users, eq(users.id, comments.authorId))
     .where(and(eq(comments.subjectType, subjectType), eq(comments.subjectId, subjectId), isNull(users.bannedAt)))
     .orderBy(comments.createdAt);
+  const badgesByUser = await getBadgesForUsers(rows.map((row) => row.comment.authorId));
+  return rows.map((row) => ({ ...row, badges: badgesByUser.get(row.comment.authorId) ?? [] }));
 }
 
 export async function getSuggestedUsers(viewerId: string, limit = 5) {

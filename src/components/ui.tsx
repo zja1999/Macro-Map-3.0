@@ -2,6 +2,8 @@ import Link from "next/link";
 import { Construction } from "lucide-react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn, initials } from "@/lib/utils";
+import type { DisplayBadge } from "@/lib/badges";
+import { UserBadges } from "./UserBadges";
 
 export const buttonVariants = cva(
   "inline-flex items-center justify-center gap-1.5 rounded-lg font-semibold transition active:scale-[0.97] disabled:opacity-50 disabled:active:scale-100",
@@ -107,17 +109,22 @@ export function UserChip({
   displayName,
   sub,
   avatarUrl,
+  badges = [],
 }: {
   username: string;
   displayName: string;
   sub?: string;
   avatarUrl?: string | null;
+  badges?: DisplayBadge[];
 }) {
   return (
     <Link href={`/u/${username}`} className="flex items-center gap-2.5 group">
       <Avatar name={displayName} src={avatarUrl} />
       <div className="min-w-0">
-        <div className="truncate text-sm font-semibold group-hover:text-accent">{displayName}</div>
+        <div className="flex min-w-0 items-center gap-1.5">
+          <div className="truncate text-sm font-semibold group-hover:text-accent">{displayName}</div>
+          <UserBadges badges={badges} />
+        </div>
         <div className="truncate text-xs text-ink-faint">@{username}{sub ? ` · ${sub}` : ""}</div>
       </div>
     </Link>
