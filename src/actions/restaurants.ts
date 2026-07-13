@@ -10,6 +10,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { nutrientSnapshot } from "@/lib/nutrients";
 import { getOptionGroups } from "@/lib/restaurants";
 import { round1 } from "@/lib/utils";
+import { isMacroTrayRequest } from "@/lib/macrotray";
 
 const dateRe = /^\d{4}-\d{2}-\d{2}$/;
 const slotEnum = z.enum(["breakfast", "lunch", "dinner", "snack"]);
@@ -58,6 +59,11 @@ export async function logMenuItem(formData: FormData) {
     }),
   );
   revalidatePath("/track");
+  if (await isMacroTrayRequest()) {
+    revalidatePath("/macrotray");
+    revalidatePath("/macrotray/restaurants");
+    return;
+  }
   redirect(`/track?date=${d.logDate}`);
 }
 
@@ -147,9 +153,18 @@ export async function logBuild(
       fatG: round1(totals.fatG),
     });
     revalidatePath("/track");
+    if (await isMacroTrayRequest()) {
+      revalidatePath("/macrotray");
+      revalidatePath("/macrotray/restaurants");
+      return {};
+    }
     redirect(`/track?date=${d.logDate}`);
   }
   revalidatePath("/restaurants");
+  if (await isMacroTrayRequest()) {
+    revalidatePath("/macrotray/restaurants");
+    return {};
+  }
   redirect(`/restaurants/${item.chainId}`);
 }
 
@@ -191,6 +206,12 @@ export async function logGoToOrder(formData: FormData) {
       .where(eq(goToOrders.id, d.orderId));
   });
   revalidatePath("/track");
+  if (await isMacroTrayRequest()) {
+    revalidatePath("/macrotray");
+    revalidatePath("/macrotray/meal");
+    revalidatePath("/macrotray/restaurants");
+    return;
+  }
   redirect(`/track?date=${d.logDate}`);
 }
 

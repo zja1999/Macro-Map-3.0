@@ -9,6 +9,8 @@ import { profiles, nutritionTargets } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
 import { calculateTargets, CALORIE_FLOOR } from "@/lib/targets";
 import { ftInToCm, weightToKg } from "@/lib/units";
+import { consumePostAuthNext } from "@/lib/postAuthNext";
+import { safeRedirectPath } from "@/lib/safeRedirect";
 
 const schema = z.object({
   goal: z.enum(["fat_loss", "muscle_gain", "maintenance", "recomp", "performance", "general_health", "custom"]),
@@ -73,7 +75,7 @@ export async function completeOnboarding(
     .where(eq(profiles.userId, user.id));
 
   await db.insert(nutritionTargets).values({ userId: user.id, ...targets, isManual });
-  redirect("/");
+  redirect(await consumePostAuthNext(safeRedirectPath(formData.get("next"), "/")));
 }
 
 const targetsSchema = z.object({

@@ -6,6 +6,7 @@ import { oauthAccounts, profiles, users } from "@/db/schema";
 import { createSession } from "@/lib/auth";
 import { getGoogleConfig, getGoogleIdentity, GOOGLE_STATE_COOKIE } from "@/lib/googleAuth";
 import { createWelcomeNotification } from "@/lib/welcomeNotification";
+import { consumePostAuthNext } from "@/lib/postAuthNext";
 
 function redirectToLogin(request: NextRequest, error: string) {
   return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(error)}`, request.url));
@@ -78,7 +79,9 @@ export async function GET(request: NextRequest) {
   if (!result) return redirectToLogin(request, "google_account_unavailable");
   if (result.created) await createWelcomeNotification(result.userId).catch(() => {});
   await createSession(result.userId);
-  const response = NextResponse.redirect(new URL("/onboarding", request.url));
+  const [profile] = await db.select({ onboardedAt: profiles.onboardedAt }).from(profiles).where(eq(profiles.userId, result.userId)).limit(1);
+  const destination = profile?.onboardedAt ? await consumePostAuthNext("/") : "/onboarding";
+  const response = NextResponse.redirect(new URL(destination, request.url));
   response.cookies.delete(GOOGLE_STATE_COOKIE);
   return response;
 }

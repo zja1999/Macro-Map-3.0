@@ -33,7 +33,7 @@ const ACTIVITY = [
   { value: "extra", label: "Extremely active", desc: "Physical job + training" },
 ] as const;
 
-export function OnboardingWizard() {
+export function OnboardingWizard({ next = "" }: { next?: string }) {
   const [step, setStep] = useState(0);
   const [goal, setGoal] = useState("fat_loss");
   const [style, setStyle] = useState("strict_macro");
@@ -62,6 +62,7 @@ export function OnboardingWizard() {
 
   return (
     <form action={action} className="mx-auto w-full max-w-md space-y-6">
+      <input type="hidden" name="next" value={next} />
       <div className="flex items-center gap-1.5">
         {steps.map((s, i) => (
           <div key={s} className={`h-1 flex-1 rounded-full ${i <= step ? "bg-accent" : "bg-edge"}`} />

@@ -374,7 +374,7 @@ export function StrengthLogger({
       <button type="button" onClick={() => setRows([...rows, { exerciseName: "", sets: [emptySet()] }])} className={btnGhost}>
         + Add exercise
       </button>
-      <SessionFooter pending={pending} stateError={state?.error} localError={repsError} disabled={entries.length === 0 || Boolean(repsError)} />
+      <SessionFooter pending={pending} stateError={state?.error} stateOk={state?.ok} localError={repsError} disabled={entries.length === 0 || Boolean(repsError)} />
     </form>
   );
 }
@@ -407,7 +407,7 @@ export function RunLogger({ exerciseOptions, activityType, units, workoutId, pre
           <input value={routeNote} onChange={(e) => setRouteNote(e.target.value)} maxLength={160} placeholder="Neighborhood loop, trail, track..." className={inputCls} />
         </label>
       </CardioFields>
-      <SessionFooter pending={pending} stateError={state?.error} disabled={!entry} />
+      <SessionFooter pending={pending} stateError={state?.error} stateOk={state?.ok} disabled={!entry} />
     </form>
   );
 }
@@ -438,7 +438,7 @@ export function TreadmillLogger({ exerciseOptions, units, workoutId, prefill }: 
           <input type="number" value={incline} onChange={(e) => setIncline(e.target.value)} min={0} step="0.5" className={inputCls} />
         </label>
       </CardioFields>
-      <SessionFooter pending={pending} stateError={state?.error} disabled={!entry} />
+      <SessionFooter pending={pending} stateError={state?.error} stateOk={state?.ok} disabled={!entry} />
     </form>
   );
 }
@@ -469,7 +469,7 @@ export function RowingLogger({ exerciseOptions, workoutId, prefill }: { exercise
           <input type="number" value={resistance} onChange={(e) => setResistance(e.target.value)} min={0} step={1} className={inputCls} />
         </label>
       </CardioFields>
-      <SessionFooter pending={pending} stateError={state?.error} disabled={!entry} />
+      <SessionFooter pending={pending} stateError={state?.error} stateOk={state?.ok} disabled={!entry} />
     </form>
   );
 }
@@ -510,7 +510,7 @@ export function BikeLogger({ exerciseOptions, activityType, units, workoutId, pr
           <input type="number" value={calories} onChange={(e) => setCalories(e.target.value)} min={0} step={1} className={inputCls} />
         </label>
       </CardioFields>
-      <SessionFooter pending={pending} stateError={state?.error} disabled={!entry} />
+      <SessionFooter pending={pending} stateError={state?.error} stateOk={state?.ok} disabled={!entry} />
     </form>
   );
 }
@@ -550,7 +550,7 @@ export function MobilityLogger({ exerciseOptions, workoutId, prefill }: { exerci
           </label>
         </div>
       </div>
-      <SessionFooter pending={pending} stateError={state?.error} disabled={!entry} />
+      <SessionFooter pending={pending} stateError={state?.error} stateOk={state?.ok} disabled={!entry} />
     </form>
   );
 }
@@ -616,17 +616,20 @@ function CardioFields({
 function SessionFooter({
   pending,
   stateError,
+  stateOk,
   localError,
   disabled,
 }: {
   pending: boolean;
   stateError?: string;
+  stateOk?: string;
   localError?: string | null;
   disabled: boolean;
 }) {
   return (
     <>
       {(localError || stateError) && <p className="text-sm text-danger">{localError ?? stateError}</p>}
+      {stateOk && <p className="text-sm font-semibold text-accent">{stateOk}</p>}
       <button disabled={pending || disabled} className={`${btnPrimary} w-full`}>
         {pending ? "Saving..." : "Finish session"}
       </button>

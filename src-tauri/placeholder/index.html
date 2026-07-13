@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MacroTray</title>
+    <style>
+      :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, sans-serif; background: #0d0f12; color: #f3f4f6; }
+      body { min-height: 100vh; margin: 0; display: grid; place-items: center; }
+      main { width: min(320px, calc(100vw - 48px)); text-align: center; }
+      .mark { color: #a3e635; font-size: 30px; font-weight: 900; }
+      h1 { margin: 12px 0 6px; font-size: 20px; }
+      p { color: #9ca3af; font-size: 13px; line-height: 1.5; }
+      button { margin-top: 12px; border: 0; border-radius: 10px; padding: 10px 16px; background: #a3e635; color: #111827; font-weight: 800; cursor: pointer; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="mark">MacroTray</div>
+      <h1 id="title">Connecting...</h1>
+      <p id="detail">Opening your secure MacroVerse quick logger.</p>
+      <button id="retry" type="button" hidden>Retry now</button>
+    </main>
+    <script>
+      const title = document.getElementById("title");
+      const detail = document.getElementById("detail");
+      const retry = document.getElementById("retry");
+      let checking = false;
+
+      async function connect() {
+        if (checking) return;
+        checking = true;
+        retry.hidden = true;
+        title.textContent = "Connecting...";
+        detail.textContent = "Opening your secure MacroVerse quick logger.";
+        try {
+          await fetch(window.__MACROTRAY_URL__, { mode: "no-cors", cache: "no-store" });
+          window.location.replace(window.__MACROTRAY_URL__);
+        } catch {
+          title.textContent = "MacroTray is offline";
+          detail.textContent = "Connect to the internet, then retry. Logs are not queued while offline.";
+          retry.hidden = false;
+        } finally {
+          checking = false;
+        }
+      }
+
+      retry.addEventListener("click", connect);
+      window.addEventListener("online", connect);
+      connect();
+      setInterval(connect, 15000);
+    </script>
+  </body>
+</html>

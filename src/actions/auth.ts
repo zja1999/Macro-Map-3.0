@@ -11,6 +11,8 @@ import { sendAuthEmail } from "@/lib/authEmail";
 import { newPublicToken, tokenHash } from "@/lib/authTokens";
 import { checkRequestRateLimit, requestFingerprint } from "@/lib/rateLimit";
 import { createWelcomeNotification } from "@/lib/welcomeNotification";
+import { safeRedirectPath } from "@/lib/safeRedirect";
+import { rememberPostAuthNext } from "@/lib/postAuthNext";
 
 const registerSchema = z.object({
   email: z.string().email().transform((s) => s.toLowerCase().trim()),
@@ -64,6 +66,7 @@ export async function register(
     return user.id;
   });
   await createWelcomeNotification(userId).catch(() => {});
+  await rememberPostAuthNext(formData.get("next"));
   await sendAuthEmail({ to: email, kind: "verify", token });
   redirect(`/verify-email/sent?email=${encodeURIComponent(email)}`);
 }
@@ -115,7 +118,13 @@ export async function login(
     }
   }
   await createSession(user.id);
-  redirect("/");
+  const next = safeRedirectPath(formData.get("next"), "/");
+  const [profile] = await db.select({ onboardedAt: profiles.onboardedAt }).from(profiles).where(eq(profiles.userId, user.id)).limit(1);
+  if (!profile?.onboardedAt) {
+    await rememberPostAuthNext(next);
+    redirect("/onboarding");
+  }
+  redirect(next);
 }
 
 export async function logout() {

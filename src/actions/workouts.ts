@@ -19,6 +19,7 @@ import {
 import { getCurrentUser } from "@/lib/auth";
 import { assertAdmin, isAdmin } from "@/lib/permissions";
 import { detectPrs, prLabel } from "@/lib/workouts";
+import { isMacroTrayRequest } from "@/lib/macrotray";
 
 // ─── create / fork a community workout ──────────────────────────────────────
 
@@ -236,7 +237,7 @@ const logSchema = z.object({
 export async function logWorkout(
   _prev: { error?: string } | undefined,
   formData: FormData,
-): Promise<{ error?: string }> {
+): Promise<{ error?: string; ok?: string }> {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
@@ -329,6 +330,12 @@ export async function logWorkout(
   const prParam = hits.length
     ? `&prs=${encodeURIComponent(hits.map((h) => `${h.exerciseName}: ${prLabel(h, units)}`).join(" · "))}`
     : "";
+  if (await isMacroTrayRequest()) {
+    revalidatePath("/workouts");
+    revalidatePath("/macrotray");
+    revalidatePath("/macrotray/workout");
+    return { ok: hits.length ? `Workout saved — ${hits.length} new personal record${hits.length === 1 ? "" : "s"}.` : "Workout saved." };
+  }
   redirect(`/workouts?logged=${logId}${prParam}`);
 }
 

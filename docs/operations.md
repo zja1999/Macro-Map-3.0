@@ -29,6 +29,8 @@ The switch applies to the app, Drizzle schema commands, seed scripts, and admin 
 | `<PROVIDER>_WEBHOOK_SECRET` | Generic webhook secret lookup | Provider-specific fallback may apply |
 | `FCM_PROJECT_ID` / `FCM_CLIENT_EMAIL` / `FCM_PRIVATE_KEY` | Push delivery | Push silently unavailable/best-effort |
 | `CAP_SERVER_URL` | Capacitor target override at config/build time | Loads production URL |
+| `NEXT_PUBLIC_MACROTRAY_DOWNLOAD_URL` | Signed Windows installer CTA | Banner is not rendered |
+| `MACROTRAY_APP_URL` | MacroTray compile-time web origin override | Loads `https://macroverse.vercel.app` |
 | `NODE_ENV` | Cookie security, email mode, PWA registration, CSP development allowance | Managed by Next/npm |
 | `R2_ENDPOINT` | Private production progress-photo storage | Local/test uses `.data/media`; production fails media operations clearly |
 | `R2_BUCKET` | Private R2 bucket name | Same as above |
@@ -106,6 +108,14 @@ Development builds use Android Studio tooling. A store release additionally need
 Do not commit keystores, keystore passwords, or `google-services.json`.
 
 iOS is not present as a native project. It requires macOS/Xcode and an Apple Developer account; an iOS release with Google sign-in also requires Sign in with Apple policy compliance.
+
+## MacroTray release prerequisites
+
+Install Rust 1.77.2 or newer with the `x86_64-pc-windows-msvc` target and Windows WebView2/NSIS build prerequisites. Local commands are `npm run tauri:dev` and `npm run tauri:build`; the web application must already be reachable at `MACROTRAY_APP_URL`.
+
+Public releases use `macrotray-v*` tags and require GitHub secrets `WINDOWS_CERTIFICATE_PFX` (base64 PFX), `WINDOWS_CERTIFICATE_PASSWORD`, `TAURI_SIGNING_PRIVATE_KEY`, and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, plus repository variable `TAURI_UPDATER_PUBLIC_KEY`. The workflow refuses to publish without certificate/updater configuration, builds a per-user NSIS installer with WebView2 bootstrap, and creates a draft release for manual smoke testing. Publish the draft and set `NEXT_PUBLIC_MACROTRAY_DOWNLOAD_URL` only after verifying publisher identity, pairing, all six log flows, tray/autostart behavior, and update installation on a clean Windows machine.
+
+Never commit the PFX or updater private key. Losing the updater private key prevents trusted updates for already-installed clients; rotate through an explicitly compatible release rather than silently replacing it.
 
 ## Incident and diagnostic notes
 

@@ -5,7 +5,7 @@ import { saveProgressEntry } from "@/actions/progress";
 import type { UnitsPref } from "@/lib/units";
 import { inputCls, btnPrimary, btnGhost } from "./ui";
 
-export function WeighInForm({ today, units }: { today: string; units: UnitsPref }) {
+export function WeighInForm({ today, units, collapseMore = false }: { today: string; units: UnitsPref; collapseMore?: boolean }) {
   const [state, action, pending] = useActionState(saveProgressEntry, undefined);
   const [showMore, setShowMore] = useState(false);
   const weightUnit = units === "imperial" ? "lb" : "kg";
@@ -24,14 +24,18 @@ export function WeighInForm({ today, units }: { today: string; units: UnitsPref 
           Weight ({weightUnit})
           <input type="number" name="weight" step="0.1" {...weightBounds} className={inputCls} autoFocus />
         </label>
-        <label className="min-w-0 flex-1 space-y-1 text-[10px] text-ink-dim">
+        {!collapseMore && <label className="min-w-0 flex-1 space-y-1 text-[10px] text-ink-dim">
           Body fat % <span className="text-ink-faint">(optional)</span>
           <input type="number" name="bodyFatPct" step="0.1" min={1} max={75} className={inputCls} />
-        </label>
+        </label>}
       </div>
 
       {showMore && (
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {collapseMore && <label className="space-y-1 text-[10px] text-ink-dim">
+            Body fat %
+            <input type="number" name="bodyFatPct" step="0.1" min={1} max={75} className={inputCls} />
+          </label>}
           {(
             [
               ["waist", `Waist (${lengthUnit})`],
@@ -53,12 +57,13 @@ export function WeighInForm({ today, units }: { today: string; units: UnitsPref 
       )}
 
       {state?.error && <p className="text-xs text-danger">{state.error}</p>}
+      {state?.ok && <p className="text-xs font-semibold text-accent">Entry saved.</p>}
       <div className="flex gap-2">
         <button disabled={pending} className={btnPrimary}>
           {pending ? "Saving…" : "Save entry"}
         </button>
         <button type="button" onClick={() => setShowMore(!showMore)} className={btnGhost}>
-          {showMore ? "Less" : "+ Measurements"}
+          {showMore ? "Less" : collapseMore ? "More" : "+ Measurements"}
         </button>
       </div>
       <p className="text-[10px] text-ink-faint">

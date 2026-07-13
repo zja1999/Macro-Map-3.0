@@ -29,9 +29,9 @@ const entrySchema = z.object({
 });
 
 export async function saveProgressEntry(
-  _prev: { error?: string } | undefined,
+  _prev: { error?: string; ok?: boolean } | undefined,
   formData: FormData,
-): Promise<{ error?: string }> {
+): Promise<{ error?: string; ok?: boolean }> {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
@@ -99,7 +99,9 @@ export async function saveProgressEntry(
   }
 
   revalidatePath("/progress");
-  return {};
+  revalidatePath("/macrotray");
+  revalidatePath("/macrotray/weight");
+  return { ok: true };
 }
 
 export async function toggleHabit(formData: FormData) {
@@ -120,6 +122,7 @@ export async function toggleHabit(formData: FormData) {
   if (existing) await db.delete(habitLogs).where(where);
   else await db.insert(habitLogs).values({ habitId, logDate });
   revalidatePath("/progress");
+  revalidatePath("/macrotray/habits");
 }
 
 export async function addHabit(formData: FormData) {

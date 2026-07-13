@@ -9,6 +9,7 @@ This catalog maps mutations to files. It is a navigation aid, not a substitute f
 | `src/actions/auth.ts` | `register`, `login`, `logout`, `resendVerification`, `requestPasswordReset`, `resetPassword` | Password identity, hashed email tokens, rate limiting, session creation/destruction |
 | `src/actions/account.ts` | `deleteAccount` | Confirmed current-user deletion and logout/redirect lifecycle |
 | `src/actions/onboarding.ts` | `completeOnboarding`, `updateTargets`, `updateBiometrics`, `updateProfile`, `updateAvatar` | Profile/onboarding settings and target revisions |
+| `src/actions/macrotray.ts` | `approveMacroTrayPairing`, `logoutMacroTray` | Ownership-bound browser approval and widget-session logout |
 
 Auth/session helpers: `src/lib/auth.ts`, `authTokens.ts`, `authEmail.ts`, `googleAuth.ts`, `rateLimit.ts`, `targets.ts`, `units.ts`.
 

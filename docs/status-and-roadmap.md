@@ -24,6 +24,7 @@ Last reconstructed from repository code: **2026-07-12**. External production/pro
 - Feed, posts, reactions, comments, follows, profiles, groups/roles, behavior challenges, configurable welcome/admin notifications, and achievement badges.
 - Reports, warnings, audit actions, bans/roles/user admin, nutrition imports, official template admin, and feedback.
 - PWA/offline shell and Capacitor Android remote-URL foundation with native initialization, haptics, deep links, scanner/review/push plugin wiring.
+- MacroTray Windows quick-logging routes, secure browser pairing, desktop-only signed-download gate, Tauri tray/autostart/updater shell, and draft GitHub release workflow.
 
 “Implemented” here describes repository paths; it does not certify production data migrations, third-party credentials, store readiness, or exhaustive tests.
 
@@ -52,11 +53,14 @@ Last reconstructed from repository code: **2026-07-12**. External production/pro
 ## External gates and deferred work
 
 - Google Play release remains gated on account identity verification and then requires signing, App Links certificate, listing/privacy/data-safety, and device testing.
+- MacroTray public download remains gated on Windows Authenticode certificate secrets, Tauri updater key material, a public signed GitHub Release, Rust/Windows build verification, and clean-machine smoke tests. macOS/Linux packages are deferred.
 - Push configuration and Firebase real-device verification are deferred until product priority changes.
 - iOS requires a Mac, Apple Developer account, native project, and Sign in with Apple if Google sign-in ships there.
 - Continuous health/wearable sync is deferred until token refresh, provider normalization breadth, webhook/subscription management, and user-facing controls are complete.
 
 ## Verification record
+
+On **2026-07-13**, the MacroTray change passed `npx tsc --noEmit`, `npm run test:security` (7/7), the two focused tests in `tests/e2e/macrotray.spec.ts`, `git diff --check`, `npm run build` (57 static pages), and `npm run db:push` against the local PGlite database while no development server was running. Tauri environment inspection found WebView2, but Rust/Cargo and the Visual Studio C++/Windows SDK toolchain are not installed on this workstation; `npm run tauri:build` stopped at the expected missing `cargo metadata` prerequisite. The native build, signed installer/updater, clean-machine test, and production pairing smoke test therefore remain externally gated.
 
 On **2026-07-12**, the notification/badge change passed `npx tsc --noEmit`, `npm run test:security` (3/3), `git diff --check`, and `npm run build`; the production build generated all 46 static pages including `/admin/notifications` and `/admin/badges`. `npm run db:push` applied the four new local tables while no port-3000 process was using PGlite. Browser flows, production schema application, and external push delivery were not verified.
 

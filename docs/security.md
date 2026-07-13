@@ -18,6 +18,10 @@ MacroVerse owns its session lifecycle. `createSession()` generates 32 random byt
 
 Google OAuth lives in `/api/auth/google/start` and `/api/auth/google/callback`. A short-lived state cookie protects the callback. Only Google identities with `email_verified` are trusted. Provider identities live in `oauth_accounts`; application sessions remain unchanged.
 
+MacroTray never receives a website session token through a URL. Pairing creates independent high-entropy approval and device secrets, stores only SHA-256 hashes, expires after ten minutes, requires an onboarded current user to approve, rejects banned users at exchange, and atomically consumes the device secret once. The resulting widget cookie is an ordinary independently revocable `mm_session`. Post-auth continuations accept only same-origin absolute paths.
+
+The Tauri webview permits navigation only on the configured MacroVerse origin and exposes no Tauri IPC capability to remote content. Pairing and other external navigation open in the system browser. The `MacroTray/` user-agent suffix is presentation/routing context only, never authentication or authorization.
+
 An existing local account is linked by email only when that local email is already verified. This prevents an external identity from silently claiming an unverified local address. Google access/refresh tokens are not retained for sign-in.
 
 ## Authorization hierarchy

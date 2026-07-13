@@ -13,3 +13,5 @@ android/app/google-services.json
 
 .vercel
 .env*
+src-tauri/target/
+src-tauri/*.pfx

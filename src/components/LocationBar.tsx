@@ -6,7 +6,7 @@ import { inputCls, btnGhost } from "./ui";
 
 /** Location controls for the restaurants tab: browser geolocation, address search
  *  (server-side Nominatim geocoding via the `q` param), and radius. */
-export function LocationBar({ label, radiusKm }: { label: string; radiusKm: number }) {
+export function LocationBar({ label, radiusKm, basePath = "/restaurants" }: { label: string; radiusKm: number; basePath?: string }) {
   const router = useRouter();
   const params = useSearchParams();
   const [locating, setLocating] = useState(false);
@@ -16,7 +16,7 @@ export function LocationBar({ label, radiusKm }: { label: string; radiusKm: numb
     const next = new URLSearchParams(params.toString());
     next.delete("q");
     for (const [k, v] of Object.entries(updates)) next.set(k, v);
-    router.push(`/restaurants?${next.toString()}`);
+    router.push(`${basePath}?${next.toString()}`);
   };
 
   const locate = () => {
@@ -41,7 +41,7 @@ export function LocationBar({ label, radiusKm }: { label: string; radiusKm: numb
         <button type="button" onClick={locate} disabled={locating} className={btnGhost}>
           {locating ? "Locating…" : "📍 Use my location"}
         </button>
-        <form action="/restaurants" className="flex min-w-0 flex-1 gap-2">
+        <form action={basePath} className="flex min-w-0 flex-1 gap-2">
           <input type="hidden" name="r" value={radiusKm} />
           <input name="q" placeholder="Search a city or address…" className={inputCls} />
           <button className={btnGhost}>Go</button>

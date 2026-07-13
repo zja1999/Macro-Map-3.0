@@ -4,6 +4,7 @@ import "./globals.css";
 import { PwaRegister } from "@/components/PwaRegister";
 import { NativeInit } from "@/components/NativeInit";
 import { Toaster } from "@/components/toast";
+import { MacroTrayDownloadBanner } from "@/components/MacroTrayDownloadBanner";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
@@ -29,6 +30,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Toaster />
         <PwaRegister />
         <NativeInit />
+        <MacroTrayDownloadBanner />
       </body>
     </html>
   );

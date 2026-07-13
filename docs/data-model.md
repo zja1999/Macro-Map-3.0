@@ -31,6 +31,7 @@ The diagram shows ownership, not every foreign key. Polymorphic subjects and a f
 |---|---|---|
 | `users` | Login identity, global role, reputation, ban state | Unique email; cascades most user-owned data. `isGuest` remains for legacy compatibility but current UX does not create guest accounts. |
 | `sessions` | Application sessions | Raw cookie token is never stored; token hash is PK; cascades with user; expiry checked on every current-user load. |
+| `desktop_pairing_requests` | MacroTray browser pairing | Separate hashed approval/device secrets, ten-minute expiry, nullable approving user, and one-time consumption timestamp. |
 | `email_verification_tokens` | One-time verification links | Hashed token, expiry, used timestamp; indexed per user/time. |
 | `password_reset_tokens` | One-time reset links | Same lifecycle pattern as verification. |
 | `oauth_accounts` | External sign-in identities | Composite PK `(provider, provider_account_id)`; points to app user; not a provider-session table. |

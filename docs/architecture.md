@@ -2,11 +2,11 @@
 
 ## System shape
 
-MacroVerse is a server-first Next.js 15 App Router application with React 19. The same deployed web application serves browsers, the installable PWA, and a Capacitor Android WebView. Drizzle targets hosted Postgres when `DATABASE_URL` is set and embedded PGlite otherwise.
+MacroVerse is a server-first Next.js 15 App Router application with React 19. The same deployed web application serves browsers, the installable PWA, a Capacitor Android WebView, and the restricted MacroTray Windows webview. Drizzle targets hosted Postgres when `DATABASE_URL` is set and embedded PGlite otherwise.
 
 ```mermaid
 flowchart TD
-    C["Browser / installed PWA / Capacitor Android"] --> M["Next middleware: coarse route gate"]
+    C["Browser / PWA / Android / MacroTray"] --> M["Next middleware: coarse route gate"]
     M --> R["App Router pages, layouts, API routes"]
     R --> Q["Read and domain libraries"]
     C --> UI["Client components and forms"]
@@ -84,6 +84,8 @@ The main layout preloads current streak, unread notifications, and frequent food
 ## Native delivery
 
 The Capacitor Android package loads `capacitor.config.ts` `server.url`, which defaults to production. `capacitor/www/index.html` is only a bundled offline/retry fallback. The `MacroVerseApp` user-agent suffix lets server/UI code recognize the wrapped app. Native and deployed web versions can briefly differ, so native calls must degrade safely when a plugin or corresponding web code is unavailable.
+
+MacroTray is a Tauri 2 Windows tray shell under `src-tauri`. It starts on a bundled connection/retry page, then creates a compact remote webview for `/macrotray`; pairing/external navigation opens in the system browser, and remote content receives no native capabilities. Its separate cookie jar obtains a normal app-owned session only through one-time browser pairing.
 
 ## Extension checklist
 

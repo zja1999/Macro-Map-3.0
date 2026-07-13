@@ -69,6 +69,8 @@ npm run test:security
 | Auth/middleware/permissions | TypeScript + build + anonymous, user, moderator, admin negative/positive cases |
 | Database schema/seed | Local push/seed + TypeScript + build + affected E2E |
 | Next/Capacitor/PWA/security config | Production build + real browser/native smoke test |
+| MacroTray web/auth changes | TypeScript + security tests + production build + targeted browser pairing/logging flows |
+| MacroTray Rust/config/release changes | `cargo test`, `cargo clippy -- -D warnings`, release Tauri build, and clean Windows installer/updater smoke test |
 | Provider integration | TypeScript/build + mocked/controlled normalization tests where added + real sandbox/provider smoke test |
 
 ## High-priority missing coverage
@@ -82,6 +84,7 @@ npm run test:security
 - Integration normalization, duplicate replay/idempotency, manual precedence, expiry, and reconnect.
 - Account deletion cascades and retained/nullified audit rows.
 - Offline/PWA and old-native-shell/new-web compatibility.
+- MacroTray one-time pairing, separate cookie session, close-to-tray/single-instance/autostart, external browser navigation, offline retry, and signed update behavior.
 
 ## Writing robust E2E tests
 

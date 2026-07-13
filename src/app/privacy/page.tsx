@@ -38,7 +38,7 @@ export default function PrivacyPage() {
         <Section title="Scope">
           <p>
             This policy explains how MacroVerse handles information when you use our website, installable web app,
-            or Android app. MacroVerse combines nutrition tracking, fitness and health logs, planning tools, and
+            Android app, or MacroTray Windows companion. MacroVerse combines nutrition tracking, fitness and health logs, planning tools, and
             community features. It is not a medical service and is not a substitute for professional advice.
           </p>
         </Section>

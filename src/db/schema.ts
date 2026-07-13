@@ -39,6 +39,22 @@ export const sessions = pgTable("sessions", {
   expiresAt: timestamp({ withTimezone: true }).notNull(),
 });
 
+// Short-lived browser-to-desktop pairing. The approval URL and the secret held
+// by MacroTray are deliberately different; only hashes are persisted.
+export const desktopPairingRequests = pgTable(
+  "desktop_pairing_requests",
+  {
+    deviceCodeHash: text().primaryKey(),
+    approvalCodeHash: text().notNull().unique(),
+    userId: uuid().references(() => users.id, { onDelete: "cascade" }),
+    expiresAt: timestamp({ withTimezone: true }).notNull(),
+    approvedAt: timestamp({ withTimezone: true }),
+    consumedAt: timestamp({ withTimezone: true }),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("desktop_pairing_expiry_idx").on(t.expiresAt), index("desktop_pairing_user_idx").on(t.userId, t.createdAt)],
+);
+
 export const emailVerificationTokens = pgTable(
   "email_verification_tokens",
   {

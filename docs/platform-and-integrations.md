@@ -24,6 +24,14 @@ Because the shell loads the deployed site, changing `src` does not change an ins
 
 Android source lives in `android`; generated splash/icon assets live in Android resources and source art lives in `assets`. `android/app/google-services.json` and `android/keystore.properties` are intentionally ignored secrets/local configuration.
 
+## MacroTray Windows shape
+
+`src-tauri` defines MacroTray, a Windows x64 Tauri 2 remote-URL tray companion. It opens `/macrotray` in a 420×700 resizable window, hides rather than exits on window close, remains single-instance, and offers native tray commands for open, opt-in startup, update check, website, and quit. Startup is disabled until the user enables it.
+
+Remote content has no native capability configuration. Rust owns tray, autostart, external URL opening, and signed updater behavior. Navigation stays on the configured MacroVerse origin; browser pairing is opened externally because provider OAuth must not depend on an embedded user agent. A bundled startup page provides an explicit offline/retry state before loading the online-only widget and makes clear that logs are not queued offline.
+
+Signed Windows releases are tag-driven through `.github/workflows/macrotray-release.yml`. Authenticode and Tauri updater signatures are separate: the former establishes Windows publisher trust, while the latter prevents update artifact substitution. The website download banner stays absent until `NEXT_PUBLIC_MACROTRAY_DOWNLOAD_URL` points at a verified signed release.
+
 ## Push notifications
 
 `registerDeviceToken()` upserts FCM tokens to the current user. `src/lib/push.ts` creates a Google service-account JWT, obtains an OAuth token, sends FCM HTTP v1 messages, and removes invalid/unregistered device tokens. Required server variables are `FCM_PROJECT_ID`, `FCM_CLIENT_EMAIL`, and `FCM_PRIVATE_KEY`.
@@ -81,7 +89,7 @@ Although account rows store expiry and refresh ciphertext, current adapters do n
 
 ## Native/platform change checklist
 
-- Test in ordinary browser, installed PWA if relevant, and remote Android shell.
+- Test in ordinary browser, installed PWA if relevant, remote Android shell, and signed MacroTray installer when affected.
 - Guard native imports/calls and maintain old-shell/new-web compatibility.
 - Verify CSP and permissions policy for new remote endpoints or device permissions.
 - Keep third-party secrets and tokens server-side/encrypted.

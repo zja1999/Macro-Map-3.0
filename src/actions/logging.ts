@@ -9,16 +9,20 @@ import { foodLogs, foods, recipes, waterLogs } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
 import { nutrientSnapshot, NUTRIENT_DEFS } from "@/lib/nutrients";
 import { round1, shiftDate } from "@/lib/utils";
+import { isMacroTrayRequest } from "@/lib/macrotray";
+import { flOzToMl } from "@/lib/units";
 
 const dateRe = /^\d{4}-\d{2}-\d{2}$/;
 const slotEnum = z.enum(["breakfast", "lunch", "dinner", "snack"]);
 
 /** Multi-add mode (plan §4.1): forms on /track/add pass stay=1 so logging keeps
  * the user in the add flow — revalidate both surfaces instead of redirecting. */
-function finishLog(formData: FormData, logDate: string): void {
+async function finishLog(formData: FormData, logDate: string): Promise<void> {
   revalidatePath("/track");
-  if (formData.get("stay") === "1") {
+  if (formData.get("stay") === "1" || await isMacroTrayRequest()) {
     revalidatePath("/track/add");
+    revalidatePath("/macrotray");
+    revalidatePath("/macrotray/meal");
     return;
   }
   redirect(`/track?date=${logDate}`);
@@ -52,7 +56,7 @@ export async function logFood(formData: FormData) {
     fatG: round1(food.fatG * d.servings),
     ...nutrientSnapshot(food, d.servings),
   });
-  finishLog(formData, d.logDate);
+  await finishLog(formData, d.logDate);
 }
 
 const logRecipeSchema = z.object({
@@ -90,7 +94,7 @@ export async function logRecipe(formData: FormData) {
       .set({ logCount: sql`${recipes.logCount} + 1` })
       .where(eq(recipes.id, recipe.id));
   });
-  finishLog(formData, d.logDate);
+  await finishLog(formData, d.logDate);
 }
 
 const quickAddSchema = z.object({
@@ -118,7 +122,7 @@ export async function quickAdd(formData: FormData) {
     carbsG: d.carbsG,
     fatG: d.fatG,
   });
-  finishLog(formData, d.logDate);
+  await finishLog(formData, d.logDate);
 }
 
 /** Snapshot of a diary row, returned by deleteLogQuiet and accepted back by
@@ -244,7 +248,9 @@ export async function addWater(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const logDate = z.string().regex(dateRe).parse(formData.get("logDate"));
-  const ml = z.coerce.number().int().min(-1000).max(2000).parse(formData.get("ml"));
+  const amount = z.coerce.number().min(-1000).max(2000).parse(formData.get("amount") ?? formData.get("ml"));
+  const ml = Math.round(formData.get("waterUnit") === "fl_oz" ? flOzToMl(amount) : amount);
+  if (ml < -1000 || ml > 2000) throw new Error("Water adjustment must be between -1000 ml and 2000 ml.");
   await db
     .insert(waterLogs)
     .values({ userId: user.id, logDate, ml: Math.max(0, ml) })
@@ -253,5 +259,10 @@ export async function addWater(formData: FormData) {
       set: { ml: sql`GREATEST(0, ${waterLogs.ml} + ${ml})` },
     });
   revalidatePath("/track");
+  if (await isMacroTrayRequest()) {
+    revalidatePath("/macrotray");
+    revalidatePath("/macrotray/water");
+    return;
+  }
   redirect(`/track?date=${logDate}`);
 }

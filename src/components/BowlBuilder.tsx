@@ -164,6 +164,7 @@ export function BowlBuilder({
       </section>
 
       {state?.error && <p className="text-sm text-danger">{state.error}</p>}
+      {state && !state.error && <p className="text-sm font-semibold text-accent">Order saved.</p>}
 
       {/* live tally bar — pinned */}
       <div className="fixed inset-x-0 bottom-16 z-30 md:bottom-4">

@@ -23,6 +23,17 @@ Access labels:
 | `/onboarding` | User | `src/app/onboarding/page.tsx` | Profile/goal/target onboarding wizard |
 | `/settings` | User | `src/app/(main)/settings/page.tsx` | Profile, targets, biometrics, account controls |
 | `/settings/integrations` | User | `src/app/(main)/settings/integrations/page.tsx` | Provider connection and sync state |
+| `/macrotray-connect?code=…` | Public entry; approval requires User | `src/app/macrotray-connect/page.tsx` | System-browser approval for a short-lived MacroTray pairing request |
+
+## MacroTray
+
+| URL | Access | Source | Purpose |
+|---|---|---|---|
+| `/macrotray` | Public shell; dashboard requires User | `src/app/(macrotray)/macrotray/page.tsx` | Pairing or six-action compact dashboard |
+| `/macrotray/meal` | User | `src/app/(macrotray)/macrotray/meal/page.tsx` | Food search, frequents, saved meals/orders, and quick add |
+| `/macrotray/workout` | User | `src/app/(macrotray)/macrotray/workout/page.tsx` | Full compact strength/cardio/mobility logger |
+| `/macrotray/restaurants/**` | User | `src/app/(macrotray)/macrotray/restaurants` | Nearby restaurant ranking, fixed items, and build logging |
+| `/macrotray/weight`, `/macrotray/water`, `/macrotray/habits` | User | `src/app/(macrotray)/macrotray` | Focused private tracking mutations |
 
 ## Main, diary, and progress
 
@@ -104,12 +115,16 @@ Access labels:
 | `GET /api/integrations/[provider]/webhook` | Provider verification token/query | `src/app/api/integrations/[provider]/webhook/route.ts` | Webhook subscription verification |
 | `POST /api/integrations/[provider]/webhook` | Provider-specific configured secret/logic | same | Normalize/apply webhook samples where adapter supports it |
 | `POST /api/integrations/mobile/upload` | Current application session | `src/app/api/integrations/mobile/upload/route.ts` | Apply normalized native health samples |
+| `POST /api/macrotray/pair/start` | Public, rate limited | `src/app/api/macrotray/pair/start/route.ts` | Create separate approval/device secrets and ten-minute request |
+| `POST /api/macrotray/pair/status` | Device secret, rate limited | `src/app/api/macrotray/pair/status/route.ts` | Poll pending/approved/expired/consumed state without putting the device secret in a URL |
+| `POST /api/macrotray/pair/exchange` | Approved one-time device secret, rate limited | `src/app/api/macrotray/pair/exchange/route.ts` | Consume pairing and establish app-owned MacroTray session |
 
 ## Layout and middleware behavior
 
 - `src/app/layout.tsx`: metadata, font, toast, PWA registration, native initialization.
 - `src/app/(auth)/layout.tsx`: auth-page presentation.
 - `src/app/(main)/layout.tsx`: anonymous/auth shell, onboarding redirect, navigation, global log sheet data.
+- `src/app/(macrotray)/macrotray/layout.tsx`: compact widget header and content shell only.
 - `src/middleware.ts`: public-prefix and cookie-presence routing. It skips API routes, Next internals, static files, and auth pages.
 
 When adding a route, decide all four layers explicitly: middleware reachability, page-level authentication/role guard, data visibility filtering, and mutation authorization.
