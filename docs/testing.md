@@ -33,6 +33,7 @@ One worker is intentional: tests share seeded user data and PGlite permits one p
 - `submit-recipe.spec.ts`: create a recipe from linked seeded ingredients and verify calculated provenance/detail page.
 - `follow-and-feed.spec.ts`: following feed content, post creation, reaction state, and profile follow rendering.
 - `launch-hardening.spec.ts`: public privacy access, unauthenticated export denial, ordinary-user staff-route denial, and authenticated export secret/other-account exclusion.
+- `auth-methods.spec.ts`: Google-only/local-enabled login surfaces, disabled recovery controls, registration redirects, safe Google continuations, and allow-listed callback error rendering. Run once with each flag state.
 
 Tests use accounts from `tests/e2e/helpers.ts`, currently the primary demo user and Maria recipe creator. Full demo seeding must have run.
 
@@ -57,6 +58,14 @@ The credential-free security checks do not require a database or browser:
 
 ```bash
 npm run test:security
+```
+
+Run the focused authentication browser coverage in both modes, stopping each Playwright-managed server before starting the next command:
+
+```powershell
+$env:AUTH_EMAIL_PASSWORD_ENABLED='false'; npx playwright test tests/e2e/auth-methods.spec.ts
+$env:AUTH_EMAIL_PASSWORD_ENABLED='true'; npx playwright test tests/e2e/auth-methods.spec.ts
+Remove-Item Env:AUTH_EMAIL_PASSWORD_ENABLED
 ```
 
 ## Change-to-test matrix

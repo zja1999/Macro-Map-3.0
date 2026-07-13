@@ -4,6 +4,8 @@
 
 This domain owns email/password and Google sign-in, verification/recovery, app sessions, onboarding, nutrition targets, profile/settings changes, avatar data, and account deletion.
 
+Google is the launch authentication method. The existing email/password implementation is retained behind the server-side `AUTH_EMAIL_PASSWORD_ENABLED` flag so it can be reactivated without a code or schema change. Only the literal value `true` enables it; `false`, an unset value, or any other value keeps the application in Google-only mode.
+
 - Routes: `/login`, `/register`, `/verify-email`, `/forgot-password`, `/reset-password`, `/onboarding`, `/settings`, `/u/[username]`, `/privacy`.
 - API routes: `/api/auth/google/start`, `/api/auth/google/callback`, `/api/account/export`.
 - Actions: `src/actions/auth.ts`, `account.ts`, `onboarding.ts`.
@@ -27,7 +29,15 @@ flowchart LR
 
 Registration creates the user and profile together so `getCurrentUser()` can rely on the join. It also creates the current admin-configured welcome notification. The user is redirected to the verification-sent screen and does not receive a session until verification succeeds. Resend actions can mint another valid token; token rows carry independent used/expiry state.
 
+When `AUTH_EMAIL_PASSWORD_ENABLED` is disabled, `/login` renders only the Google entry point, `/register` redirects to `/login` while preserving a safe `next` path, and recovery/verification pages do not render initiation controls. `register`, `login`, `resendVerification`, and `requestPasswordReset` reject direct submissions before validation, rate limiting, database access, or email delivery. Existing verification/reset token tables, token-consumption code, password hashes, Resend delivery, and reusable actions remain in place. Verification-link consumption remains available; reset consumption code is retained but its form is hidden in Google-only mode.
+
 Google sign-in links a provider account to an existing verified local email or creates the local identity/profile path defined in the callback. A newly created Google account receives the same welcome notification as a password account. It then creates the same application session used by password login. Preserve this separation when adding providers.
+
+Google callback failures are translated into allow-listed, actionable login messages. Raw provider details are not rendered. Safe `next` values continue through the OAuth start cookie; new Google users complete onboarding before the remembered destination, while onboarded returning users go directly to it.
+
+## Reactivating email/password
+
+Set `AUTH_EMAIL_PASSWORD_ENABLED=true` in the deployment environment and redeploy. No code or schema change is required. Before enabling it in production, configure `RESEND_API_KEY` and `RESEND_FROM_EMAIL` for a verified Resend sender domain (plus optional `RESEND_REPLY_TO`), then smoke-test registration, verification, resend, login, reset initiation, and reset consumption. Without production Resend configuration and a verified sender domain, do not enable the flow.
 
 ## Sessions and bans
 

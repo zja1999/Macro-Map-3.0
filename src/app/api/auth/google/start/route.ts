@@ -4,9 +4,13 @@ import { safeRedirectPath } from "@/lib/safeRedirect";
 import { POST_AUTH_NEXT_COOKIE } from "@/lib/postAuthNext";
 
 export async function GET(request: Request) {
+  const next = safeRedirectPath(new URL(request.url).searchParams.get("next"), "");
   const config = getGoogleConfig();
   if (!config) {
-    return NextResponse.redirect(new URL("/login?error=google_not_configured", request.url));
+    const login = new URL("/login", request.url);
+    login.searchParams.set("error", "google_not_configured");
+    if (next) login.searchParams.set("next", next);
+    return NextResponse.redirect(login);
   }
 
   const state = newGoogleState();
@@ -18,7 +22,6 @@ export async function GET(request: Request) {
     maxAge: 10 * 60,
     path: "/",
   });
-  const next = safeRedirectPath(new URL(request.url).searchParams.get("next"), "");
   if (next) response.cookies.set(POST_AUTH_NEXT_COOKIE, next, {
     httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", maxAge: 20 * 60, path: "/",
   });

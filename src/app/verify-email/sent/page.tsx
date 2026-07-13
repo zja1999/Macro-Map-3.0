@@ -1,12 +1,17 @@
 import Link from "next/link";
 import { ResendVerificationForm } from "@/components/ResendVerificationForm";
 import { btnGhost } from "@/components/ui";
+import { GoogleSignInCard } from "@/components/GoogleSignInCard";
+import { isEmailPasswordAuthEnabled } from "@/lib/authFeatures";
 
 export default async function VerifyEmailSentPage({
   searchParams,
 }: {
   searchParams: Promise<{ email?: string; status?: string }>;
 }) {
+  if (!isEmailPasswordAuthEnabled()) {
+    return <GoogleSignInCard next="" heading="Sign in with Google" message="Email verification and resend are unavailable while Google is the only sign-in method." />;
+  }
   const params = await searchParams;
   const invalid = params.status === "invalid";
   const email = params.email ?? "";

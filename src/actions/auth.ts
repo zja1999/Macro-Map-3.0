@@ -13,6 +13,7 @@ import { checkRequestRateLimit, requestFingerprint } from "@/lib/rateLimit";
 import { createWelcomeNotification } from "@/lib/welcomeNotification";
 import { safeRedirectPath } from "@/lib/safeRedirect";
 import { rememberPostAuthNext } from "@/lib/postAuthNext";
+import { EMAIL_PASSWORD_AUTH_DISABLED_MESSAGE, isEmailPasswordAuthEnabled } from "@/lib/authFeatures";
 
 const registerSchema = z.object({
   email: z.string().email().transform((s) => s.toLowerCase().trim()),
@@ -30,6 +31,7 @@ export async function register(
   _prev: { error?: string } | undefined,
   formData: FormData,
 ): Promise<{ error?: string }> {
+  if (!isEmailPasswordAuthEnabled()) return { error: EMAIL_PASSWORD_AUTH_DISABLED_MESSAGE };
   const parsed = registerSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const { email, username, displayName, password } = parsed.data;
@@ -80,6 +82,7 @@ export async function login(
   _prev: { error?: string } | undefined,
   formData: FormData,
 ): Promise<{ error?: string }> {
+  if (!isEmailPasswordAuthEnabled()) return { error: EMAIL_PASSWORD_AUTH_DISABLED_MESSAGE };
   const parsed = loginSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: "Enter your email and password" };
   const fingerprint = await requestFingerprint(parsed.data.email);
@@ -136,6 +139,7 @@ export async function resendVerification(
   _prev: { error?: string; ok?: string } | undefined,
   formData: FormData,
 ): Promise<{ error?: string; ok?: string }> {
+  if (!isEmailPasswordAuthEnabled()) return { error: EMAIL_PASSWORD_AUTH_DISABLED_MESSAGE };
   const email = z.string().email().transform((s) => s.toLowerCase().trim()).safeParse(formData.get("email"));
   if (!email.success) return { error: "Enter your email address" };
   const limitError = await checkRequestRateLimit({
@@ -165,6 +169,7 @@ export async function requestPasswordReset(
   _prev: { error?: string; ok?: string } | undefined,
   formData: FormData,
 ): Promise<{ error?: string; ok?: string }> {
+  if (!isEmailPasswordAuthEnabled()) return { error: EMAIL_PASSWORD_AUTH_DISABLED_MESSAGE };
   const email = z.string().email().transform((s) => s.toLowerCase().trim()).safeParse(formData.get("email"));
   if (!email.success) return { error: "Enter your email address" };
   const limitError = await checkRequestRateLimit({

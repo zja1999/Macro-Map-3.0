@@ -76,6 +76,7 @@ The main layout preloads current streak, unread notifications, and frequent food
 
 - Authentication email: direct Resend REST call in `src/lib/authEmail.ts`; console links in non-production or explicit console mode.
 - Google sign-in: OAuth authorization/callback API routes; only identity data is retained.
+- Authentication method rollout: the server-only, fail-closed `AUTH_EMAIL_PASSWORD_ENABLED` flag selects Google-only UI/action behavior without changing the app-owned session model or removing dormant local-credential code.
 - Restaurant geocoding: Nominatim/OpenStreetMap from `src/lib/restaurants.ts`; Leaflet renders maps client-side.
 - Barcode lookup: local database/fallback behavior in the barcode action and browser/native scanners in `BarcodeScanner`.
 - Health services: provider adapters normalize data before persistence. Token refresh and complete webhook behavior are not universal; consult [Platform and integrations](platform-and-integrations.md).

@@ -13,7 +13,7 @@ Last reconstructed from repository code: **2026-07-12**. External production/pro
 
 ## Implemented application surface
 
-- Email/password registration, verification/reset code paths, app-owned sessions, persistent rate limits, onboarding, profiles, nutrition targets, settings, privacy policy, privacy-safe account export, and account deletion.
+- Google-only launch authentication with app-owned sessions, persistent rate limits, onboarding, and a fail-closed server flag retaining dormant email/password registration, verification/reset, Resend, and password-hash paths for later reactivation.
 - Anonymous browsing of public recipes, workouts, restaurants, meal-prep plans, and discovery; authenticated interactions.
 - Daily macro/micronutrient diary, quick add, water, frequent foods, saved recipes/orders, barcode lookup foundation, fasting, and manual sleep.
 - Recipe creation/calculation/provenance, discovery, votes, saves, reviews, comments, feed sharing, and logging snapshots.
@@ -40,11 +40,11 @@ Last reconstructed from repository code: **2026-07-12**. External production/pro
 | Garmin | Data model/descriptor | Approval and provider implementation |
 | WHOOP/Oura/Withings | Planned descriptors | Provider implementations |
 | Database evolution | Drizzle schema and `db:push` | Versioned migration/expand-contract system |
-| Automated tests | Four focused E2E files, credential-free token/role policy tests, plus type/build commands | Auth recovery, cross-user/group mutation negatives, workouts, integrations, deletion, offline/native breadth |
+| Automated tests | Focused E2E coverage including dual-mode auth, credential-free token/role/action-gate policy tests, plus type/build commands | Auth token expiry/replay and provider callback/linking integration, cross-user/group mutation negatives, workouts, integrations, deletion, offline/native breadth |
 
 ## Current launch-hardening priorities
 
-1. **Verify production authentication.** Apply the current schema, confirm Resend and Google variables/provider callback setup, then smoke-test registration, verification/resend, reset, Google new-user and verified-email linking, denial, expiry, and replay behavior.
+1. **Verify production Google authentication.** Apply the current schema, set the canonical app URL and Google credentials with `AUTH_EMAIL_PASSWORD_ENABLED=false`, register the exact callback URI, then smoke-test new-user onboarding, returning-user destinations, verified-email linking, unverified-local-email rejection, bans, denial, state mismatch, and callback/configuration failures.
 2. **Verify privacy operations.** Add a real public privacy contact method, review the published `/privacy` text against store data-safety declarations, and smoke-test export/deletion against production data.
 3. **Expand critical security tests.** Add auth recovery/replay and cross-user/group mutation negatives before feature breadth.
 4. **Establish production observation.** Confirm Vercel/application, hosted database, Resend, and relevant provider logs/alerts during initial users.
@@ -59,6 +59,8 @@ Last reconstructed from repository code: **2026-07-12**. External production/pro
 - Continuous health/wearable sync is deferred until token refresh, provider normalization breadth, webhook/subscription management, and user-facing controls are complete.
 
 ## Verification record
+
+On **2026-07-13**, the Google-only launch-auth change passed `npx tsc --noEmit`, `npm run test:security` (10/10), and `tests/e2e/auth-methods.spec.ts` in both configurations: Google-only mode passed its 3 applicable tests with 1 enabled-only skip, and `AUTH_EMAIL_PASSWORD_ENABLED=true` passed its 2 applicable tests with 2 Google-only skips. `npm run build` passed and generated all 57 static pages; `git diff --check` reported no whitespace errors (only the repository's expected Windows line-ending notices). The Playwright-managed dev server did not self-exit after each successful assertion run and was stopped before the next database-using command. No demo seed command ran. Production Google/Vercel configuration and real-provider smoke tests were not performed; Google client credentials, `NEXT_PUBLIC_APP_URL`, the exact production callback registration, deployment, new/returning user behavior, linking/rejection, bans, denial, and state/configuration failure handling remain externally gated. Resend configuration and a verified sender domain are not required for Google-only launch, but are required before setting `AUTH_EMAIL_PASSWORD_ENABLED=true` in production.
 
 On **2026-07-13**, the MacroTray change passed `npx tsc --noEmit`, `npm run test:security` (7/7), the two focused tests in `tests/e2e/macrotray.spec.ts`, `git diff --check`, `npm run build` (57 static pages), and `npm run db:push` against the local PGlite database while no development server was running. Tauri environment inspection found WebView2, but Rust/Cargo and the Visual Studio C++/Windows SDK toolchain are not installed on this workstation; `npm run tauri:build` stopped at the expected missing `cargo metadata` prerequisite. The native build, signed installer/updater, clean-machine test, and production pairing smoke test therefore remain externally gated.
 

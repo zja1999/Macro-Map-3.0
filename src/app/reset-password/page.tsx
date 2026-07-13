@@ -1,12 +1,17 @@
 import Link from "next/link";
 import { ResetPasswordForm } from "@/components/ResetPasswordForm";
 import { btnGhost } from "@/components/ui";
+import { GoogleSignInCard } from "@/components/GoogleSignInCard";
+import { isEmailPasswordAuthEnabled } from "@/lib/authFeatures";
 
 export default async function ResetPasswordPage({
   searchParams,
 }: {
   searchParams: Promise<{ token?: string }>;
 }) {
+  if (!isEmailPasswordAuthEnabled()) {
+    return <GoogleSignInCard next="" heading="Sign in with Google" message="Password reset is unavailable while Google is the only sign-in method." />;
+  }
   const token = (await searchParams).token ?? "";
   return (
     <div className="w-full max-w-sm space-y-3 rounded-xl border border-edge bg-card p-6">

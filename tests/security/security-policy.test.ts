@@ -26,6 +26,44 @@ test("post-auth continuations stay on same-origin absolute paths", async () => {
   assert.equal(safeRedirectPath("/ok\r\nLocation:https://evil.example"), "/");
 });
 
+test("email/password authentication is fail-closed unless explicitly enabled", async () => {
+  const { isEmailPasswordAuthEnabled } = await import("../../src/lib/authFeatures");
+
+  assert.equal(isEmailPasswordAuthEnabled(undefined), false);
+  assert.equal(isEmailPasswordAuthEnabled("false"), false);
+  assert.equal(isEmailPasswordAuthEnabled("unexpected"), false);
+  assert.equal(isEmailPasswordAuthEnabled(" TRUE "), true);
+});
+
+test("Google-only mode rejects direct email/password initiation actions", async () => {
+  const previous = process.env.AUTH_EMAIL_PASSWORD_ENABLED;
+  process.env.AUTH_EMAIL_PASSWORD_ENABLED = "false";
+  try {
+    const {
+      EMAIL_PASSWORD_AUTH_DISABLED_MESSAGE,
+    } = await import("../../src/lib/authFeatures");
+    const { login, register, requestPasswordReset, resendVerification } = await import("../../src/actions/auth");
+    const attempts = [login, register, requestPasswordReset, resendVerification];
+
+    for (const action of attempts) {
+      const result = await action(undefined, new FormData());
+      assert.deepEqual(result, { error: EMAIL_PASSWORD_AUTH_DISABLED_MESSAGE });
+    }
+  } finally {
+    if (previous === undefined) delete process.env.AUTH_EMAIL_PASSWORD_ENABLED;
+    else process.env.AUTH_EMAIL_PASSWORD_ENABLED = previous;
+  }
+});
+
+test("Google callback failures map to actionable, allow-listed login messages", async () => {
+  const { googleAuthErrorMessage } = await import("../../src/lib/authFeatures");
+
+  assert.match(googleAuthErrorMessage("google_not_configured") ?? "", /not configured/i);
+  assert.match(googleAuthErrorMessage("google_state_invalid") ?? "", /start Google sign-in again/i);
+  assert.match(googleAuthErrorMessage("google_account_unavailable") ?? "", /verified Google account/i);
+  assert.equal(googleAuthErrorMessage("provider_secret=do-not-render"), undefined);
+});
+
 test("MacroTray pairing uses separate hashed approval and device secrets", async () => {
   const { desktopPairingRequests } = await import("../../src/db/schema");
   assert.ok(desktopPairingRequests.deviceCodeHash);

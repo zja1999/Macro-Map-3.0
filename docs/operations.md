@@ -16,6 +16,7 @@ The switch applies to the app, Drizzle schema commands, seed scripts, and admin 
 | `DATABASE_URL` | Hosted Postgres | Uses local PGlite |
 | `NEXT_PUBLIC_APP_URL` | Canonical email/OAuth callback base | Some code falls back to `VERCEL_URL` or request origin; Google config needs a usable base |
 | `VERCEL_URL` | Deployment URL fallback | Only used where explicit app URL is absent |
+| `AUTH_EMAIL_PASSWORD_ENABLED` | Local email/password registration, login, resend, and recovery initiation | Fail-closed: only `true` enables; unset, `false`, or malformed values keep Google-only mode |
 | `AUTH_EMAIL_MODE=console` | Force logged auth links | Non-production already logs links |
 | `RESEND_API_KEY` | Production auth email delivery | Production logs configuration error and cannot deliver |
 | `RESEND_FROM_EMAIL` | Verified sender | Required with Resend key |
@@ -69,15 +70,18 @@ Hosted full demo mode is refused unless `--force-demo` is passed. That flag is a
 
 ## Auth provider rollout
 
-For production email and Google sign-in:
+The intended Google-only production configuration is:
 
-1. Apply the current schema including verification/reset and `oauth_accounts` tables.
-2. Configure Resend variables with a verified sender domain/address.
-3. Configure Google client credentials and canonical `NEXT_PUBLIC_APP_URL`.
-4. Register `${NEXT_PUBLIC_APP_URL}/api/auth/google/callback` as a Google redirect URI and the base URL as an authorized origin where required.
-5. Test new registration, verification, resend, password reset, new Google user, existing verified-email linking, state mismatch, denial, and callback failure.
+```dotenv
+NEXT_PUBLIC_APP_URL=https://macroverse.vercel.app
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+AUTH_EMAIL_PASSWORD_ENABLED=false
+```
 
-Development console links are not evidence of production email delivery.
+Register `https://macroverse.vercel.app/api/auth/google/callback` as the exact Google redirect URI (and the base URL as an authorized origin where required). Apply the current schema including verification/reset and `oauth_accounts` tables, configure the variables without printing secrets, deploy, then test a new Google user, onboarding, an onboarded returning user with a safe `next`, existing verified-email linking, the unverified-local-email rejection rule, bans, state mismatch, denial, and callback/configuration failures.
+
+To reactivate local credentials later, configure `RESEND_API_KEY` and `RESEND_FROM_EMAIL` against a verified Resend sender domain/address, optionally configure `RESEND_REPLY_TO`, set `AUTH_EMAIL_PASSWORD_ENABLED=true`, and redeploy. Then test registration, verification, resend, login, reset initiation, and reset consumption. No code or schema change is needed. Development console links are not evidence of production email delivery, and local credentials must not be enabled in production until Resend delivery and the verified sender domain are ready.
 
 ## Health provider rollout
 
@@ -125,6 +129,7 @@ Never commit the PFX or updater private key. Losing the updater private key prev
 - **PGlite WASM warnings after build:** a current clean build should not initialize PGlite and should not emit `RuntimeError: unreachable` or `Aborted()`. Confirm `src/db/client.ts` is the only application driver entry point and `NEXT_PHASE` is not being overwritten.
 - **Installed Android app shows old web behavior:** confirm the web deployment; the shell does not bundle current `src`.
 - **OAuth callback fails:** check canonical URL, provider redirect URI, state cookie, secure-cookie context, schema, and provider credentials.
+- **Login reports Google is not configured:** confirm all three of `NEXT_PUBLIC_APP_URL`, `GOOGLE_CLIENT_ID`, and `GOOGLE_CLIENT_SECRET` are present in the same deployment environment; do not expose their values in client diagnostics.
 - **Auth email absent:** distinguish console mode from production, then inspect Resend configuration/response logs and sender verification.
 - **Integration sync errors:** inspect latest `integration_sync_runs`, account status message, token expiry/decryption key, scopes, and provider response.
 - **Browser blocks remote content:** inspect CSP console errors and update `next.config.ts` narrowly.

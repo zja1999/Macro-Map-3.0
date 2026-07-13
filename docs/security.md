@@ -8,15 +8,20 @@ MacroVerse owns its session lifecycle. `createSession()` generates 32 random byt
 
 ## Registration and recovery
 
+- `AUTH_EMAIL_PASSWORD_ENABLED` is a server-side, fail-closed feature flag. Only `true` enables local credentials; disabled/unset/malformed values block registration, password login, verification resend, and reset initiation inside their server actions before any database or email work.
 - Email/password registration lowercases email/username, validates with Zod, hashes passwords with bcrypt cost 10, and creates a 30-minute email-verification token.
 - Verification and password reset store token hashes, not public tokens, and mark tokens used.
 - Password reset responses do not reveal whether an email exists.
 - Login accepts seeded/legacy accounts with no verification timestamp only when they do not have a pending unused verification token. New registrations must verify.
 - Development logs auth links unless production delivery is selected. Production delivery uses Resend configuration.
 
+Disabling the flag hides the local-credential and recovery controls but deliberately does not delete password hashes, token tables, Resend support, or token-consumption code. UI hiding is not the enforcement boundary; the four initiation actions reject direct submissions. Re-enable only after production Resend delivery is configured with a verified sender domain.
+
 ## Google identity
 
 Google OAuth lives in `/api/auth/google/start` and `/api/auth/google/callback`. A short-lived state cookie protects the callback. Only Google identities with `email_verified` are trusted. Provider identities live in `oauth_accounts`; application sessions remain unchanged.
+
+The login page renders only allow-listed callback/configuration messages. It never reflects arbitrary provider error text. OAuth continuations use `safeRedirectPath()` and accept only same-origin absolute paths.
 
 MacroTray never receives a website session token through a URL. Pairing creates independent high-entropy approval and device secrets, stores only SHA-256 hashes, expires after ten minutes, requires an onboarded current user to approve, rejects banned users at exchange, and atomically consumes the device secret once. The resulting widget cookie is an ordinary independently revocable `mm_session`. Post-auth continuations accept only same-origin absolute paths.
 
