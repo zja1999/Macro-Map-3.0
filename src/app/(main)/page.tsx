@@ -1,13 +1,12 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { isModerator } from "@/lib/permissions";
-import { getFeed, getSuggestedUsers, getDayLogs, getStreak } from "@/lib/queries";
+import { getFeed, getDayLogs, getStreak } from "@/lib/queries";
 import { todayStr } from "@/lib/utils";
 import { PostCard } from "@/components/PostCard";
 import { PostComposer } from "@/components/PostComposer";
 import { DashboardHero } from "@/components/DashboardHero";
-import { EmptyState, UserChip, Card, btnGhost } from "@/components/ui";
-import { toggleFollow } from "@/actions/social";
+import { EmptyState, btnGhost } from "@/components/ui";
 
 export default async function FeedPage({
   searchParams,
@@ -18,9 +17,8 @@ export default async function FeedPage({
   const { tab } = await searchParams;
   const scope = tab === "trending" ? "trending" : "following";
   const today = todayStr();
-  const [feed, suggested, day, streak] = await Promise.all([
+  const [feed, day, streak] = await Promise.all([
     getFeed(user.id, scope),
-    getSuggestedUsers(user.id, 4),
     getDayLogs(user.id, today),
     getStreak(user.id, today),
   ]);
@@ -64,27 +62,6 @@ export default async function FeedPage({
       </div>
 
       <PostComposer />
-
-      {suggested.length > 0 && scope === "following" && (
-        <Card className="space-y-3 p-4">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-ink-faint">People you interact with</h3>
-          {suggested.map(({ profile }) => (
-            <div key={profile.userId} className="flex items-center justify-between">
-              <UserChip
-                username={profile.username}
-                displayName={profile.displayName}
-                avatarUrl={profile.avatarUrl}
-                sub={profile.goal ? profile.goal.replace("_", " ") : "Interaction-based match"}
-              />
-              <form action={toggleFollow}>
-                <input type="hidden" name="userId" value={profile.userId} />
-                <input type="hidden" name="username" value={profile.username} />
-                <button className={btnGhost}>Follow</button>
-              </form>
-            </div>
-          ))}
-        </Card>
-      )}
 
       {feed.length === 0 ? (
         <EmptyState
