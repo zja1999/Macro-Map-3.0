@@ -32,7 +32,7 @@ Remote content has no native capability configuration. Rust owns tray, autostart
 
 Debug builds additionally permit Tauri's temporary HTTP loopback asset host (`127.0.0.1` or `localhost`) so the bundled startup page can transition into the widget. Release builds retain the configured-origin-only navigation policy.
 
-Signed Windows releases are tag-driven through `.github/workflows/macrotray-release.yml`. Authenticode and Tauri updater signatures are separate: the former establishes Windows publisher trust, while the latter prevents update artifact substitution. The website download banner stays absent until `NEXT_PUBLIC_MACROTRAY_DOWNLOAD_URL` points at a verified signed release.
+Signed Windows releases are tag-driven through `.github/workflows/macrotray-release.yml`. Authenticode and Tauri updater signatures are separate: the former establishes Windows publisher trust, while the latter prevents update artifact substitution. The website download banner stays absent until `NEXT_PUBLIC_MACROTRAY_DOWNLOAD_URL` is set. Before signing exists, a small trusted-tester pre-release may set `NEXT_PUBLIC_MACROTRAY_TESTING_BUILD=true`, which changes the banner to warn about the unsigned Windows prompt; public releases must point to a verified signed release and omit that flag.
 
 ## Push notifications
 
