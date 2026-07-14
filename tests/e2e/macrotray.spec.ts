@@ -11,6 +11,7 @@ test("MacroTray creates a browser-only pairing approval link", async ({ page }) 
   const href = await approval.getAttribute("href");
 
   expect(href).toMatch(/^\/macrotray-connect\?code=[a-f0-9]{64}$/);
+  expect(await approval.getAttribute("target")).toBeNull();
   expect(href).not.toContain("deviceCode");
   expect(href).not.toContain("mm_session");
 });

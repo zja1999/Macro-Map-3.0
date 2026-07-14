@@ -5,7 +5,7 @@ use tauri::{
     Manager, WebviewUrl, WebviewWindowBuilder, WindowEvent,
 };
 use tauri_plugin_autostart::{MacosLauncher, ManagerExt as AutostartExt};
-use tauri_plugin_dialog::DialogExt;
+use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
 use tauri_plugin_opener::OpenerExt;
 use tauri_plugin_updater::UpdaterExt;
 
@@ -39,8 +39,10 @@ fn check_for_updates(app: tauri::AppHandle, interactive: bool) {
                     app.dialog()
                         .message(format!("MacroTray {version} is ready. Install it now? The widget will close during the Windows update."))
                         .title("MacroTray update")
-                        .ok_button_label("Install")
-                        .cancel_button_label("Later")
+                        .buttons(MessageDialogButtons::OkCancelCustom(
+                                    "Install".into(),
+                                    "Later".into(),
+                                ))
                         .show(move |install| {
                             if install {
                                 tauri::async_runtime::spawn(async move {
@@ -97,6 +99,12 @@ pub fn run() {
                 .min_inner_size(360.0, 520.0)
                 .resizable(true)
                 .on_navigation(move |url| {
+                    if cfg!(debug_assertions)
+                        && url.scheme() == "http"
+                        && matches!(url.host_str(), Some("127.0.0.1") | Some("localhost"))
+                    {
+                        return true;
+                    }
                     if url.scheme() == "tauri" || url.host_str() == Some("tauri.localhost") {
                         return true;
                     }

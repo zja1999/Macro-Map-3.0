@@ -69,7 +69,7 @@ export function MacroTrayConnect() {
         <p className="mt-2 text-sm text-ink-dim">Approve this widget in your browser. Your password and Google sign-in stay on MacroVerse.</p>
       </div>
       {pairing && (
-        <a href={approvalHref} target="_blank" rel="noreferrer" className={`${btnPrimary} flex items-center gap-2 px-5 py-3`}>
+        <a href={approvalHref} className={`${btnPrimary} flex items-center gap-2 px-5 py-3`}>
           Open browser to connect <ExternalLink size={16} />
         </a>
       )}

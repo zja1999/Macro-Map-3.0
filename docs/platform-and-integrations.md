@@ -30,6 +30,8 @@ Android source lives in `android`; generated splash/icon assets live in Android 
 
 Remote content has no native capability configuration. Rust owns tray, autostart, external URL opening, and signed updater behavior. Navigation stays on the configured MacroVerse origin; browser pairing is opened externally because provider OAuth must not depend on an embedded user agent. A bundled startup page provides an explicit offline/retry state before loading the online-only widget and makes clear that logs are not queued offline.
 
+Debug builds additionally permit Tauri's temporary HTTP loopback asset host (`127.0.0.1` or `localhost`) so the bundled startup page can transition into the widget. Release builds retain the configured-origin-only navigation policy.
+
 Signed Windows releases are tag-driven through `.github/workflows/macrotray-release.yml`. Authenticode and Tauri updater signatures are separate: the former establishes Windows publisher trust, while the latter prevents update artifact substitution. The website download banner stays absent until `NEXT_PUBLIC_MACROTRAY_DOWNLOAD_URL` points at a verified signed release.
 
 ## Push notifications

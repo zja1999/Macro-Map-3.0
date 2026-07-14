@@ -25,6 +25,7 @@
       const title = document.getElementById("title");
       const detail = document.getElementById("detail");
       const retry = document.getElementById("retry");
+      const targetUrl = window.__MACROTRAY_URL__ ?? "https://macroverse.vercel.app/macrotray";
       let checking = false;
 
       async function connect() {
@@ -34,8 +35,8 @@
         title.textContent = "Connecting...";
         detail.textContent = "Opening your secure MacroVerse quick logger.";
         try {
-          await fetch(window.__MACROTRAY_URL__, { mode: "no-cors", cache: "no-store" });
-          window.location.replace(window.__MACROTRAY_URL__);
+          await fetch(targetUrl, { mode: "no-cors", cache: "no-store" });
+          window.location.replace(targetUrl);;
         } catch {
           title.textContent = "MacroTray is offline";
           detail.textContent = "Connect to the internet, then retry. Logs are not queued while offline.";
