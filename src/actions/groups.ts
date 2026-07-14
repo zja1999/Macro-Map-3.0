@@ -203,7 +203,7 @@ export async function inviteGroupMember(
   const parsed = inviteSchema.safeParse({
     groupId: formData.get("groupId"),
     slug: formData.get("slug"),
-    username: String(formData.get("username") ?? "").trim().replace(/^@/, ""),
+    username: String(formData.get("username") ?? "").trim().replace(/^@/, "").toLowerCase(),
   });
   if (!parsed.success) return { error: "Enter a username to invite." };
   const d = parsed.data;

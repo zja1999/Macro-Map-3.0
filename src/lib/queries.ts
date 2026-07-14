@@ -538,18 +538,133 @@ export async function getComments(subjectType: "post" | "recipe", subjectId: str
   return rows.map((row) => ({ ...row, badges: badgesByUser.get(row.comment.authorId) ?? [] }));
 }
 
+type SuggestedUserRow = {
+  user_id: string;
+  username: string;
+  display_name: string;
+  avatar_url: string | null;
+  goal: string | null;
+  reputation: number;
+  interaction_score: number;
+};
+
+/**
+ * Unfollowed people with whom the viewer has actually interacted. Comments are
+ * weighted above lightweight reactions/votes, and incoming engagement counts
+ * too so active two-way relationships rise together. There is deliberately no
+ * popularity fallback: no interaction history means no follow suggestions.
+ */
 export async function getSuggestedUsers(viewerId: string, limit = 5) {
-  return db
-    .select({ profile: profiles, reputation: users.reputation })
-    .from(profiles)
-    .innerJoin(users, eq(users.id, profiles.userId))
-    .where(
-      and(
-        sql`${profiles.userId} <> ${viewerId}`,
-        isNull(users.bannedAt),
-        sql`${profiles.userId} NOT IN (SELECT followee_id FROM follows WHERE follower_id = ${viewerId})`,
-      ),
+  const result = await db.execute<SuggestedUserRow>(sql`
+    with interaction_events (target_user_id, weight, occurred_at) as (
+      select post.author_id, 3, comment.created_at
+      from comments comment
+      join posts post on comment.subject_type = 'post' and comment.subject_id = post.id
+      where comment.author_id = ${viewerId} and post.is_removed = false
+
+      union all
+      select comment.author_id, 3, comment.created_at
+      from comments comment
+      join posts post on comment.subject_type = 'post' and comment.subject_id = post.id
+      where post.author_id = ${viewerId} and post.is_removed = false
+
+      union all
+      select recipe.author_id, 3, comment.created_at
+      from comments comment
+      join recipes recipe on comment.subject_type = 'recipe' and comment.subject_id = recipe.id
+      where comment.author_id = ${viewerId} and recipe.status = 'published'
+
+      union all
+      select comment.author_id, 3, comment.created_at
+      from comments comment
+      join recipes recipe on comment.subject_type = 'recipe' and comment.subject_id = recipe.id
+      where recipe.author_id = ${viewerId} and recipe.status = 'published'
+
+      union all
+      select post.author_id, 2, reaction.created_at
+      from reactions reaction
+      join posts post on reaction.subject_type = 'post' and reaction.subject_id = post.id
+      where reaction.user_id = ${viewerId} and post.is_removed = false
+
+      union all
+      select reaction.user_id, 2, reaction.created_at
+      from reactions reaction
+      join posts post on reaction.subject_type = 'post' and reaction.subject_id = post.id
+      where post.author_id = ${viewerId} and post.is_removed = false
+
+      union all
+      select recipe.author_id, 2, reaction.created_at
+      from reactions reaction
+      join recipes recipe on reaction.subject_type = 'recipe' and reaction.subject_id = recipe.id
+      where reaction.user_id = ${viewerId} and recipe.status = 'published'
+
+      union all
+      select reaction.user_id, 2, reaction.created_at
+      from reactions reaction
+      join recipes recipe on reaction.subject_type = 'recipe' and reaction.subject_id = recipe.id
+      where recipe.author_id = ${viewerId} and recipe.status = 'published'
+
+      union all
+      select recipe.author_id, 2, saved.created_at
+      from saves saved
+      join recipes recipe on saved.subject_type = 'recipe' and saved.subject_id = recipe.id
+      where saved.user_id = ${viewerId} and recipe.status = 'published'
+
+      union all
+      select saved.user_id, 2, saved.created_at
+      from saves saved
+      join recipes recipe on saved.subject_type = 'recipe' and saved.subject_id = recipe.id
+      where recipe.author_id = ${viewerId} and recipe.status = 'published'
+
+      union all
+      select recipe.author_id, 1, vote.created_at
+      from votes vote
+      join recipes recipe on vote.subject_type = 'recipe' and vote.subject_id = recipe.id
+      where vote.user_id = ${viewerId} and recipe.status = 'published'
+
+      union all
+      select vote.user_id, 1, vote.created_at
+      from votes vote
+      join recipes recipe on vote.subject_type = 'recipe' and vote.subject_id = recipe.id
+      where recipe.author_id = ${viewerId} and recipe.status = 'published'
+
+      union all
+      select follower_id, 4, created_at
+      from follows
+      where followee_id = ${viewerId}
     )
-    .orderBy(desc(users.reputation))
-    .limit(limit);
+    select
+      profile.user_id,
+      profile.username,
+      profile.display_name,
+      profile.avatar_url,
+      profile.goal,
+      account.reputation,
+      sum(interaction.weight)::int as interaction_score
+    from interaction_events interaction
+    join profiles profile on profile.user_id = interaction.target_user_id
+    join users account on account.id = profile.user_id
+    where profile.user_id <> ${viewerId}
+      and profile.visibility = 'public'
+      and account.banned_at is null
+      and not exists (
+        select 1 from follows followed
+        where followed.follower_id = ${viewerId} and followed.followee_id = profile.user_id
+      )
+    group by profile.user_id, profile.username, profile.display_name, profile.avatar_url, profile.goal, account.reputation
+    order by interaction_score desc, max(interaction.occurred_at) desc, profile.username asc
+    limit ${limit}
+  `);
+
+  return result.rows.map((row) => ({
+    profile: {
+      userId: row.user_id,
+      username: row.username,
+      displayName: row.display_name,
+      avatarUrl: row.avatar_url,
+      goal: row.goal,
+    },
+    reputation: Number(row.reputation),
+    interactionScore: Number(row.interaction_score),
+  }));
 }

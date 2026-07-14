@@ -8,6 +8,7 @@ import { isMissingTableError } from "@/lib/dbErrors";
 import { AdminNav } from "@/components/AdminNav";
 import { BadgeIconInput } from "@/components/BadgeIconInput";
 import { BadgeIcon } from "@/components/UserBadges";
+import { UsernameAutocomplete } from "@/components/UsernameAutocomplete";
 import { Card, inputCls } from "@/components/ui";
 
 export const metadata = { title: "Admin - Badges" };
@@ -99,8 +100,8 @@ export default async function AdminBadgesPage() {
             </details>
 
             <div className="grid gap-2 border-t border-edge pt-3 sm:grid-cols-2">
-              <form action={assignBadge} className="flex gap-2"><input type="hidden" name="badgeId" value={badge.id} /><input name="target" required placeholder="username or email" className={`${inputCls} py-1.5 text-xs`} /><button className="rounded-lg border border-accent/40 bg-accent/10 px-2.5 text-xs font-semibold text-accent">Assign</button></form>
-              <form action={revokeBadge} className="flex gap-2"><input type="hidden" name="badgeId" value={badge.id} /><input name="target" required placeholder="username or email" className={`${inputCls} py-1.5 text-xs`} /><button className="rounded-lg border border-carbs/40 bg-carbs/10 px-2.5 text-xs font-semibold text-carbs">Revoke</button></form>
+              <form action={assignBadge} className="flex gap-2"><input type="hidden" name="badgeId" value={badge.id} /><UsernameAutocomplete name="target" required maxLength={120} placeholder="username or email" allowEmail className={`${inputCls} py-1.5 text-xs`} wrapperClassName="min-w-0 flex-1" /><button className="rounded-lg border border-accent/40 bg-accent/10 px-2.5 text-xs font-semibold text-accent">Assign</button></form>
+              <form action={revokeBadge} className="flex gap-2"><input type="hidden" name="badgeId" value={badge.id} /><UsernameAutocomplete name="target" required maxLength={120} placeholder="username or email" allowEmail className={`${inputCls} py-1.5 text-xs`} wrapperClassName="min-w-0 flex-1" /><button className="rounded-lg border border-carbs/40 bg-carbs/10 px-2.5 text-xs font-semibold text-carbs">Revoke</button></form>
             </div>
             <form action={deleteBadge}><input type="hidden" name="badgeId" value={badge.id} /><button className="text-xs font-semibold text-danger">Delete badge and its awards</button></form>
           </Card>

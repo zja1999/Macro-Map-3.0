@@ -32,6 +32,7 @@ One worker is intentional: tests share seeded user data and PGlite permits one p
 - `log-a-day.spec.ts`: search and log a food, verify diary snapshot, remove it; quick-add snapshot and cleanup.
 - `submit-recipe.spec.ts`: create a recipe from linked seeded ingredients and verify calculated provenance/detail page.
 - `follow-and-feed.spec.ts`: following feed content, post creation, reaction state, and profile follow rendering.
+- `user-suggestions.spec.ts`: authenticated username-prefix autocomplete, public profile context, and selection into a targeting form.
 - `launch-hardening.spec.ts`: public privacy access, unauthenticated export denial, ordinary-user staff-route denial, and authenticated export secret/other-account exclusion.
 - `auth-methods.spec.ts`: username/password and Google login/registration surfaces, linked-Google recovery, legacy reset-token consumption, safe Google continuations, and allow-listed callback errors.
 

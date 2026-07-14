@@ -111,6 +111,7 @@ Access labels:
 |---|---|---|---|
 | `GET /api/auth/google/start` | Public; config + state cookie | `src/app/api/auth/google/start/route.ts` | Begin Google OAuth |
 | `GET /api/account/export` | Current application session; returns `401` otherwise | `src/app/api/account/export/route.ts` | Download a no-store JSON export of current-user data with secrets excluded |
+| `GET /api/users/suggest?q=ab` | Current application session; public profiles only | `src/app/api/users/suggest/route.ts` | Case-insensitive username-prefix suggestions with avatar/profile context |
 | `GET /api/auth/google/callback` | State cookie + Google verified identity | `src/app/api/auth/google/callback/route.ts` | Link/create identity and application session |
 | `GET /api/integrations/[provider]/callback` | User session + OAuth state | `src/app/api/integrations/[provider]/callback/route.ts` | Exchange provider code and store account |
 | `GET /api/integrations/[provider]/webhook` | Provider verification token/query | `src/app/api/integrations/[provider]/webhook/route.ts` | Webhook subscription verification |

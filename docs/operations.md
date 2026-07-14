@@ -47,10 +47,11 @@ Application deployment does not apply database schema. A safe release order for 
 1. Confirm backups/recovery for the hosted database.
 2. Build and verify the commit locally.
 3. Set the intended production `DATABASE_URL` in a controlled shell.
-4. Run `npm run db:push` and review Drizzle prompts/output carefully.
-5. Run `npm run db:seed:reference` only if new reference tables/data need bootstrap.
-6. Deploy the compatible web application.
-7. Smoke-test auth and the affected domain; inspect platform/database/provider logs.
+4. For the username/password and Google recovery schema, run `npm run db:preflight:auth` and resolve any duplicate OAuth user/provider links it reports.
+5. Run `npm run db:push` and review Drizzle prompts/output carefully.
+6. Run `npm run db:seed:reference` only if new reference tables/data need bootstrap.
+7. Deploy the compatible web application.
+8. Smoke-test auth and the affected domain; inspect platform/database/provider logs.
 
 For breaking schema changes, design a compatibility rollout rather than relying on a single `push`. The repository does not currently contain a migration history with expand/backfill/contract orchestration.
 

@@ -18,7 +18,9 @@ All polymorphic interactions require explicit subject validation. Adding a new s
 
 ## Profiles and social graph
 
-Follows are directed and unique. Follow actions prevent invalid/self relationships and notify the target. Profile reads combine visibility-safe identity data with follow statistics/state and public content. Banned users and removed/private content must not leak through profile, suggestion, feed, or follow-list queries.
+Follows are directed and unique. Follow actions prevent invalid/self relationships and notify the target. Follow suggestions contain only unfollowed public users with an actual interaction history with the viewer; comments, reactions, recipe saves/votes, and incoming follows contribute to the ranking, with comments weighted above lightweight engagement. There is no popularity-only fallback. Profile reads combine visibility-safe identity data with follow statistics/state and public content. Banned users and removed/private content must not leak through profile, suggestion, feed, or follow-list queries.
+
+Authenticated username-targeting forms use `GET /api/users/suggest` after two valid username characters. Results are case-insensitive prefix matches ordered by username and expose only the public profile projection needed for the avatar/name/username dropdown. Login, registration, and account-setup username fields deliberately do not use this lookup because they are credential or username-creation surfaces rather than user targeting.
 
 ## Groups
 

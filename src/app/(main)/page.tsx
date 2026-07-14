@@ -67,14 +67,14 @@ export default async function FeedPage({
 
       {suggested.length > 0 && scope === "following" && (
         <Card className="space-y-3 p-4">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-ink-faint">Suggested to follow</h3>
-          {suggested.map(({ profile, reputation }) => (
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-ink-faint">People you interact with</h3>
+          {suggested.map(({ profile }) => (
             <div key={profile.userId} className="flex items-center justify-between">
               <UserChip
                 username={profile.username}
                 displayName={profile.displayName}
                 avatarUrl={profile.avatarUrl}
-                sub={`${reputation} rep${profile.goal ? ` · ${profile.goal.replace("_", " ")}` : ""}`}
+                sub={profile.goal ? profile.goal.replace("_", " ") : "Interaction-based match"}
               />
               <form action={toggleFollow}>
                 <input type="hidden" name="userId" value={profile.userId} />

@@ -7,6 +7,7 @@ import { getWelcomeNotificationSettings } from "@/lib/welcomeNotification";
 import { isMissingTableError } from "@/lib/dbErrors";
 import { timeAgo } from "@/lib/utils";
 import { AdminNav } from "@/components/AdminNav";
+import { UsernameAutocomplete } from "@/components/UsernameAutocomplete";
 import { Card, inputCls } from "@/components/ui";
 
 export const metadata = { title: "Admin - Notifications" };
@@ -68,7 +69,7 @@ export default async function AdminNotificationsPage() {
               <option value="user">One user</option><option value="group">A group</option><option value="site">Everyone</option>
             </select>
           </label>
-          <label className="block space-y-1 text-xs text-ink-dim">User (used for one-user audience)<input name="targetUser" maxLength={120} placeholder="username or email" className={inputCls} /></label>
+          <label className="block space-y-1 text-xs text-ink-dim">User (used for one-user audience)<UsernameAutocomplete name="targetUser" maxLength={120} placeholder="username or email" allowEmail /></label>
           <label className="block space-y-1 text-xs text-ink-dim">Group (used for group audience)
             <select name="targetGroup" className={inputCls} defaultValue=""><option value="">Choose a group</option>{groupRows.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}</select>
           </label>

@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "db:push": "drizzle-kit push",
+    "db:preflight:auth": "node scripts/preflight-auth-schema.mjs",
     "db:seed": "tsx scripts/seed.ts",
     "db:seed:reference": "tsx scripts/seed.ts --reference-only",
     "db:setup": "npm run db:push && npm run db:seed",

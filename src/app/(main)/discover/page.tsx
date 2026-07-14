@@ -99,11 +99,11 @@ export default async function DiscoverPage() {
 
       {creators.length > 0 && (
         <section className="space-y-2.5">
-          <div className="flex items-center gap-2"><Users size={15} className="text-accent" /><h2 className="text-sm font-bold">People to follow</h2></div>
+          <div className="flex items-center gap-2"><Users size={15} className="text-accent" /><h2 className="text-sm font-bold">People you interact with</h2></div>
           <div className="grid gap-2 sm:grid-cols-2">
-            {creators.map(({ profile, reputation }) => (
+            {creators.map(({ profile }) => (
               <Card key={profile.userId} className="flex min-w-0 items-center justify-between gap-2 p-3">
-                <UserChip username={profile.username} displayName={profile.displayName} avatarUrl={profile.avatarUrl} sub={`${reputation} rep`} />
+                <UserChip username={profile.username} displayName={profile.displayName} avatarUrl={profile.avatarUrl} sub={profile.goal ? profile.goal.replace("_", " ") : "Interaction-based match"} />
                 <form action={toggleFollow} className="shrink-0">
                   <input type="hidden" name="userId" value={profile.userId} />
                   <input type="hidden" name="username" value={profile.username} />
