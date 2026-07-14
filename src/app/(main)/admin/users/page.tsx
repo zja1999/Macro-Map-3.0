@@ -71,7 +71,7 @@ export default async function AdminUsersPage({
                       {user.bannedAt && <Badge tone="warn">suspended</Badge>}
                     </div>
                     <div className="mt-1 text-xs text-ink-faint">
-                      {user.email} - joined {timeAgo(user.createdAt)} - {user.reputation} rep
+                      {user.email ?? "No email"} - joined {timeAgo(user.createdAt)} - {user.reputation} rep
                     </div>
                     {user.bannedReason && <p className="mt-2 text-xs text-danger">Reason: {user.bannedReason}</p>}
                   </div>

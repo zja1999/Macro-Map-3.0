@@ -1,5 +1,10 @@
-import { requireUser } from "@/lib/auth";
+import { eq, and } from "drizzle-orm";
+import { db } from "@/db/client";
+import { oauthAccounts } from "@/db/schema";
+import { getSessionUser, isRecentlyReauthenticated, requireUser } from "@/lib/auth";
+import { googleAuthErrorMessage } from "@/lib/authFeatures";
 import { SettingsForms } from "@/components/SettingsForms";
+import { AccountSecurityForm } from "@/components/AccountSecurityForm";
 import { AvatarUpload } from "@/components/AvatarUpload";
 import { DeleteAccountSection } from "@/components/DeleteAccountSection";
 import { Card, btnGhost } from "@/components/ui";
@@ -7,8 +12,20 @@ import Link from "next/link";
 
 export const metadata = { title: "Settings" };
 
-export default async function SettingsPage() {
+export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ google?: string; reauthenticated?: string; recovery?: string; error?: string }> }) {
   const user = await requireUser();
+  const sessionUser = await getSessionUser();
+  const [googleAccount] = await db
+    .select({ email: oauthAccounts.email })
+    .from(oauthAccounts)
+    .where(and(eq(oauthAccounts.userId, user.id), eq(oauthAccounts.provider, "google")))
+    .limit(1);
+  const params = await searchParams;
+  const notice = params.google === "linked"
+    ? "Google recovery is connected."
+    : params.reauthenticated === "1" || params.recovery === "ready"
+      ? "Google verification succeeded. You can choose a new password now."
+      : undefined;
   return (
     <div className="mx-auto max-w-xl space-y-6">
       <h1 className="text-lg font-bold">Settings</h1>
@@ -47,6 +64,12 @@ export default async function SettingsPage() {
           fatG: user.targets?.fatG ?? 65,
           isManual: user.targets?.isManual ?? false,
         }}
+      />
+      <AccountSecurityForm
+        googleEmail={googleAccount?.email ?? null}
+        recentlyReauthenticated={isRecentlyReauthenticated(sessionUser?.reauthenticatedAt ?? null)}
+        notice={notice}
+        error={googleAuthErrorMessage(params.error)}
       />
       <Card className="space-y-3 p-4">
         <div>

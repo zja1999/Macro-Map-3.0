@@ -6,14 +6,14 @@ This catalog maps mutations to files. It is a navigation aid, not a substitute f
 
 | File | Exported mutations | Responsibility |
 |---|---|---|
-| `src/actions/auth.ts` | `register`, `login`, `logout`, `resendVerification`, `requestPasswordReset`, `resetPassword` | Password identity, hashed email tokens, rate limiting, session creation/destruction; local-flow initiation is gated by `AUTH_EMAIL_PASSWORD_ENABLED` while reset-token consumption remains reusable |
+| `src/actions/auth.ts` | `register`, `login`, `logout`, `completeAccountSetup`, `changePassword`, `resetPassword` | Username/password identity, Google fallback setup, reauthenticated password changes, session rotation, and legacy reset-token consumption |
 | `src/actions/account.ts` | `deleteAccount` | Confirmed current-user deletion and logout/redirect lifecycle |
 | `src/actions/onboarding.ts` | `completeOnboarding`, `updateTargets`, `updateBiometrics`, `updateProfile`, `updateAvatar` | Profile/onboarding settings and target revisions |
 | `src/actions/macrotray.ts` | `approveMacroTrayPairing`, `logoutMacroTray` | Ownership-bound browser approval and widget-session logout |
 
-Auth/session helpers: `src/lib/auth.ts`, `authTokens.ts`, `authEmail.ts`, `googleAuth.ts`, `rateLimit.ts`, `targets.ts`, `units.ts`.
+Auth/session helpers: `src/lib/auth.ts`, `authTokens.ts`, `googleAuth.ts`, `passwords.ts`, `rateLimit.ts`, `targets.ts`, `units.ts`.
 
-`src/lib/authFeatures.ts` owns the fail-closed local-auth flag and the allow-listed Google login error messages. UI visibility is not sufficient: `register`, `login`, `resendVerification`, and `requestPasswordReset` must retain their action-level flag checks.
+`src/lib/authFeatures.ts` owns allow-listed Google error messages. `getCurrentUser()` rejects passwordless accounts; only the dedicated setup flow may use the lower-level valid-session principal.
 
 ## Diary and health habits
 

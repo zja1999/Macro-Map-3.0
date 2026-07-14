@@ -13,15 +13,16 @@ Access labels:
 
 | URL | Access | Source | Purpose |
 |---|---|---|---|
-| `/login` | Public | `src/app/(auth)/login/page.tsx` | Google entry point and allow-listed OAuth errors; also local login when `AUTH_EMAIL_PASSWORD_ENABLED=true` |
-| `/register` | Public | `src/app/(auth)/register/page.tsx` | Redirects safely to `/login` in Google-only mode; local account/profile creation when enabled |
-| `/forgot-password` | Public | `src/app/forgot-password/page.tsx` | Google-only notice when local auth is disabled; generic reset request when enabled |
-| `/reset-password?token=…` | Public | `src/app/reset-password/page.tsx` | Google-only notice when local auth is disabled; validate/submit new password when enabled |
-| `/verify-email?token=…` | Public route handler | `src/app/verify-email/route.ts` | Consume verification token, verify user, create session |
-| `/verify-email/sent` | Public | `src/app/verify-email/sent/page.tsx` | Google-only notice when local auth is disabled; verification instructions/resend form when enabled |
+| `/login` | Public | `src/app/(auth)/login/page.tsx` | Username/password and Google sign-in with allow-listed OAuth errors |
+| `/register` | Public | `src/app/(auth)/register/page.tsx` | Email-free username/password account and profile creation |
+| `/account-setup` | Pending Google session | `src/app/(auth)/account-setup/page.tsx` | Required public username and fallback-password setup for passwordless Google users |
+| `/forgot-password` | Public | `src/app/forgot-password/page.tsx` | Recovery through a previously linked Google identity; never creates or links an account |
+| `/reset-password?token=…` | Public legacy | `src/app/reset-password/page.tsx` | Consume a reset token issued before email recovery was retired |
+| `/verify-email?token=…` | Public legacy handler | `src/app/verify-email/route.ts` | Consume an already-issued verification token and create a session |
+| `/verify-email/sent` | Public legacy | `src/app/verify-email/sent/page.tsx` | Explains that new verification emails are no longer issued |
 | `/privacy` | Public | `src/app/privacy/page.tsx` | Privacy/data-handling policy and user-rights summary |
 | `/onboarding` | User | `src/app/onboarding/page.tsx` | Profile/goal/target onboarding wizard |
-| `/settings` | User | `src/app/(main)/settings/page.tsx` | Profile, targets, biometrics, account controls |
+| `/settings` | User | `src/app/(main)/settings/page.tsx` | Profile, targets, biometrics, Google recovery linking, password changes, and account controls |
 | `/settings/integrations` | User | `src/app/(main)/settings/integrations/page.tsx` | Provider connection and sync state |
 | `/macrotray-connect?code=…` | Public entry; approval requires User | `src/app/macrotray-connect/page.tsx` | System-browser approval for a short-lived MacroTray pairing request |
 

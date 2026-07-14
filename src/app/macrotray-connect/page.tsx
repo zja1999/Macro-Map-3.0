@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, getSessionUser } from "@/lib/auth";
 import { safeRedirectPath } from "@/lib/safeRedirect";
 import { MacroTrayApproval } from "@/components/MacroTrayApproval";
 import { btnPrimary, btnGhost } from "@/components/ui";
@@ -8,6 +8,18 @@ export const metadata = { title: "Connect MacroTray" };
 
 export default async function MacroTrayConnectPage({ searchParams }: { searchParams: Promise<{ code?: string }> }) {
   const code = (await searchParams).code ?? "";
+  const sessionUser = await getSessionUser();
+  if (sessionUser && !sessionUser.hasPassword) {
+    return (
+      <main className="flex min-h-dvh flex-col items-center justify-center px-4 py-10">
+        <div className="w-full max-w-sm space-y-4 rounded-xl border border-edge bg-card p-6 text-center">
+          <h1 className="text-lg font-bold">Secure your account first</h1>
+          <p className="text-sm text-ink-dim">Choose your username and fallback password before connecting MacroTray.</p>
+          <Link href="/account-setup" className={`${btnPrimary} w-full`}>Continue account setup</Link>
+        </div>
+      </main>
+    );
+  }
   const user = await getCurrentUser();
   const next = safeRedirectPath(`/macrotray-connect?code=${encodeURIComponent(code)}`);
   return (

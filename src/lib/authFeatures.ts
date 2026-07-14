@@ -1,14 +1,3 @@
-export const EMAIL_PASSWORD_AUTH_DISABLED_MESSAGE =
-  "Email and password authentication is unavailable. Continue with Google.";
-
-/**
- * Email/password auth is fail-closed: only an explicit `true` enables it.
- * Keep this server-side so deployment configuration cannot leak into the client bundle.
- */
-export function isEmailPasswordAuthEnabled(value = process.env.AUTH_EMAIL_PASSWORD_ENABLED) {
-  return value?.trim().toLowerCase() === "true";
-}
-
 const GOOGLE_AUTH_ERRORS: Record<string, string> = {
   google_not_configured:
     "Google sign-in is not configured for this deployment. Please try again later or contact support.",
@@ -20,6 +9,12 @@ const GOOGLE_AUTH_ERRORS: Record<string, string> = {
     "That Google account does not have a verified email address. Choose a verified Google account.",
   google_account_unavailable:
     "That Google account cannot be used here. Try another verified Google account or contact support.",
+  google_recovery_unavailable:
+    "That Google account is not linked for recovery. Sign in with your username or use a previously linked Google account.",
+  google_link_conflict:
+    "That Google account is already connected elsewhere and cannot be linked.",
+  google_reauthentication_failed:
+    "Google could not verify this account for the requested security change. Try again.",
 };
 
 export function googleAuthErrorMessage(code: unknown) {

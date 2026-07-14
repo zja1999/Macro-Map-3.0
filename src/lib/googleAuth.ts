@@ -6,6 +6,8 @@ const GOOGLE_USERINFO_URL = "https://openidconnect.googleapis.com/v1/userinfo";
 
 export const GOOGLE_STATE_COOKIE = "mm_google_oauth_state";
 
+export type GoogleAuthPurpose = "sign_in" | "link" | "recover" | "reauthenticate";
+
 type GoogleConfig = {
   clientId: string;
   clientSecret: string;

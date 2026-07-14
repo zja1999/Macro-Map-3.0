@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Bell, Flame } from "lucide-react";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, getSessionUser } from "@/lib/auth";
 import { isModerator } from "@/lib/permissions";
 import { getStreak, getUnreadNotificationCount, getFrequents } from "@/lib/queries";
 import { todayStr, slotForNow } from "@/lib/utils";
@@ -14,6 +14,8 @@ import { syncAutomaticBadgesForUser } from "@/lib/badges";
 export default async function MainLayout({ children }: { children: React.ReactNode }) {
   // Logged-out visitors reach this layout only for public pages (middleware gates
   // the rest), so render an anonymous shell instead of forcing a login.
+  const sessionUser = await getSessionUser();
+  if (sessionUser && !sessionUser.hasPassword) redirect("/account-setup");
   const user = await getCurrentUser();
   if (user && !user.profile.onboardedAt) redirect("/onboarding");
   if (user) await syncAutomaticBadgesForUser(user.id);

@@ -1,11 +1,13 @@
 import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, getSessionUser } from "@/lib/auth";
 import { OnboardingWizard } from "@/components/OnboardingWizard";
 import { safeRedirectPath } from "@/lib/safeRedirect";
 
 export const metadata = { title: "Get set up" };
 
 export default async function OnboardingPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
+  const sessionUser = await getSessionUser();
+  if (sessionUser && !sessionUser.hasPassword) redirect("/account-setup");
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   if (user.profile.onboardedAt) redirect("/");

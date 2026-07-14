@@ -26,33 +26,33 @@ test("post-auth continuations stay on same-origin absolute paths", async () => {
   assert.equal(safeRedirectPath("/ok\r\nLocation:https://evil.example"), "/");
 });
 
-test("email/password authentication is fail-closed unless explicitly enabled", async () => {
-  const { isEmailPasswordAuthEnabled } = await import("../../src/lib/authFeatures");
-
-  assert.equal(isEmailPasswordAuthEnabled(undefined), false);
-  assert.equal(isEmailPasswordAuthEnabled("false"), false);
-  assert.equal(isEmailPasswordAuthEnabled("unexpected"), false);
-  assert.equal(isEmailPasswordAuthEnabled(" TRUE "), true);
+test("username and password policy normalizes identifiers and bounds bcrypt input", async () => {
+  const { normalizeUsername, passwordValidationError, usernameValidationError } = await import("../../src/lib/passwords");
+  assert.equal(normalizeUsername("  Demo_User "), "demo_user");
+  assert.equal(usernameValidationError("valid_name"), null);
+  assert.match(usernameValidationError("not-valid") ?? "", /letters/i);
+  assert.match(passwordValidationError("short") ?? "", /12 characters/i);
+  assert.equal(passwordValidationError("a secure passphrase", "a secure passphrase"), null);
+  assert.match(passwordValidationError("a secure passphrase", "different passphrase") ?? "", /do not match/i);
+  assert.match(passwordValidationError("🔐".repeat(20)) ?? "", /too large/i);
 });
 
-test("Google-only mode rejects direct email/password initiation actions", async () => {
-  const previous = process.env.AUTH_EMAIL_PASSWORD_ENABLED;
-  process.env.AUTH_EMAIL_PASSWORD_ENABLED = "false";
-  try {
-    const {
-      EMAIL_PASSWORD_AUTH_DISABLED_MESSAGE,
-    } = await import("../../src/lib/authFeatures");
-    const { login, register, requestPasswordReset, resendVerification } = await import("../../src/actions/auth");
-    const attempts = [login, register, requestPasswordReset, resendVerification];
+test("OAuth authorization flows persist only hashed, expiring, one-time state", async () => {
+  const { oauthAuthorizationFlows } = await import("../../src/db/schema");
+  assert.ok(oauthAuthorizationFlows.stateHash);
+  assert.ok(oauthAuthorizationFlows.purpose);
+  assert.ok(oauthAuthorizationFlows.sessionTokenHash);
+  assert.ok(oauthAuthorizationFlows.expiresAt);
+  assert.ok(oauthAuthorizationFlows.usedAt);
+  assert.equal("state" in oauthAuthorizationFlows, false);
+});
 
-    for (const action of attempts) {
-      const result = await action(undefined, new FormData());
-      assert.deepEqual(result, { error: EMAIL_PASSWORD_AUTH_DISABLED_MESSAGE });
-    }
-  } finally {
-    if (previous === undefined) delete process.env.AUTH_EMAIL_PASSWORD_ENABLED;
-    else process.env.AUTH_EMAIL_PASSWORD_ENABLED = previous;
-  }
+test("password replacement reauthentication expires after ten minutes", async () => {
+  const { isRecentlyReauthenticated } = await import("../../src/lib/auth");
+  const now = new Date("2026-07-13T12:00:00Z");
+  assert.equal(isRecentlyReauthenticated(new Date("2026-07-13T11:50:01Z"), now), true);
+  assert.equal(isRecentlyReauthenticated(new Date("2026-07-13T11:49:59Z"), now), false);
+  assert.equal(isRecentlyReauthenticated(null, now), false);
 });
 
 test("Google callback failures map to actionable, allow-listed login messages", async () => {
@@ -61,6 +61,7 @@ test("Google callback failures map to actionable, allow-listed login messages", 
   assert.match(googleAuthErrorMessage("google_not_configured") ?? "", /not configured/i);
   assert.match(googleAuthErrorMessage("google_state_invalid") ?? "", /start Google sign-in again/i);
   assert.match(googleAuthErrorMessage("google_account_unavailable") ?? "", /verified Google account/i);
+  assert.match(googleAuthErrorMessage("google_recovery_unavailable") ?? "", /not linked/i);
   assert.equal(googleAuthErrorMessage("provider_secret=do-not-render"), undefined);
 });
 

@@ -4,22 +4,19 @@
 
 MacroVerse owns its session lifecycle. `createSession()` generates 32 random bytes, sets the raw value in the `mm_session` cookie, and stores only a SHA-256 hash in `sessions`. Sessions last 30 days. Cookies are HTTP-only, same-site `lax`, path `/`, and secure in production.
 
-`getCurrentUser()` joins the session, user, and profile, rejects expired sessions and banned users, and loads the latest nutrition target. `requireUser()` redirects to login. A missing profile also makes a session unusable, so user/profile creation must remain transactional.
+`getSessionUser()` resolves any valid app session for controlled account-setup use. `getCurrentUser()` additionally requires a password hash, so passwordless Google identities cannot reach ordinary protected reads or mutations. Both reject expired sessions and banned users and require a profile.
 
 ## Registration and recovery
 
-- `AUTH_EMAIL_PASSWORD_ENABLED` is a server-side, fail-closed feature flag. Only `true` enables local credentials; disabled/unset/malformed values block registration, password login, verification resend, and reset initiation inside their server actions before any database or email work.
-- Email/password registration lowercases email/username, validates with Zod, hashes passwords with bcrypt cost 10, and creates a 30-minute email-verification token.
-- Verification and password reset store token hashes, not public tokens, and mark tokens used.
-- Password reset responses do not reveal whether an email exists.
-- Login accepts seeded/legacy accounts with no verification timestamp only when they do not have a pending unused verification token. New registrations must verify.
-- Development logs auth links unless production delivery is selected. Production delivery uses Resend configuration.
-
-Disabling the flag hides the local-credential and recovery controls but deliberately does not delete password hashes, token tables, Resend support, or token-consumption code. UI hiding is not the enforcement boundary; the four initiation actions reject direct submissions. Re-enable only after production Resend delivery is configured with a verified sender domain.
+- Local registration requires display name, unique lowercase username, and matching 12–64-character password fields; email is null and no verification is required.
+- Bcrypt cost 10 remains the password store. Validation also enforces bcrypt's 72-byte input ceiling and login performs a dummy hash comparison for unknown usernames.
+- Login throttles the request fingerprint and normalized username independently. A valid password is checked before suspension is disclosed.
+- Email verification and reset-token consumption remain backward-compatible for already-issued links, but no live action creates or delivers new email tokens.
+- Password changes require the current password or a session reauthenticated within ten minutes, revoke all sessions, and rotate the current browser session.
 
 ## Google identity
 
-Google OAuth lives in `/api/auth/google/start` and `/api/auth/google/callback`. A short-lived state cookie protects the callback. Only Google identities with `email_verified` are trusted. Provider identities live in `oauth_accounts`; application sessions remain unchanged.
+Google OAuth lives in `/api/auth/google/start` and `/api/auth/google/callback`. The raw state stays in an HTTP-only cookie while only its SHA-256 hash is stored in an expiring, one-time `oauth_authorization_flows` row. Link and reauthentication intents are bound to the initiating user and session. Only identities with `email_verified` are trusted.
 
 The login page renders only allow-listed callback/configuration messages. It never reflects arbitrary provider error text. OAuth continuations use `safeRedirectPath()` and accept only same-origin absolute paths.
 
@@ -27,7 +24,7 @@ MacroTray never receives a website session token through a URL. Pairing creates 
 
 The Tauri webview permits navigation only on the configured MacroVerse origin and exposes no Tauri IPC capability to remote content. Pairing and other external navigation open in the system browser. The `MacroTray/` user-agent suffix is presentation/routing context only, never authentication or authorization.
 
-An existing local account is linked by email only when that local email is already verified. This prevents an external identity from silently claiming an unverified local address. Google access/refresh tokens are not retained for sign-in.
+An existing legacy local account is auto-linked by email only when that email is verified. New username-only accounts link Google explicitly in Settings. Recovery refuses unlinked identities; linking refuses cross-user provider/email conflicts and one user cannot hold multiple Google identities. Google access/refresh tokens are not retained.
 
 ## Authorization hierarchy
 
@@ -58,7 +55,7 @@ Because limits live in the application database, cleanup/index behavior and data
 
 ## External secrets
 
-- Never expose database, OAuth client secrets, Resend, FCM service-account, webhook, or health-token encryption secrets to client components.
+- Never expose database, OAuth client secrets, FCM service-account, webhook, or health-token encryption secrets to client components.
 - Health access and refresh tokens are encrypted with AES-GCM in `src/lib/integrations/crypto.ts`.
 - Production must provide a stable `HEALTH_TOKEN_ENCRYPTION_KEY` (or deliberately chosen stable fallback secret). Changing the key makes existing ciphertext unreadable.
 - OAuth state cookies and session cookies must remain HTTP-only and secure in production.

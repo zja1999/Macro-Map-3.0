@@ -33,7 +33,7 @@ One worker is intentional: tests share seeded user data and PGlite permits one p
 - `submit-recipe.spec.ts`: create a recipe from linked seeded ingredients and verify calculated provenance/detail page.
 - `follow-and-feed.spec.ts`: following feed content, post creation, reaction state, and profile follow rendering.
 - `launch-hardening.spec.ts`: public privacy access, unauthenticated export denial, ordinary-user staff-route denial, and authenticated export secret/other-account exclusion.
-- `auth-methods.spec.ts`: Google-only/local-enabled login surfaces, disabled recovery controls, registration redirects, safe Google continuations, and allow-listed callback error rendering. Run once with each flag state.
+- `auth-methods.spec.ts`: username/password and Google login/registration surfaces, linked-Google recovery, legacy reset-token consumption, safe Google continuations, and allow-listed callback errors.
 
 Tests use accounts from `tests/e2e/helpers.ts`, currently the primary demo user and Maria recipe creator. Full demo seeding must have run.
 
@@ -60,12 +60,10 @@ The credential-free security checks do not require a database or browser:
 npm run test:security
 ```
 
-Run the focused authentication browser coverage in both modes, stopping each Playwright-managed server before starting the next command:
+Run the focused authentication browser coverage, stopping its Playwright-managed server before the next PGlite command if the Windows harness remains alive after reporting success:
 
 ```powershell
-$env:AUTH_EMAIL_PASSWORD_ENABLED='false'; npx playwright test tests/e2e/auth-methods.spec.ts
-$env:AUTH_EMAIL_PASSWORD_ENABLED='true'; npx playwright test tests/e2e/auth-methods.spec.ts
-Remove-Item Env:AUTH_EMAIL_PASSWORD_ENABLED
+npx playwright test tests/e2e/auth-methods.spec.ts
 ```
 
 ## Change-to-test matrix
@@ -84,7 +82,7 @@ Remove-Item Env:AUTH_EMAIL_PASSWORD_ENABLED
 
 ## High-priority missing coverage
 
-- Email verification, resend, password reset, expiry/replay, and Google callback/linking failures beyond token-policy coverage.
+- Full mocked/provider coverage for Google callback creation, explicit linking/recovery/reauthentication conflicts, expiry, replay, and session binding.
 - Authorization negatives for cross-user IDs, group roles, and public-page actions beyond the covered global hierarchy/page gates.
 - Recipe/manual macro paths, restaurant builder constraints, saved-order privacy, and snapshot immutability.
 - Workout strength/cardio/mobility/freeform logs and PR extraction.

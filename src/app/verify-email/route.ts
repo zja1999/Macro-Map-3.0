@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { and, eq, gt, isNull } from "drizzle-orm";
 import { db } from "@/db/client";
 import { emailVerificationTokens, users } from "@/db/schema";
-import { createSession } from "@/lib/auth";
+import { createAuthenticatedSession } from "@/lib/auth";
 import { tokenHash } from "@/lib/authTokens";
 
 export async function GET(req: NextRequest) {
@@ -23,6 +23,6 @@ export async function GET(req: NextRequest) {
   });
 
   if (!userId) return NextResponse.redirect(new URL("/verify-email/sent?status=invalid", req.url));
-  await createSession(userId);
+  await createAuthenticatedSession(userId);
   return NextResponse.redirect(new URL("/onboarding", req.url));
 }

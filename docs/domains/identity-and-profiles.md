@@ -2,42 +2,41 @@
 
 ## Scope and entry points
 
-This domain owns email/password and Google sign-in, verification/recovery, app sessions, onboarding, nutrition targets, profile/settings changes, avatar data, and account deletion.
+This domain owns username/password and Google sign-in/link/recovery, app sessions, onboarding, nutrition targets, profile/settings changes, avatar data, and account deletion.
 
-Google is the launch authentication method. The existing email/password implementation is retained behind the server-side `AUTH_EMAIL_PASSWORD_ENABLED` flag so it can be reactivated without a code or schema change. Only the literal value `true` enables it; `false`, an unset value, or any other value keeps the application in Google-only mode.
+Username/password and Google are always available. Local registration needs no email and creates an app session immediately. Google-created users must choose their public username and a fallback password before any normal authenticated page or mutation accepts the session.
 
-- Routes: `/login`, `/register`, `/verify-email`, `/forgot-password`, `/reset-password`, `/onboarding`, `/settings`, `/u/[username]`, `/privacy`.
+- Routes: `/login`, `/register`, `/account-setup`, `/forgot-password`, `/onboarding`, `/settings`, `/u/[username]`, `/privacy`; verification/reset-token routes remain only for already-issued legacy links.
 - API routes: `/api/auth/google/start`, `/api/auth/google/callback`, `/api/account/export`.
 - Actions: `src/actions/auth.ts`, `account.ts`, `onboarding.ts`.
-- Libraries: `src/lib/auth.ts`, `authEmail.ts`, `authTokens.ts`, `googleAuth.ts`, `targets.ts`, `units.ts`.
-- Tables: `users`, `sessions`, verification/reset tokens, `oauth_accounts`, `rate_limit_events`, `profiles`, `nutrition_targets`.
+- Libraries: `src/lib/auth.ts`, `authTokens.ts`, `googleAuth.ts`, `passwords.ts`, `targets.ts`, `units.ts`.
+- Tables: `users`, `sessions`, legacy verification/reset tokens, `oauth_accounts`, `oauth_authorization_flows`, `rate_limit_events`, `profiles`, `nutrition_targets`.
 
 ## Account lifecycle
 
 ```mermaid
 flowchart LR
-    R["Register"] --> U["users + profiles transaction"]
-    U --> V["Hashed verification token"]
-    V --> E["Email link"]
-    E --> M["Mark verified + create app session"]
+    R["Username/password register"] --> U["users + profiles transaction"]
+    U --> M["Create app session"]
     M --> O["Onboarding"]
     O --> A["Authenticated app"]
     G["Verified Google identity"] --> L["Link/create app user"]
-    L --> M
+    L --> C["Required username/password setup"]
+    C --> O
     A --> D["Account deletion cascades user data"]
 ```
 
-Registration creates the user and profile together so `getCurrentUser()` can rely on the join. It also creates the current admin-configured welcome notification. The user is redirected to the verification-sent screen and does not receive a session until verification succeeds. Resend actions can mint another valid token; token rows carry independent used/expiry state.
+Registration lowercases the public/login username, validates a 12–64-character password (and bcrypt's 72-byte input ceiling), and creates the user/profile transactionally with `users.email = null`. It creates the welcome notification and authenticated session, then continues through onboarding and a safe remembered destination.
 
-When `AUTH_EMAIL_PASSWORD_ENABLED` is disabled, `/login` renders only the Google entry point, `/register` redirects to `/login` while preserving a safe `next` path, and recovery/verification pages do not render initiation controls. `register`, `login`, `resendVerification`, and `requestPasswordReset` reject direct submissions before validation, rate limiting, database access, or email delivery. Existing verification/reset token tables, token-consumption code, password hashes, Resend delivery, and reusable actions remain in place. Verification-link consumption remains available; reset consumption code is retained but its form is hidden in Google-only mode.
+Username login joins `profiles` to `users`, uses independent request and normalized-username rate limits, and performs a dummy bcrypt comparison for unknown accounts. Email is never a login identifier. Existing verification/reset token tables and consumption routes remain for links already issued, but the application no longer mints or emails new tokens.
 
-Google sign-in links a provider account to an existing verified local email or creates the local identity/profile path defined in the callback. A newly created Google account receives the same welcome notification as a password account. It then creates the same application session used by password login. Preserve this separation when adding providers.
+Google sign-in links a provider account to an existing verified legacy email or creates the local identity/profile path defined in the callback. A newly created Google account receives the same welcome notification and app session, then must finish `/account-setup`. Existing passwordless Google accounts are subject to the same gate and must freshly verify Google before adding a password from an older session.
 
 Google callback failures are translated into allow-listed, actionable login messages. Raw provider details are not rendered. Safe `next` values continue through the OAuth start cookie; new Google users complete onboarding before the remembered destination, while onboarded returning users go directly to it.
 
-## Reactivating email/password
+## Recovery and credential changes
 
-Set `AUTH_EMAIL_PASSWORD_ENABLED=true` in the deployment environment and redeploy. No code or schema change is required. Before enabling it in production, configure `RESEND_API_KEY` and `RESEND_FROM_EMAIL` for a verified Resend sender domain (plus optional `RESEND_REPLY_TO`), then smoke-test registration, verification, resend, login, reset initiation, and reset consumption. Without production Resend configuration and a verified sender domain, do not enable the flow.
+Local users can explicitly connect one Google identity in Settings. Recovery mode signs in only an already-linked provider identity and never creates or auto-links an account. Password replacement requires the current password or a Google/password authentication recorded on the session within ten minutes, then revokes all sessions and creates one fresh browser session. An unlinked local account has no logged-out recovery channel.
 
 ## Sessions and bans
 
@@ -73,7 +72,7 @@ Before changing deletion or export, inventory every table in [Data model](../dat
 
 - Keep user/profile creation atomic.
 - Keep session tokens and public email tokens hashed at rest.
-- Preserve generic responses for email recovery to prevent enumeration.
+- Keep linked-Google recovery responses generic and never create/link an account in recovery mode.
 - Do not link an OAuth identity to an unverified local email.
 - Use persistent rate limits for auth endpoints.
 - Add new profile values to onboarding, settings, display, seed data, and target recalculation as applicable.

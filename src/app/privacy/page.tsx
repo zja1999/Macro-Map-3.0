@@ -45,7 +45,7 @@ export default function PrivacyPage() {
 
         <Section title="Information we collect">
           <ul className="list-disc space-y-1 pl-5">
-            <li><strong>Account and profile:</strong> email, username, display name, biography, avatar, account status, and sign-in provider.</li>
+            <li><strong>Account and profile:</strong> username, display name, biography, avatar, account status, sign-in provider, and an email supplied by Google if you connect it.</li>
             <li><strong>Nutrition and planning:</strong> targets, food and water logs, recipes, saved restaurant orders, groceries, and meal plans.</li>
             <li><strong>Fitness and health:</strong> measurements, habits, fasting and sleep records, workouts, routes, and health metrics you enter or import.</li>
             <li><strong>Community activity:</strong> posts, comments, reactions, votes, follows, groups, challenges, reports, feedback, and notifications.</li>
@@ -70,7 +70,7 @@ export default function PrivacyPage() {
             <li>Calculate and display nutrition, fitness, habit, and challenge results.</li>
             <li>Operate community, moderation, safety, notification, and support workflows.</li>
             <li>Secure accounts, prevent abuse, diagnose failures, and comply with law.</li>
-            <li>Send account verification, recovery, and service messages.</li>
+            <li>Operate account sign-in, linked-provider recovery, and service messages.</li>
           </ul>
           <p>We do not sell personal information or use it for third-party targeted advertising.</p>
         </Section>
@@ -82,7 +82,7 @@ export default function PrivacyPage() {
             share or publish something.
           </p>
           <p>
-            We use service providers for hosting, databases, email delivery, identity, maps/geocoding, nutrition
+            We use service providers for hosting, databases, identity, maps/geocoding, nutrition
             lookup, push delivery, and optional health connections. They process only the information needed to
             provide their service under their own terms and privacy commitments. We may also disclose information
             when required by law, to protect people or the service, or as part of a business transfer with appropriate safeguards.

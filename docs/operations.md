@@ -14,13 +14,8 @@ The switch applies to the app, Drizzle schema commands, seed scripts, and admin 
 | Variable | Required for | Behavior when absent |
 |---|---|---|
 | `DATABASE_URL` | Hosted Postgres | Uses local PGlite |
-| `NEXT_PUBLIC_APP_URL` | Canonical email/OAuth callback base | Some code falls back to `VERCEL_URL` or request origin; Google config needs a usable base |
+| `NEXT_PUBLIC_APP_URL` | Canonical OAuth callback base | Google config needs a usable base URL |
 | `VERCEL_URL` | Deployment URL fallback | Only used where explicit app URL is absent |
-| `AUTH_EMAIL_PASSWORD_ENABLED` | Local email/password registration, login, resend, and recovery initiation | Fail-closed: only `true` enables; unset, `false`, or malformed values keep Google-only mode |
-| `AUTH_EMAIL_MODE=console` | Force logged auth links | Non-production already logs links |
-| `RESEND_API_KEY` | Production auth email delivery | Production logs configuration error and cannot deliver |
-| `RESEND_FROM_EMAIL` | Verified sender | Required with Resend key |
-| `RESEND_REPLY_TO` | Optional email reply-to | Omitted |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google sign-in | Google start route reports unavailable |
 | `STRAVA_CLIENT_ID` / `STRAVA_CLIENT_SECRET` | Strava OAuth | Provider shows not configured |
 | `FITBIT_CLIENT_ID` / `FITBIT_CLIENT_SECRET` | Fitbit OAuth | Provider shows not configured |
@@ -32,7 +27,7 @@ The switch applies to the app, Drizzle schema commands, seed scripts, and admin 
 | `CAP_SERVER_URL` | Capacitor target override at config/build time | Loads production URL |
 | `NEXT_PUBLIC_MACROTRAY_DOWNLOAD_URL` | Signed Windows installer CTA | Banner is not rendered |
 | `MACROTRAY_APP_URL` | MacroTray compile-time web origin override | Loads `https://macroverse.vercel.app` |
-| `NODE_ENV` | Cookie security, email mode, PWA registration, CSP development allowance | Managed by Next/npm |
+| `NODE_ENV` | Cookie security, PWA registration, CSP development allowance | Managed by Next/npm |
 | `R2_ENDPOINT` | Private production progress-photo storage | Local/test uses `.data/media`; production fails media operations clearly |
 | `R2_BUCKET` | Private R2 bucket name | Same as above |
 | `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` | Bucket-scoped object read/write/delete credentials | Same as above |
@@ -68,20 +63,17 @@ For breaking schema changes, design a compatibility rollout rather than relying 
 
 Hosted full demo mode is refused unless `--force-demo` is passed. That flag is an emergency/deliberate test-environment override, not a production deployment step.
 
-## Auth provider rollout
+## Authentication rollout
 
-The intended Google-only production configuration is:
+Username/password needs no provider secret or email service. Google sign-in, linking, recovery, and reauthentication use:
 
 ```dotenv
 NEXT_PUBLIC_APP_URL=https://macroverse.vercel.app
 GOOGLE_CLIENT_ID=...
 GOOGLE_CLIENT_SECRET=...
-AUTH_EMAIL_PASSWORD_ENABLED=false
 ```
 
-Register `https://macroverse.vercel.app/api/auth/google/callback` as the exact Google redirect URI (and the base URL as an authorized origin where required). Apply the current schema including verification/reset and `oauth_accounts` tables, configure the variables without printing secrets, deploy, then test a new Google user, onboarding, an onboarded returning user with a safe `next`, existing verified-email linking, the unverified-local-email rejection rule, bans, state mismatch, denial, and callback/configuration failures.
-
-To reactivate local credentials later, configure `RESEND_API_KEY` and `RESEND_FROM_EMAIL` against a verified Resend sender domain/address, optionally configure `RESEND_REPLY_TO`, set `AUTH_EMAIL_PASSWORD_ENABLED=true`, and redeploy. Then test registration, verification, resend, login, reset initiation, and reset consumption. No code or schema change is needed. Development console links are not evidence of production email delivery, and local credentials must not be enabled in production until Resend delivery and the verified sender domain are ready.
+Register `https://macroverse.vercel.app/api/auth/google/callback` as the exact Google redirect URI. Before applying the schema, confirm `oauth_accounts` has no duplicate `(user_id, provider)` groups; the new unique index deliberately refuses them. Apply the nullable user email, session reauthentication timestamp, OAuth-flow table, and unique provider constraint before deploying code that writes them. Then test local registration/login, a new Google user and mandatory account setup, an existing passwordless Google user, verified legacy-email linking, explicit Settings linking, linked recovery, current-password and Google-reauthenticated password changes, session revocation, safe continuations, bans, state expiry/replay, denial, and configuration failures.
 
 ## Health provider rollout
 
@@ -130,7 +122,6 @@ Never commit the PFX or updater private key. Losing the updater private key prev
 - **Installed Android app shows old web behavior:** confirm the web deployment; the shell does not bundle current `src`.
 - **OAuth callback fails:** check canonical URL, provider redirect URI, state cookie, secure-cookie context, schema, and provider credentials.
 - **Login reports Google is not configured:** confirm all three of `NEXT_PUBLIC_APP_URL`, `GOOGLE_CLIENT_ID`, and `GOOGLE_CLIENT_SECRET` are present in the same deployment environment; do not expose their values in client diagnostics.
-- **Auth email absent:** distinguish console mode from production, then inspect Resend configuration/response logs and sender verification.
 - **Integration sync errors:** inspect latest `integration_sync_runs`, account status message, token expiry/decryption key, scopes, and provider response.
 - **Browser blocks remote content:** inspect CSP console errors and update `next.config.ts` narrowly.
 

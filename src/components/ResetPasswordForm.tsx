@@ -13,8 +13,19 @@ export function ResetPasswordForm({ token }: { token: string }) {
         name="password"
         type="password"
         required
-        minLength={8}
-        placeholder="New password (8+ characters)"
+        minLength={12}
+        maxLength={64}
+        placeholder="New password (12+ characters)"
+        autoComplete="new-password"
+        className={inputCls}
+      />
+      <input
+        name="passwordConfirmation"
+        type="password"
+        required
+        minLength={12}
+        maxLength={64}
+        placeholder="Confirm new password"
         autoComplete="new-password"
         className={inputCls}
       />

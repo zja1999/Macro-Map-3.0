@@ -7,7 +7,7 @@
 ```mermaid
 flowchart LR
     U["users"] --> P["profiles"]
-    U --> S["sessions / auth tokens / oauth_accounts"]
+    U --> S["sessions / auth tokens / oauth accounts and flows"]
     U --> T["nutrition_targets"]
     U --> L["food_logs / water_logs"]
     U --> R["recipes"]
@@ -29,12 +29,13 @@ The diagram shows ownership, not every foreign key. Polymorphic subjects and a f
 
 | Table | Purpose | Key lifecycle/constraints |
 |---|---|---|
-| `users` | Login identity, global role, reputation, ban state | Unique email; cascades most user-owned data. `isGuest` remains for legacy compatibility but current UX does not create guest accounts. |
-| `sessions` | Application sessions | Raw cookie token is never stored; token hash is PK; cascades with user; expiry checked on every current-user load. |
+| `users` | Login identity, global role, reputation, ban state | Email is nullable/unique and retained for Google or verified legacy identities; username lives on the required profile. `isGuest` remains only for legacy compatibility. |
+| `sessions` | Application sessions | Raw cookie token is never stored; token hash is PK; expiry checked on every load; nullable `reauthenticated_at` gates sensitive password replacement. |
 | `desktop_pairing_requests` | MacroTray browser pairing | Separate hashed approval/device secrets, ten-minute expiry, nullable approving user, and one-time consumption timestamp. |
 | `email_verification_tokens` | One-time verification links | Hashed token, expiry, used timestamp; indexed per user/time. |
 | `password_reset_tokens` | One-time reset links | Same lifecycle pattern as verification. |
-| `oauth_accounts` | External sign-in identities | Composite PK `(provider, provider_account_id)`; points to app user; not a provider-session table. |
+| `oauth_accounts` | External sign-in identities | Composite PK `(provider, provider_account_id)` plus unique `(user_id, provider)`; points to app user; not a provider-session table. |
+| `oauth_authorization_flows` | Google sign-in/link/recovery/reauth intents | Stores only hashed state, purpose, expiry/consumption, safe continuation, and optional initiating user/session binding. |
 | `rate_limit_events` | Persistent abuse-control events | Indexed by kind/identifier/time and cleanup time. |
 | `profiles` | One-to-one public/private profile and onboarding state | User ID PK; unique username; canonical body measurements are metric; avatar is currently a compact data URL. |
 | `nutrition_targets` | Historical target revisions | Multiple rows per user; the newest `created_at` is current. |

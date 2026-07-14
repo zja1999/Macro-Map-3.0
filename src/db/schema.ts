@@ -10,6 +10,7 @@ import {
   smallint,
   primaryKey,
   index,
+  uniqueIndex,
   doublePrecision,
   jsonb,
 } from "drizzle-orm/pg-core";
@@ -20,7 +21,7 @@ import {
 
 export const users = pgTable("users", {
   id: uuid().primaryKey().defaultRandom(),
-  email: text().notNull().unique(),
+  email: text().unique(),
   emailVerifiedAt: timestamp({ withTimezone: true }),
   passwordHash: text(),
   role: text().notNull().default("user"), // user | moderator | admin
@@ -37,6 +38,7 @@ export const sessions = pgTable("sessions", {
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
   expiresAt: timestamp({ withTimezone: true }).notNull(),
+  reauthenticatedAt: timestamp({ withTimezone: true }),
 });
 
 // Short-lived browser-to-desktop pairing. The approval URL and the secret held
@@ -101,7 +103,27 @@ export const oauthAccounts = pgTable(
   (t) => [
     primaryKey({ columns: [t.provider, t.providerAccountId] }),
     index("oauth_accounts_user_idx").on(t.userId, t.provider),
+    uniqueIndex("oauth_accounts_user_provider_unique").on(t.userId, t.provider),
   ],
+);
+
+// Short-lived, one-time Google authorization intents. Raw OAuth state remains
+// browser-only; only its SHA-256 hash is persisted. Account-sensitive intents
+// are also bound to the session that initiated them.
+export const oauthAuthorizationFlows = pgTable(
+  "oauth_authorization_flows",
+  {
+    stateHash: text().primaryKey(),
+    provider: text().notNull(),
+    purpose: text().notNull(), // sign_in | link | recover | reauthenticate
+    userId: uuid().references(() => users.id, { onDelete: "cascade" }),
+    sessionTokenHash: text().references(() => sessions.tokenHash, { onDelete: "cascade" }),
+    nextPath: text(),
+    expiresAt: timestamp({ withTimezone: true }).notNull(),
+    usedAt: timestamp({ withTimezone: true }),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("oauth_authorization_flows_expiry_idx").on(t.expiresAt)],
 );
 
 export const rateLimitEvents = pgTable(
